@@ -1,0 +1,255 @@
+package com.example
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.example.ui.components.BottomNavBar
+import com.example.ui.navigation.Screen
+import com.example.ui.screens.admin.AdminDashboardScreen
+import com.example.ui.screens.browse.BrowseScreen
+import com.example.ui.screens.details.AnimeDetailsScreen
+import com.example.ui.screens.home.HomeScreen
+import com.example.ui.screens.notifications.NotificationsScreen
+import com.example.ui.screens.player.VideoPlayerScreen
+import com.example.ui.screens.profile.ProfileScreen
+import com.example.ui.screens.search.SearchScreen
+import com.example.ui.screens.watchlist.WatchlistScreen
+import com.example.ui.theme.BackgroundDark
+import com.example.ui.theme.KuroStreamTheme
+import com.example.viewmodel.AdminViewModel
+import com.example.viewmodel.DetailsViewModel
+import com.example.viewmodel.HomeViewModel
+import com.example.viewmodel.PlayerViewModel
+import com.example.viewmodel.ProfileViewModel
+import com.example.viewmodel.SearchViewModel
+import com.example.viewmodel.WatchlistViewModel
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        val container = KuroAppContainer.getInstance(this)
+
+        setContent {
+            KuroStreamTheme {
+                KuroStreamApp(container)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun KuroStreamApp(container: KuroAppContainer) {
+    val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route ?: Screen.Home.route
+
+    val isPlayerScreen = currentRoute.startsWith("player")
+
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        bottomBar = {
+            if (!isPlayerScreen && currentRoute in listOf(
+                    Screen.Home.route,
+                    Screen.Browse.route,
+                    Screen.Search.route,
+                    Screen.Watchlist.route,
+                    Screen.Profile.route
+                )
+            ) {
+                BottomNavBar(
+                    currentRoute = currentRoute,
+                    onNavigate = { route ->
+                        navController.navigate(route) {
+                            popUpTo(Screen.Home.route) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                )
+            }
+        }
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(BackgroundDark)
+                .padding(if (isPlayerScreen) androidx.compose.foundation.layout.PaddingValues() else innerPadding)
+        ) {
+            NavHost(
+                navController = navController,
+                startDestination = Screen.Home.route,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                // Home Screen
+                composable(Screen.Home.route) {
+                    val homeViewModel = remember {
+                        HomeViewModel(container.animeRepository, container.watchRepository)
+                    }
+                    HomeScreen(
+                        viewModel = homeViewModel,
+                        onAnimeClick = { anime ->
+                            navController.navigate(Screen.Details.createRoute(anime.id))
+                        },
+                        onWatchEpisodeClick = { animeId, epNum ->
+                            navController.navigate(Screen.Player.createRoute(animeId, epNum))
+                        },
+                        onSearchClick = {
+                            navController.navigate(Screen.Search.route)
+                        },
+                        onNotificationsClick = {
+                            navController.navigate(Screen.Notifications.route)
+                        },
+                        onAdminClick = {
+                            navController.navigate(Screen.Admin.route)
+                        },
+                        onGenreClick = { genre ->
+                            navController.navigate(Screen.Search.route)
+                        }
+                    )
+                }
+
+                // Browse Screen
+                composable(Screen.Browse.route) {
+                    BrowseScreen(
+                        onCategoryClick = {
+                            navController.navigate(Screen.Search.route)
+                        }
+                    )
+                }
+
+                // Search Screen
+                composable(Screen.Search.route) {
+                    val searchViewModel = remember {
+                        SearchViewModel(container.animeRepository)
+                    }
+                    SearchScreen(
+                        viewModel = searchViewModel,
+                        onAnimeClick = { anime ->
+                            navController.navigate(Screen.Details.createRoute(anime.id))
+                        }
+                    )
+                }
+
+                // Watchlist Screen
+                composable(Screen.Watchlist.route) {
+                    val watchlistViewModel = remember {
+                        WatchlistViewModel(container.watchRepository)
+                    }
+                    WatchlistScreen(
+                        viewModel = watchlistViewModel,
+                        onAnimeClick = { animeId ->
+                            navController.navigate(Screen.Details.createRoute(animeId))
+                        },
+                        onResumeEpisode = { animeId, epNum ->
+                            navController.navigate(Screen.Player.createRoute(animeId, epNum))
+                        }
+                    )
+                }
+
+                // Profile Screen
+                composable(Screen.Profile.route) {
+                    val profileViewModel = remember {
+                        ProfileViewModel(container.userRepository)
+                    }
+                    ProfileScreen(
+                        viewModel = profileViewModel,
+                        onAdminClick = {
+                            navController.navigate(Screen.Admin.route)
+                        }
+                    )
+                }
+
+                // Notifications Screen
+                composable(Screen.Notifications.route) {
+                    val notifications by container.watchRepository.getNotifications().collectAsStateWithLifecycle(emptyList())
+                    NotificationsScreen(
+                        notifications = notifications,
+                        watchRepository = container.watchRepository,
+                        onBack = { navController.popBackStack() },
+                        onAnimeClick = { animeId ->
+                            navController.navigate(Screen.Details.createRoute(animeId))
+                        }
+                    )
+                }
+
+                // Anime Details Screen
+                composable(
+                    route = Screen.Details.route,
+                    arguments = listOf(navArgument("animeId") { type = NavType.StringType })
+                ) { backStackEntry ->
+                    val animeId = backStackEntry.arguments?.getString("animeId") ?: ""
+                    val detailsViewModel = remember(animeId) {
+                        DetailsViewModel(animeId, container.animeRepository, container.watchRepository)
+                    }
+                    AnimeDetailsScreen(
+                        viewModel = detailsViewModel,
+                        onBack = { navController.popBackStack() },
+                        onPlayEpisode = { targetAnimeId, epNum ->
+                            navController.navigate(Screen.Player.createRoute(targetAnimeId, epNum))
+                        },
+                        onAnimeClick = { nextAnime ->
+                            navController.navigate(Screen.Details.createRoute(nextAnime.id))
+                        }
+                    )
+                }
+
+                // Video Player Screen
+                composable(
+                    route = Screen.Player.route,
+                    arguments = listOf(
+                        navArgument("animeId") { type = NavType.StringType },
+                        navArgument("episodeNumber") { type = NavType.IntType }
+                    )
+                ) { backStackEntry ->
+                    val animeId = backStackEntry.arguments?.getString("animeId") ?: ""
+                    val episodeNum = backStackEntry.arguments?.getInt("episodeNumber") ?: 1
+                    val playerViewModel = remember(animeId, episodeNum) {
+                        PlayerViewModel(
+                            animeId = animeId,
+                            initialEpisodeNumber = episodeNum,
+                            animeRepository = container.animeRepository,
+                            watchRepository = container.watchRepository,
+                            userRepository = container.userRepository
+                        )
+                    }
+                    VideoPlayerScreen(
+                        viewModel = playerViewModel,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+
+                // Admin Dashboard Screen
+                composable(Screen.Admin.route) {
+                    val adminViewModel = remember {
+                        AdminViewModel(container.adminRepository, container.animeRepository)
+                    }
+                    AdminDashboardScreen(
+                        viewModel = adminViewModel,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+            }
+        }
+    }
+}

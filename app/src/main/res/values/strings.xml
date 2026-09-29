@@ -1,0 +1,25 @@
+<resources>
+    <string name="app_name">KuroStream</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_browse">Browse</string>
+    <string name="nav_search">Search</string>
+    <string name="nav_watchlist">Watchlist</string>
+    <string name="nav_profile">Profile</string>
+    <string name="nav_admin">Admin</string>
+    
+    <string name="trending_now">Trending Now</string>
+    <string name="popular_anime">Popular Anime</string>
+    <string name="top_rated">Top Rated</string>
+    <string name="continue_watching">Continue Watching</string>
+    <string name="seasonal_anime">Seasonal Anime</string>
+    <string name="recently_added">Recently Added</string>
+    <string name="watch_now">Watch Now</string>
+    <string name="add_to_watchlist">Add to Watchlist</string>
+    <string name="in_watchlist">In Watchlist</string>
+    <string name="episodes">Episodes</string>
+    <string name="search_placeholder">Search anime, genres, studios…</string>
+    <string name="filter_genre">Genre</string>
+    <string name="filter_year">Year</string>
+    <string name="filter_status">Status</string>
+    <string name="filter_type">Type</string>
+</resources>
