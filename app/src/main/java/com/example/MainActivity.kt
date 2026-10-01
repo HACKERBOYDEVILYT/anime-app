@@ -22,7 +22,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.security.AdminSecurityManager
 import com.example.ui.components.BottomNavBar
+import com.example.ui.components.SecretAdminDialog
 import com.example.ui.navigation.Screen
 import com.example.ui.screens.admin.AdminDashboardScreen
 import com.example.ui.screens.browse.BrowseScreen
@@ -239,15 +241,27 @@ fun KuroStreamApp(container: KuroAppContainer) {
                     )
                 }
 
-                // Admin Dashboard Screen
+                // Admin Dashboard Screen (Protected with security gate & session timeout)
                 composable(Screen.Admin.route) {
-                    val adminViewModel = remember {
-                        AdminViewModel(container.adminRepository, container.animeRepository)
+                    val isAuthenticated by AdminSecurityManager.isAdminAuthenticated.collectAsStateWithLifecycle()
+
+                    if (!isAuthenticated) {
+                        SecretAdminDialog(
+                            onDismiss = { navController.popBackStack() },
+                            onSuccess = { /* Automatically refreshes state */ }
+                        )
+                    } else {
+                        val adminViewModel = remember {
+                            AdminViewModel(container.adminRepository, container.animeRepository)
+                        }
+                        AdminDashboardScreen(
+                            viewModel = adminViewModel,
+                            onBack = {
+                                AdminSecurityManager.logout()
+                                navController.popBackStack()
+                            }
+                        )
                     }
-                    AdminDashboardScreen(
-                        viewModel = adminViewModel,
-                        onBack = { navController.popBackStack() }
-                    )
                 }
             }
         }

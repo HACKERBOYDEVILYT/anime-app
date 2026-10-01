@@ -42,6 +42,8 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -56,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.example.ui.components.SecretAdminDialog
 import com.example.ui.theme.BackgroundDark
 import com.example.ui.theme.CrimsonNeon
 import com.example.ui.theme.CyanGlow
@@ -177,43 +180,6 @@ fun ProfileScreen(
                             Text(text = "Member Since", color = TextMuted, fontSize = 11.sp)
                         }
                     }
-                }
-            }
-        }
-
-        // Admin Access Card
-        item {
-            Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = VioletAccent.copy(alpha = 0.15f)),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onAdminClick)
-                    .testTag("profile_admin_portal_card")
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .background(VioletAccent, RoundedCornerShape(8.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.AdminPanelSettings, contentDescription = null, tint = Color.White)
-                    }
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(text = "Platform Admin Dashboard", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        Text(text = "Analytics, Content Catalog, Transcoding & Moderation", color = TextSecondary, fontSize = 11.sp)
-                    }
-
-                    Icon(Icons.Default.ArrowForwardIos, contentDescription = null, tint = VioletAccent, modifier = Modifier.size(14.dp))
                 }
             }
         }
@@ -380,6 +346,51 @@ fun ProfileScreen(
                         }
                     }
                 }
+            }
+        }
+
+        // Stealth App Version (Hidden Admin Trigger: tap 5 times)
+        item {
+            var showAdminAuthDialog by remember { mutableStateOf(false) }
+            var versionTapCount by remember { mutableIntStateOf(0) }
+            var lastVersionTapTime by remember { mutableLongStateOf(0L) }
+
+            if (showAdminAuthDialog) {
+                SecretAdminDialog(
+                    onDismiss = { showAdminAuthDialog = false },
+                    onSuccess = {
+                        showAdminAuthDialog = false
+                        onAdminClick()
+                    }
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 28.dp, bottom = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "KuroStream v2.4.0 (Build 2026)",
+                    color = TextMuted,
+                    fontSize = 11.sp,
+                    modifier = Modifier
+                        .testTag("app_version_easter_egg")
+                        .clickable {
+                            val now = System.currentTimeMillis()
+                            if (now - lastVersionTapTime < 800) {
+                                versionTapCount++
+                                if (versionTapCount >= 5) {
+                                    versionTapCount = 0
+                                    showAdminAuthDialog = true
+                                }
+                            } else {
+                                versionTapCount = 1
+                            }
+                            lastVersionTapTime = now
+                        }
+                )
             }
         }
     }

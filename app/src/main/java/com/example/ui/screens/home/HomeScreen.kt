@@ -32,6 +32,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,6 +50,7 @@ import com.example.data.model.Anime
 import com.example.ui.components.AnimeRow
 import com.example.ui.components.ContinueWatchingRow
 import com.example.ui.components.HeroCarousel
+import com.example.ui.components.SecretAdminDialog
 import com.example.ui.theme.BackgroundDark
 import com.example.ui.theme.CrimsonNeon
 import com.example.ui.theme.SurfaceDark
@@ -70,6 +76,20 @@ fun HomeScreen(
     val notifications by viewModel.notifications.collectAsStateWithLifecycle()
     val unreadNotifsCount = notifications.count { !it.isRead }
 
+    var showAdminAuthDialog by remember { mutableStateOf(false) }
+    var logoTapCount by remember { mutableIntStateOf(0) }
+    var lastLogoTapTime by remember { mutableLongStateOf(0L) }
+
+    if (showAdminAuthDialog) {
+        SecretAdminDialog(
+            onDismiss = { showAdminAuthDialog = false },
+            onSuccess = {
+                showAdminAuthDialog = false
+                onAdminClick()
+            }
+        )
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -94,10 +114,24 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Brand Logo & Title
+                        // Brand Logo & Title (Hidden Admin Trigger: tap 5 times)
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.testTag("app_brand_logo")
+                            modifier = Modifier
+                                .testTag("app_brand_logo")
+                                .clickable {
+                                    val now = System.currentTimeMillis()
+                                    if (now - lastLogoTapTime < 800) {
+                                        logoTapCount++
+                                        if (logoTapCount >= 5) {
+                                            logoTapCount = 0
+                                            showAdminAuthDialog = true
+                                        }
+                                    } else {
+                                        logoTapCount = 1
+                                    }
+                                    lastLogoTapTime = now
+                                }
                         ) {
                             Box(
                                 modifier = Modifier
@@ -129,7 +163,7 @@ fun HomeScreen(
                             )
                         }
 
-                        // Actions: Search, Notifications, Admin Panel
+                        // Actions: Search, Notifications
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             IconButton(
                                 onClick = onSearchClick,
@@ -164,17 +198,6 @@ fun HomeScreen(
                                         tint = TextPrimary
                                     )
                                 }
-                            }
-
-                            IconButton(
-                                onClick = onAdminClick,
-                                modifier = Modifier.testTag("header_admin_btn")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.AdminPanelSettings,
-                                    contentDescription = "Admin Dashboard",
-                                    tint = VioletAccent
-                                )
                             }
                         }
                     }
