@@ -40,6 +40,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -58,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.example.ui.components.SecureAuthDialog
 import com.example.ui.components.SecretAdminDialog
 import com.example.ui.theme.BackgroundDark
 import com.example.ui.theme.CrimsonNeon
@@ -78,11 +80,21 @@ fun ProfileScreen(
     modifier: Modifier = Modifier
 ) {
     val user by viewModel.user.collectAsStateWithLifecycle()
+    val isLoggedIn by viewModel.isLoggedIn.collectAsStateWithLifecycle()
     val prefs = user.preferences
 
     var showQualityMenu by remember { mutableStateOf(false) }
     var showAudioMenu by remember { mutableStateOf(false) }
     var showSubMenu by remember { mutableStateOf(false) }
+    var showAuthDialog by remember { mutableStateOf(false) }
+
+    if (showAuthDialog) {
+        SecureAuthDialog(
+            onDismiss = { showAuthDialog = false },
+            onLogin = { email, pass -> viewModel.login(email, pass) },
+            onRegister = { uname, email, pass -> viewModel.register(uname, email, pass) }
+        )
+    }
 
     LazyColumn(
         modifier = modifier
@@ -138,18 +150,37 @@ fun ProfileScreen(
                                 color = TextMuted,
                                 fontSize = 12.sp
                             )
-                            Box(
-                                modifier = Modifier
-                                    .padding(top = 4.dp)
-                                    .background(CrimsonNeon.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = user.tier,
-                                    color = CrimsonNeon,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                Box(
+                                    modifier = Modifier
+                                        .padding(top = 4.dp)
+                                        .background(CrimsonNeon.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = user.tier,
+                                        color = CrimsonNeon,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                TextButton(
+                                    onClick = { showAuthDialog = true },
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                    modifier = Modifier.testTag("profile_auth_switch_btn")
+                                ) {
+                                    Text(
+                                        text = if (isLoggedIn) "Switch Account" else "Sign In",
+                                        color = VioletAccent,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
                             }
                         }
                     }

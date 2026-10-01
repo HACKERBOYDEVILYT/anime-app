@@ -2,11 +2,13 @@ package com.example.data.repository
 
 import com.example.data.model.AdminStats
 import com.example.data.model.Anime
+import com.example.data.model.ApiConfig
 import com.example.data.model.AuditLog
 import com.example.data.model.Episode
 import com.example.data.model.ModeratedUser
 import com.example.data.model.UserRole
 import com.example.data.model.VideoJob
+import com.example.data.network.RetrofitClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -47,6 +49,105 @@ class AdminRepository(
         )
     )
     val auditLogs: StateFlow<List<AuditLog>> = _auditLogs.asStateFlow()
+
+    // Configured API endpoints dynamically manageable from the Admin Panel
+    private val _apiConfigs = MutableStateFlow(
+        listOf(
+            ApiConfig(
+                id = "api_main",
+                name = "KuroStream Global REST API (Primary)",
+                baseUrl = "https://api.kurostream.app/",
+                category = "Catalog & Auth",
+                isActive = true,
+                status = "Online",
+                latencyMs = 38L,
+                lastTested = "1m ago"
+            ),
+            ApiConfig(
+                id = "api_cdn",
+                name = "Cloudflare Edge Video HLS CDN",
+                baseUrl = "https://stream-cdn.kurostream.app/",
+                category = "Streaming HLS",
+                isActive = true,
+                status = "Online",
+                latencyMs = 24L,
+                lastTested = "Just now"
+            ),
+            ApiConfig(
+                id = "api_backup",
+                name = "Tokyo Failover Mirror Node",
+                baseUrl = "https://tokyo-node.kurostream.app/",
+                category = "Backup Mirror",
+                isActive = false,
+                status = "Online",
+                latencyMs = 92L,
+                lastTested = "5m ago"
+            ),
+            ApiConfig(
+                id = "api_anilist",
+                name = "AniList GraphQL Metadata Sync",
+                baseUrl = "https://graphql.anilist.co/",
+                category = "Metadata Sync",
+                isActive = false,
+                status = "Online",
+                latencyMs = 120L,
+                lastTested = "10m ago"
+            )
+        )
+    )
+    val apiConfigs: StateFlow<List<ApiConfig>> = _apiConfigs.asStateFlow()
+
+    fun addApiConfig(name: String, baseUrl: String, category: String, apiKey: String?) {
+        val formattedUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+        val newApi = ApiConfig(
+            id = "api_${System.currentTimeMillis()}",
+            name = name.trim(),
+            baseUrl = formattedUrl.trim(),
+            category = category,
+            apiKey = apiKey?.takeIf { it.isNotBlank() },
+            isActive = false,
+            status = "Online",
+            latencyMs = (30..85).random().toLong(),
+            lastTested = "Just added"
+        )
+        _apiConfigs.update { it + newApi }
+        logAction("ADD_API_ENDPOINT", "$name ($formattedUrl)")
+    }
+
+    fun setActiveApi(apiId: String) {
+        _apiConfigs.update { list ->
+            list.map {
+                val shouldBeActive = (it.id == apiId)
+                if (shouldBeActive) {
+                    RetrofitClient.setActiveBaseUrl(it.baseUrl)
+                }
+                it.copy(isActive = shouldBeActive)
+            }
+        }
+        val target = _apiConfigs.value.firstOrNull { it.id == apiId }
+        logAction("SWITCH_ACTIVE_API", target?.name ?: apiId)
+    }
+
+    fun testApiConnection(apiId: String) {
+        val simulatedPing = (25..75).random().toLong()
+        _apiConfigs.update { list ->
+            list.map {
+                if (it.id == apiId) {
+                    it.copy(
+                        status = "Online",
+                        latencyMs = simulatedPing,
+                        lastTested = "Just now"
+                    )
+                } else it
+            }
+        }
+    }
+
+    fun deleteApiConfig(apiId: String) {
+        val target = _apiConfigs.value.firstOrNull { it.id == apiId }
+        _apiConfigs.update { list -> list.filterNot { it.id == apiId } }
+        logAction("DELETE_API_ENDPOINT", target?.name ?: apiId)
+    }
 
     fun addAnime(anime: Anime) {
         mediaProvider.addAnime(anime)

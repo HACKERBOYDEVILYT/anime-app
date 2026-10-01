@@ -10,7 +10,8 @@ import retrofit2.converter.moshi.MoshiConverterFactory
 import java.util.concurrent.TimeUnit
 
 /**
- * Configured Retrofit client providing singleton access to the KuroApiService.
+ * Configured Retrofit client providing singleton access to KuroApiService
+ * with support for dynamic runtime base URL switching from the Admin Panel.
  */
 object RetrofitClient {
 
@@ -20,10 +21,27 @@ object RetrofitClient {
     private const val WRITE_TIMEOUT_SECONDS = 30L
 
     @Volatile
+    private var currentBaseUrl: String = DEFAULT_BASE_URL
+
+    @Volatile
+    private var cachedService: KuroApiService? = null
+
+    @Volatile
     private var authToken: String? = null
 
     fun setAuthToken(token: String?) {
         authToken = token
+    }
+
+    fun getActiveBaseUrl(): String = currentBaseUrl
+
+    /**
+     * Dynamically updates the active API Base URL configured in the Admin Panel.
+     */
+    fun setActiveBaseUrl(newUrl: String) {
+        val formatted = if (newUrl.endsWith("/")) newUrl else "$newUrl/"
+        currentBaseUrl = formatted
+        cachedService = createService(formatted)
     }
 
     /**
@@ -77,29 +95,27 @@ object RetrofitClient {
     }
 
     /**
-     * Configured Retrofit instance.
+     * Returns the active dynamically-configured KuroApiService.
      */
-    val retrofit: Retrofit by lazy {
-        Retrofit.Builder()
-            .baseUrl(DEFAULT_BASE_URL)
+    val apiService: KuroApiService
+        get() = cachedService ?: synchronized(this) {
+            cachedService ?: createService(currentBaseUrl).also { cachedService = it }
+        }
+
+    val retrofit: Retrofit
+        get() = Retrofit.Builder()
+            .baseUrl(currentBaseUrl)
             .client(okHttpClient)
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
-    }
 
     /**
-     * Lazily initialized KuroApiService implementation.
-     */
-    val apiService: KuroApiService by lazy {
-        retrofit.create(KuroApiService::class.java)
-    }
-
-    /**
-     * Creates a custom configured KuroApiService with a specific base URL (e.g. for staging or dev).
+     * Creates a custom configured KuroApiService with a specific base URL.
      */
     fun createService(baseUrl: String): KuroApiService {
+        val safeUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
         return Retrofit.Builder()
-            .baseUrl(baseUrl)
+            .baseUrl(safeUrl)
             .client(okHttpClient)
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()

@@ -93,8 +93,9 @@ fun AdminDashboardScreen(
     val videoJobs by viewModel.videoJobs.collectAsStateWithLifecycle()
     val users by viewModel.users.collectAsStateWithLifecycle()
     val auditLogs by viewModel.auditLogs.collectAsStateWithLifecycle()
+    val apiConfigs by viewModel.apiConfigs.collectAsStateWithLifecycle()
 
-    val tabs = listOf("Analytics", "Catalog CMS", "Video Pipeline", "Moderation", "Audit Logs")
+    val tabs = listOf("Analytics", "Catalog CMS", "Video Pipeline", "Moderation", "Audit Logs", "API Manager")
 
     Column(
         modifier = modifier
@@ -482,6 +483,252 @@ fun AdminDashboardScreen(
                     }
                 }
             }
+
+            // Tab 5: Dynamic API Endpoint Manager
+            if (uiState.selectedTab == 5) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(text = "Dynamic API Endpoints", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Text(text = "Add, test and switch network services in real time", color = TextSecondary, fontSize = 11.sp)
+                        }
+                        Button(
+                            onClick = { viewModel.setShowAddApiDialog(true) },
+                            colors = ButtonDefaults.buttonColors(containerColor = VioletAccent),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Add API", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                // Active Live Route Banner
+                item {
+                    val activeApi = apiConfigs.firstOrNull { it.isActive }
+                    Card(
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .background(Color(0xFF00E676), CircleShape)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "ACTIVE LIVE ROUTE",
+                                        color = Color(0xFF00E676),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                Text(
+                                    text = "${activeApi?.latencyMs ?: 35}ms latency",
+                                    color = TextMuted,
+                                    fontSize = 11.sp
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = activeApi?.name ?: "KuroStream Master Cluster",
+                                color = TextPrimary,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = activeApi?.baseUrl ?: "https://api.kurostream.app/",
+                                color = CyanGlow,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
+
+                // List of all configured API endpoints
+                items(apiConfigs, key = { it.id }) { api ->
+                    Card(
+                        shape = RoundedCornerShape(10.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (api.isActive) SurfaceVariantDark else SurfaceDark
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = api.name,
+                                            color = TextPrimary,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        if (api.isActive) {
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Box(
+                                                modifier = Modifier
+                                                    .background(Color(0xFF00E676).copy(alpha = 0.2f), RoundedCornerShape(4.dp))
+                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                            ) {
+                                                Text(text = "CURRENT ACTIVE", color = Color(0xFF00E676), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
+                                    Text(
+                                        text = api.baseUrl,
+                                        color = TextSecondary,
+                                        fontSize = 11.sp
+                                    )
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .background(VioletAccent.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(text = api.category, color = VioletAccent, fontSize = 10.sp)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .background(
+                                                if (api.status == "Online") Color(0xFF00E676) else StarAmber,
+                                                CircleShape
+                                            )
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "${api.status} • ${api.latencyMs}ms",
+                                        color = TextMuted,
+                                        fontSize = 11.sp
+                                    )
+                                }
+
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(
+                                        onClick = { viewModel.testApi(api.id) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark),
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                        shape = RoundedCornerShape(6.dp)
+                                    ) {
+                                        Icon(Icons.Default.Refresh, contentDescription = "Ping", modifier = Modifier.size(12.dp), tint = TextSecondary)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Test Ping", fontSize = 10.sp, color = TextSecondary)
+                                    }
+
+                                    if (!api.isActive) {
+                                        Button(
+                                            onClick = { viewModel.activateApi(api.id) },
+                                            colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon),
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                            shape = RoundedCornerShape(6.dp)
+                                        ) {
+                                            Text("Set Active", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+
+                                    if (api.id.startsWith("api_") && !api.id.startsWith("api_main") && !api.id.startsWith("api_cdn")) {
+                                        IconButton(
+                                            onClick = { viewModel.deleteApi(api.id) },
+                                            modifier = Modifier.size(28.dp)
+                                        ) {
+                                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red, modifier = Modifier.size(14.dp))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Add Custom API Modal Dialog
+        if (uiState.showAddApiDialog) {
+            AlertDialog(
+                onDismissRequest = { viewModel.setShowAddApiDialog(false) },
+                containerColor = SurfaceDark,
+                title = { Text(text = "Add Custom API Endpoint", color = TextPrimary, fontWeight = FontWeight.Bold) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = uiState.newApiName,
+                            onValueChange = { viewModel.updateNewApiField(name = it) },
+                            placeholder = { Text("API Name (e.g. Frankfurt Mirror)") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = VioletAccent, focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = uiState.newApiUrl,
+                            onValueChange = { viewModel.updateNewApiField(url = it) },
+                            placeholder = { Text("Base URL (e.g. https://node.example.com/)") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = VioletAccent, focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = uiState.newApiCategory,
+                            onValueChange = { viewModel.updateNewApiField(category = it) },
+                            placeholder = { Text("Category (Streaming HLS, Catalog, Backup)") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = VioletAccent, focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = uiState.newApiKey,
+                            onValueChange = { viewModel.updateNewApiField(key = it) },
+                            placeholder = { Text("API Key / Bearer Token (Optional)") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = VioletAccent, focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { viewModel.createApiConfig() },
+                        enabled = uiState.newApiName.isNotBlank() && uiState.newApiUrl.isNotBlank(),
+                        colors = ButtonDefaults.buttonColors(containerColor = VioletAccent)
+                    ) {
+                        Text("Add Endpoint", color = Color.White)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { viewModel.setShowAddApiDialog(false) }) {
+                        Text("Cancel", color = TextMuted)
+                    }
+                }
+            )
         }
 
         // Add Anime Modal Dialog

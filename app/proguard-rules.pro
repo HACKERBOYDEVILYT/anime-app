@@ -1,21 +1,56 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# ==============================================================================
+# KuroStream Android Production R8 & ProGuard Hardening Configuration
+# ==============================================================================
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# 1. General Code Obfuscation & Shrinking
+-repackageclasses 'com.example.internal'
+-allowaccessmodification
+-renamesourcefileattribute SourceFile
+-keepattributes SourceFile,LineNumberTable
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# 2. Aggressive Anti-Reverse Engineering & Debug Stripping
+-assumenosideeffects class android.util.Log {
+    public static boolean isLoggable(java.lang.String, int);
+    public static int v(...);
+    public static int d(...);
+    public static int i(...);
+}
+-assumenosideeffects class okhttp3.logging.HttpLoggingInterceptor {
+    public void setLevel(...);
+}
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# 3. Preserve Moshi JSON Serialization Models (Avoid Reflection Breakage)
+-keepclassmembers class * {
+    @com.squareup.moshi.Json <fields>;
+}
+-keep @com.squareup.moshi.JsonClass class * { *; }
+-dontwarn com.squareup.moshi.**
+
+# 4. Preserve Retrofit & OkHttp Interfaces & Endpoints
+-keepattributes Signature, InnerClasses, EnclosingMethod
+-keepattributes RuntimeVisibleAnnotations, RuntimeVisibleParameterAnnotations
+-keepclassmembers,allowshrinking,allowobfuscation interface * {
+    @retrofit2.http.* <methods>;
+}
+-dontwarn retrofit2.**
+-dontwarn okhttp3.**
+
+# 5. Preserve Room Database Entities and DAOs
+-keepclassmembers class * extends androidx.room.RoomDatabase {
+    public <methods>;
+}
+-keep @androidx.room.Entity class * { *; }
+-keep @androidx.room.Dao interface * { *; }
+-keep @androidx.room.Database class * { *; }
+-dontwarn androidx.room.**
+
+# 6. Preserve Jetpack Compose & Kotlin Coroutines
+-keepclassmembers class * extends androidx.lifecycle.ViewModel {
+    public <init>(...);
+}
+-keepclassmembers class androidx.compose.ui.platform.AndroidComposeView { *; }
+-dontwarn androidx.compose.**
+-dontwarn kotlinx.coroutines.**
+
+# 7. Protect Security & Cryptographic Handlers
+-keep class com.example.security.** { *; }

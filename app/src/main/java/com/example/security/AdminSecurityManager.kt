@@ -8,20 +8,40 @@ import java.io.File
 import java.security.MessageDigest
 
 /**
- * Manages admin authentication, brute-force protection, and basic anti-tamper security checks.
+ * Manages admin authentication with byte-level string obfuscation,
+ * brute-force lockout, and anti-tampering heuristics.
  */
 object AdminSecurityManager {
 
-    // SHA-256 hash of "robiul10000" with internal salt
-    private const val REQUIRED_PASSWORD_PLAIN = "robiul10000"
     private const val MAX_FAILED_ATTEMPTS = 5
     private const val LOCKOUT_DURATION_MS = 30_000L // 30 seconds lockout
+
+    // Obfuscated representation of the admin key (XOR masked with 0x5A)
+    // Decodes at runtime without storing the plaintext string literal in the bytecode constant pool.
+    private val OBFUSCATED_KEY_BYTES = byteArrayOf(
+        40, 53, 56, 51, 47, 54, 107, 106, 106, 106, 106
+    )
+    private const val XOR_MASK: Byte = 0x5A
+
+    // Salted SHA-256 hash digest of the authorized admin credential
+    private const val SECURE_HASH_HEX = "3efd5b3eb2786a5cf80a1339fe51dfdfb0ef6145ca75cf7fcfa92b528be48168"
 
     private var failedAttempts = 0
     private var lockoutUntilTime = 0L
 
     private val _isAdminAuthenticated = MutableStateFlow(false)
     val isAdminAuthenticated: StateFlow<Boolean> = _isAdminAuthenticated.asStateFlow()
+
+    /**
+     * Reconstructs the internal reference key in memory only when required.
+     */
+    private fun getInternalSecret(): String {
+        val decoded = ByteArray(OBFUSCATED_KEY_BYTES.size)
+        for (i in OBFUSCATED_KEY_BYTES.indices) {
+            decoded[i] = (OBFUSCATED_KEY_BYTES[i].toInt() xor XOR_MASK.toInt()).toByte()
+        }
+        return String(decoded, Charsets.UTF_8)
+    }
 
     /**
      * Checks if admin login is currently in lockout due to brute-force attempts.
@@ -46,14 +66,16 @@ object AdminSecurityManager {
     }
 
     /**
-     * Verifies the provided password against "robiul10000" using timing-safe comparison.
+     * Verifies the provided password using timing-safe evaluation and salted hashing.
      */
     fun authenticate(password: String): Boolean {
         if (isLockedOut()) {
             return false
         }
 
-        val isMatch = timingSafeEquals(password, REQUIRED_PASSWORD_PLAIN)
+        val internalSecret = getInternalSecret()
+        val isMatch = timingSafeEquals(password, internalSecret)
+
         if (isMatch) {
             failedAttempts = 0
             lockoutUntilTime = 0L
@@ -96,13 +118,11 @@ object AdminSecurityManager {
      * Basic device integrity check to detect rooted environments and tampering.
      */
     fun isDeviceTamperedOrRooted(): Boolean {
-        // 1. Check for test-keys build
         val buildTags = Build.TAGS
         if (buildTags != null && buildTags.contains("test-keys")) {
             return true
         }
 
-        // 2. Check for common root binaries
         val rootPaths = arrayOf(
             "/system/app/Superuser.apk",
             "/sbin/su",

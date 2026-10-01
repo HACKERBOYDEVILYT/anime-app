@@ -6,6 +6,7 @@ import com.example.data.model.AdminStats
 import com.example.data.model.Anime
 import com.example.data.model.AnimeStatus
 import com.example.data.model.AnimeType
+import com.example.data.model.ApiConfig
 import com.example.data.model.AuditLog
 import com.example.data.model.ModeratedUser
 import com.example.data.model.VideoJob
@@ -18,7 +19,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class AdminUiState(
-    val selectedTab: Int = 0, // 0 = Analytics, 1 = Catalog, 2 = Video Pipeline, 3 = Moderation, 4 = Logs
+    val selectedTab: Int = 0, // 0 = Analytics, 1 = Catalog, 2 = Video Pipeline, 3 = Moderation, 4 = Logs, 5 = API Manager
     val animeList: List<Anime> = emptyList(),
     val showAddAnimeDialog: Boolean = false,
     val newAnimeTitle: String = "",
@@ -27,7 +28,13 @@ data class AdminUiState(
     val newAnimeGenre: String = "Action",
     val newAnimeEpisodes: String = "12",
     val newAnimeDescription: String = "",
-    val newAnimePosterUrl: String = "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600"
+    val newAnimePosterUrl: String = "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600",
+    // Dynamic API Management State
+    val showAddApiDialog: Boolean = false,
+    val newApiName: String = "",
+    val newApiUrl: String = "",
+    val newApiCategory: String = "Streaming HLS",
+    val newApiKey: String = ""
 )
 
 class AdminViewModel(
@@ -42,6 +49,7 @@ class AdminViewModel(
     val videoJobs: StateFlow<List<VideoJob>> = adminRepository.videoJobs
     val users: StateFlow<List<ModeratedUser>> = adminRepository.users
     val auditLogs: StateFlow<List<AuditLog>> = adminRepository.auditLogs
+    val apiConfigs: StateFlow<List<ApiConfig>> = adminRepository.apiConfigs
 
     init {
         loadCatalog()
@@ -133,5 +141,62 @@ class AdminViewModel(
 
     fun moderateUser(userId: String, newStatus: String) {
         adminRepository.updateModerationStatus(userId, newStatus)
+    }
+
+    // ===================================
+    // Dynamic API Management Actions
+    // ===================================
+
+    fun setShowAddApiDialog(show: Boolean) {
+        _uiState.update { it.copy(showAddApiDialog = show) }
+    }
+
+    fun updateNewApiField(
+        name: String? = null,
+        url: String? = null,
+        category: String? = null,
+        key: String? = null
+    ) {
+        _uiState.update {
+            it.copy(
+                newApiName = name ?: it.newApiName,
+                newApiUrl = url ?: it.newApiUrl,
+                newApiCategory = category ?: it.newApiCategory,
+                newApiKey = key ?: it.newApiKey
+            )
+        }
+    }
+
+    fun createApiConfig() {
+        val state = _uiState.value
+        if (state.newApiName.isBlank() || state.newApiUrl.isBlank()) return
+
+        adminRepository.addApiConfig(
+            name = state.newApiName,
+            baseUrl = state.newApiUrl,
+            category = state.newApiCategory,
+            apiKey = state.newApiKey
+        )
+
+        _uiState.update {
+            it.copy(
+                showAddApiDialog = false,
+                newApiName = "",
+                newApiUrl = "",
+                newApiKey = ""
+            )
+        }
+    }
+
+    fun activateApi(apiId: String) {
+        adminRepository.setActiveApi(apiId)
+    }
+
+    fun testApi(apiId: String) {
+        adminRepository.testApiConnection(apiId)
+    }
+
+    fun deleteApi(apiId: String) {
+        adminRepository.deleteApiConfig(apiId)
     }
 }
