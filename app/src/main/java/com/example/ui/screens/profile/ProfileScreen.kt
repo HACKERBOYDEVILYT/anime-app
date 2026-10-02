@@ -72,11 +72,20 @@ import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import com.example.ui.theme.VioletAccent
 import com.example.viewmodel.ProfileViewModel
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 
 @Composable
 fun ProfileScreen(
     viewModel: ProfileViewModel,
     onAdminClick: () -> Unit,
+    onScheduleClick: () -> Unit = {},
+    onDownloadsClick: () -> Unit = {},
+    onQuizClick: () -> Unit = {},
+    onMalSyncClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val user by viewModel.user.collectAsStateWithLifecycle()
@@ -210,6 +219,107 @@ fun ProfileScreen(
                             Text(text = user.joinDate, color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                             Text(text = "Member Since", color = TextMuted, fontSize = 11.sp)
                         }
+                    }
+                }
+            }
+        }
+
+        // Advanced Features & Anime Tools
+        item {
+            Text(text = "Anime Tools & Sync", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        }
+
+        item {
+            Card(
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column {
+                    // MAL & AniList Sync
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onMalSyncClick() }
+                            .padding(14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.CloudSync, contentDescription = null, tint = CrimsonNeon)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(text = "AniList & MAL Tracking", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Text(text = "Automatically sync watched episodes to your anime list", color = TextMuted, fontSize = 11.sp)
+                            }
+                        }
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = TextMuted, modifier = Modifier.size(16.dp))
+                    }
+
+                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(SurfaceVariantDark))
+
+                    // Offline Downloads
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onDownloadsClick() }
+                            .padding(14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Download, contentDescription = null, tint = CrimsonNeon)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(text = "Offline Downloads Manager", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Text(text = "Manage downloaded anime and device storage", color = TextMuted, fontSize = 11.sp)
+                            }
+                        }
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = TextMuted, modifier = Modifier.size(16.dp))
+                    }
+
+                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(SurfaceVariantDark))
+
+                    // Airing Schedule
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onScheduleClick() }
+                            .padding(14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = CrimsonNeon)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(text = "Airing Schedule & Countdown", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Text(text = "Weekly anime broadcast calendar with live countdown", color = TextMuted, fontSize = 11.sp)
+                            }
+                        }
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = TextMuted, modifier = Modifier.size(16.dp))
+                    }
+
+                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(SurfaceVariantDark))
+
+                    // Find My Anime Quiz
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onQuizClick() }
+                            .padding(14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = CrimsonNeon)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(text = "Find My Anime (Mood Quiz)", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Text(text = "Get personalized recommendations based on your current vibe", color = TextMuted, fontSize = 11.sp)
+                            }
+                        }
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = TextMuted, modifier = Modifier.size(16.dp))
                     }
                 }
             }

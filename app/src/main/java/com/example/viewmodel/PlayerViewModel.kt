@@ -38,6 +38,13 @@ data class PlayerUiState(
     val showAudioSheet: Boolean = false,
     val showSpeedSheet: Boolean = false,
     val showEpisodeListSheet: Boolean = false,
+    val showCommentsSheet: Boolean = false,
+    val isBackgroundAudioEnabled: Boolean = false,
+    val isDubMode: Boolean = false,
+    val gestureOverlayIcon: String? = null, // "BRIGHTNESS", "VOLUME", "FORWARD", "REWIND"
+    val gestureOverlayText: String? = null,
+    val brightnessPercent: Int = 70,
+    val volumePercent: Int = 65,
     val isInIntro: Boolean = false,
     val isInOutro: Boolean = false,
     val autoNextCountdown: Int? = null,
@@ -193,6 +200,68 @@ class PlayerViewModel(
     fun setShowAudioSheet(show: Boolean) = _uiState.update { it.copy(showAudioSheet = show) }
     fun setShowSpeedSheet(show: Boolean) = _uiState.update { it.copy(showSpeedSheet = show) }
     fun setShowEpisodeListSheet(show: Boolean) = _uiState.update { it.copy(showEpisodeListSheet = show) }
+    fun setShowCommentsSheet(show: Boolean) = _uiState.update { it.copy(showCommentsSheet = show) }
+
+    fun toggleBackgroundAudio() {
+        _uiState.update { it.copy(isBackgroundAudioEnabled = !it.isBackgroundAudioEnabled) }
+    }
+
+    fun toggleDubSub() {
+        _uiState.update { current ->
+            val newDubMode = !current.isDubMode
+            val targetAudio = if (newDubMode) {
+                current.currentEpisode?.audioTracks?.find { it.language == "bn" || it.language == "en" }
+            } else {
+                current.currentEpisode?.audioTracks?.find { it.language == "ja" }
+            }
+            current.copy(
+                isDubMode = newDubMode,
+                selectedAudio = targetAudio ?: current.selectedAudio
+            )
+        }
+    }
+
+    fun selectBanglaSubtitle() {
+        val bnSub = _uiState.value.currentEpisode?.subtitles?.find { it.language == "bn" }
+        if (bnSub != null) {
+            selectSubtitle(bnSub)
+        }
+    }
+
+    fun setBrightnessPercent(percent: Int) {
+        val clamped = percent.coerceIn(0, 100)
+        _uiState.update {
+            it.copy(
+                brightnessPercent = clamped,
+                gestureOverlayIcon = "BRIGHTNESS",
+                gestureOverlayText = "Brightness: $clamped%"
+            )
+        }
+    }
+
+    fun setVolumePercent(percent: Int) {
+        val clamped = percent.coerceIn(0, 100)
+        _uiState.update {
+            it.copy(
+                volumePercent = clamped,
+                gestureOverlayIcon = "VOLUME",
+                gestureOverlayText = "Volume: $clamped%"
+            )
+        }
+    }
+
+    fun showSeekGestureIndicator(isForward: Boolean, deltaSec: Int) {
+        _uiState.update {
+            it.copy(
+                gestureOverlayIcon = if (isForward) "FORWARD" else "REWIND",
+                gestureOverlayText = if (isForward) "+${deltaSec}s" else "-${deltaSec}s"
+            )
+        }
+    }
+
+    fun clearGestureIndicator() {
+        _uiState.update { it.copy(gestureOverlayIcon = null, gestureOverlayText = null) }
+    }
 
     private fun saveProgressToDatabase(posMs: Long, durationMs: Long) {
         val state = _uiState.value

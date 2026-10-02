@@ -29,10 +29,14 @@ import com.example.ui.navigation.Screen
 import com.example.ui.screens.admin.AdminDashboardScreen
 import com.example.ui.screens.browse.BrowseScreen
 import com.example.ui.screens.details.AnimeDetailsScreen
+import com.example.ui.screens.downloads.DownloadsScreen
 import com.example.ui.screens.home.HomeScreen
+import com.example.ui.screens.mal.MalSyncScreen
 import com.example.ui.screens.notifications.NotificationsScreen
 import com.example.ui.screens.player.VideoPlayerScreen
 import com.example.ui.screens.profile.ProfileScreen
+import com.example.ui.screens.quiz.AnimeQuizScreen
+import com.example.ui.screens.schedule.ScheduleScreen
 import com.example.ui.screens.search.SearchScreen
 import com.example.ui.screens.watchlist.WatchlistScreen
 import com.example.ui.theme.BackgroundDark
@@ -127,6 +131,18 @@ fun KuroStreamApp(container: KuroAppContainer) {
                         },
                         onGenreClick = { genre ->
                             navController.navigate(Screen.Search.route)
+                        },
+                        onScheduleClick = {
+                            navController.navigate(Screen.Schedule.route)
+                        },
+                        onDownloadsClick = {
+                            navController.navigate(Screen.Downloads.route)
+                        },
+                        onQuizClick = {
+                            navController.navigate(Screen.Quiz.route)
+                        },
+                        onMalSyncClick = {
+                            navController.navigate(Screen.MalSync.route)
                         }
                     )
                 }
@@ -178,7 +194,66 @@ fun KuroStreamApp(container: KuroAppContainer) {
                         viewModel = profileViewModel,
                         onAdminClick = {
                             navController.navigate(Screen.Admin.route)
+                        },
+                        onScheduleClick = {
+                            navController.navigate(Screen.Schedule.route)
+                        },
+                        onDownloadsClick = {
+                            navController.navigate(Screen.Downloads.route)
+                        },
+                        onQuizClick = {
+                            navController.navigate(Screen.Quiz.route)
+                        },
+                        onMalSyncClick = {
+                            navController.navigate(Screen.MalSync.route)
                         }
+                    )
+                }
+
+                // Airing Schedule Screen
+                composable(Screen.Schedule.route) {
+                    ScheduleScreen(
+                        scheduleRepository = container.scheduleRepository,
+                        onBack = { navController.popBackStack() },
+                        onAnimeClick = { animeId ->
+                            navController.navigate(Screen.Details.createRoute(animeId))
+                        },
+                        onPlayClick = { animeId, epNum ->
+                            navController.navigate(Screen.Player.createRoute(animeId, epNum))
+                        }
+                    )
+                }
+
+                // Downloads Screen
+                composable(Screen.Downloads.route) {
+                    DownloadsScreen(
+                        downloadsRepository = container.downloadsRepository,
+                        onBack = { navController.popBackStack() },
+                        onPlayOffline = { animeId, epNum ->
+                            navController.navigate(Screen.Player.createRoute(animeId, epNum))
+                        }
+                    )
+                }
+
+                // Find My Anime Quiz Screen
+                composable(Screen.Quiz.route) {
+                    AnimeQuizScreen(
+                        animeRepository = container.animeRepository,
+                        onBack = { navController.popBackStack() },
+                        onAnimeClick = { animeId ->
+                            navController.navigate(Screen.Details.createRoute(animeId))
+                        },
+                        onWatchEpisode = { animeId, epNum ->
+                            navController.navigate(Screen.Player.createRoute(animeId, epNum))
+                        }
+                    )
+                }
+
+                // MAL & AniList Sync Screen
+                composable(Screen.MalSync.route) {
+                    MalSyncScreen(
+                        malSyncRepository = container.malSyncRepository,
+                        onBack = { navController.popBackStack() }
                     )
                 }
 
@@ -206,6 +281,7 @@ fun KuroStreamApp(container: KuroAppContainer) {
                     }
                     AnimeDetailsScreen(
                         viewModel = detailsViewModel,
+                        downloadsRepository = container.downloadsRepository,
                         onBack = { navController.popBackStack() },
                         onPlayEpisode = { targetAnimeId, epNum ->
                             navController.navigate(Screen.Player.createRoute(targetAnimeId, epNum))
@@ -237,6 +313,8 @@ fun KuroStreamApp(container: KuroAppContainer) {
                     }
                     VideoPlayerScreen(
                         viewModel = playerViewModel,
+                        commentsRepository = container.commentsRepository,
+                        downloadsRepository = container.downloadsRepository,
                         onBack = { navController.popBackStack() }
                     )
                 }

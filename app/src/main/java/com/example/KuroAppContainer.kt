@@ -7,8 +7,12 @@ import com.example.data.network.NetworkClient
 import com.example.data.network.RetrofitClient
 import com.example.data.repository.AdminRepository
 import com.example.data.repository.AnimeRepository
+import com.example.data.repository.CommentsRepository
+import com.example.data.repository.DownloadsRepository
 import com.example.data.repository.LocalLicensedMediaProvider
+import com.example.data.repository.MalSyncRepository
 import com.example.data.repository.RetrofitMetadataProvider
+import com.example.data.repository.ScheduleRepository
 import com.example.data.repository.UserRepository
 import com.example.data.repository.WatchRepository
 
@@ -27,6 +31,10 @@ class KuroAppContainer(context: Context) {
     )
     val userRepository = UserRepository()
     val adminRepository = AdminRepository(localMediaProvider)
+    val downloadsRepository = DownloadsRepository(database.downloadsDao())
+    val commentsRepository = CommentsRepository(database.commentsDao())
+    val malSyncRepository = MalSyncRepository(database.malSyncDao())
+    val scheduleRepository = ScheduleRepository(animeRepository)
 
     companion object {
         @Volatile

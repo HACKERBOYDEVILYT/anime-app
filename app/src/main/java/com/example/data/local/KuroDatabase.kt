@@ -4,9 +4,15 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import com.example.data.local.dao.CommentsDao
+import com.example.data.local.dao.DownloadsDao
+import com.example.data.local.dao.MalSyncDao
 import com.example.data.local.dao.SocialDao
 import com.example.data.local.dao.WatchDao
 import com.example.data.local.dao.WatchlistDao
+import com.example.data.local.entity.DownloadEntity
+import com.example.data.local.entity.EpisodeCommentEntity
+import com.example.data.local.entity.MalSyncEntity
 import com.example.data.local.entity.NotificationEntity
 import com.example.data.local.entity.ReviewEntity
 import com.example.data.local.entity.WatchHistoryEntity
@@ -17,15 +23,21 @@ import com.example.data.local.entity.WatchlistEntity
         WatchHistoryEntity::class,
         WatchlistEntity::class,
         ReviewEntity::class,
-        NotificationEntity::class
+        NotificationEntity::class,
+        DownloadEntity::class,
+        EpisodeCommentEntity::class,
+        MalSyncEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class KuroDatabase : RoomDatabase() {
     abstract fun watchDao(): WatchDao
     abstract fun watchlistDao(): WatchlistDao
     abstract fun socialDao(): SocialDao
+    abstract fun downloadsDao(): DownloadsDao
+    abstract fun commentsDao(): CommentsDao
+    abstract fun malSyncDao(): MalSyncDao
 
     companion object {
         @Volatile

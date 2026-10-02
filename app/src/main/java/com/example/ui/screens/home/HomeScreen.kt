@@ -29,6 +29,7 @@ import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -43,6 +44,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -52,6 +54,7 @@ import com.example.ui.components.ContinueWatchingRow
 import com.example.ui.components.HeroCarousel
 import com.example.ui.components.SecretAdminDialog
 import com.example.ui.theme.BackgroundDark
+import com.example.ui.theme.CardBorder
 import com.example.ui.theme.CrimsonNeon
 import com.example.ui.theme.SurfaceDark
 import com.example.ui.theme.SurfaceVariantDark
@@ -59,6 +62,12 @@ import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import com.example.ui.theme.VioletAccent
 import com.example.viewmodel.HomeViewModel
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.vector.ImageVector
 
 @Composable
 fun HomeScreen(
@@ -69,6 +78,10 @@ fun HomeScreen(
     onNotificationsClick: () -> Unit,
     onAdminClick: () -> Unit,
     onGenreClick: (String) -> Unit,
+    onScheduleClick: () -> Unit = {},
+    onDownloadsClick: () -> Unit = {},
+    onQuizClick: () -> Unit = {},
+    onMalSyncClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -163,8 +176,24 @@ fun HomeScreen(
                             )
                         }
 
-                        // Actions: Search, Notifications
+                        // Actions: Schedule, Downloads, Search, Notifications
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = onScheduleClick) {
+                                Icon(
+                                    imageVector = Icons.Default.CalendarMonth,
+                                    contentDescription = "Schedule",
+                                    tint = TextPrimary
+                                )
+                            }
+
+                            IconButton(onClick = onDownloadsClick) {
+                                Icon(
+                                    imageVector = Icons.Default.Download,
+                                    contentDescription = "Downloads",
+                                    tint = TextPrimary
+                                )
+                            }
+
                             IconButton(
                                 onClick = onSearchClick,
                                 modifier = Modifier.testTag("header_search_btn")
@@ -200,6 +229,45 @@ fun HomeScreen(
                                 }
                             }
                         }
+                    }
+                }
+
+                // Quick Navigation Hub
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        QuickHubButton(
+                            title = "Schedule",
+                            emoji = "📅",
+                            icon = Icons.Default.CalendarMonth,
+                            onClick = onScheduleClick,
+                            modifier = Modifier.weight(1f)
+                        )
+                        QuickHubButton(
+                            title = "Downloads",
+                            emoji = "📥",
+                            icon = Icons.Default.Download,
+                            onClick = onDownloadsClick,
+                            modifier = Modifier.weight(1f)
+                        )
+                        QuickHubButton(
+                            title = "Find Anime",
+                            emoji = "🎯",
+                            icon = Icons.Default.AutoAwesome,
+                            onClick = onQuizClick,
+                            modifier = Modifier.weight(1f)
+                        )
+                        QuickHubButton(
+                            title = "MAL Sync",
+                            emoji = "🔄",
+                            icon = Icons.Default.CloudSync,
+                            onClick = onMalSyncClick,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
 
@@ -315,3 +383,37 @@ fun HomeScreen(
         }
     }
 }
+
+@Composable
+private fun QuickHubButton(
+    title: String,
+    emoji: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(10.dp),
+        color = SurfaceDark,
+        modifier = modifier
+            .border(1.dp, CardBorder, RoundedCornerShape(10.dp))
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(text = emoji, fontSize = 20.sp)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = title,
+                color = TextPrimary,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+

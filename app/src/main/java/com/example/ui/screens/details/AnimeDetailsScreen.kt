@@ -76,10 +76,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.data.model.Anime
+import com.example.data.model.AnimeCharacter
 import com.example.data.model.Episode
 import com.example.data.model.Review
 import com.example.data.model.WatchStatus
+import com.example.data.repository.DownloadsRepository
 import com.example.ui.components.AnimeCard
+import com.example.ui.components.CharacterDetailDialog
 import com.example.ui.components.QualityBadge
 import com.example.ui.components.RatingBadge
 import com.example.ui.components.SubDubBadges
@@ -93,11 +96,19 @@ import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import com.example.viewmodel.DetailsViewModel
+import kotlinx.coroutines.launch
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.rememberCoroutineScope
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AnimeDetailsScreen(
     viewModel: DetailsViewModel,
+    downloadsRepository: DownloadsRepository? = null,
     onBack: () -> Unit,
     onPlayEpisode: (String, Int) -> Unit,
     onAnimeClick: (Anime) -> Unit,
@@ -108,7 +119,11 @@ fun AnimeDetailsScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val reviews by viewModel.reviews.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
     var showStatusDropdown by remember { mutableStateOf(false) }
+    var selectedCharacter by remember { mutableStateOf<AnimeCharacter?>(null) }
+    var episodeAudioFilter by remember { mutableStateOf("ALL") } // "ALL", "SUB", "DUB"
 
     val anime = uiState.anime
 
@@ -486,11 +501,56 @@ fun AnimeDetailsScreen(
                     }
                 }
 
+                // Audio Format filter chips
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = episodeAudioFilter == "ALL",
+                            onClick = { episodeAudioFilter = "ALL" },
+                            label = { Text("All", fontSize = 11.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = CrimsonNeon,
+                                selectedLabelColor = Color.White
+                            )
+                        )
+                        FilterChip(
+                            selected = episodeAudioFilter == "SUB",
+                            onClick = { episodeAudioFilter = "SUB" },
+                            label = { Text("🇯🇵 Sub", fontSize = 11.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = CrimsonNeon,
+                                selectedLabelColor = Color.White
+                            )
+                        )
+                        FilterChip(
+                            selected = episodeAudioFilter == "DUB",
+                            onClick = { episodeAudioFilter = "DUB" },
+                            label = { Text("🎙️ Dub", fontSize = 11.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = CrimsonNeon,
+                                selectedLabelColor = Color.White
+                            )
+                        )
+                    }
+                }
+
                 val filteredEpisodes = uiState.episodes
                     .filter {
-                        if (uiState.episodeSearchQuery.isBlank()) true
+                        val matchesSearch = if (uiState.episodeSearchQuery.isBlank()) true
                         else it.title.contains(uiState.episodeSearchQuery, ignoreCase = true) ||
                              it.episodeNumber.toString() == uiState.episodeSearchQuery
+
+                        val matchesAudio = when (episodeAudioFilter) {
+                            "SUB" -> it.subtitles.isNotEmpty()
+                            "DUB" -> it.audioTracks.any { aud -> aud.language != "ja" }
+                            else -> true
+                        }
+                        matchesSearch && matchesAudio
                     }
                     .let { list ->
                         if (uiState.isEpisodeSortAsc) list.sortedBy { it.episodeNumber }
@@ -500,7 +560,13 @@ fun AnimeDetailsScreen(
                 items(filteredEpisodes, key = { it.id }) { ep ->
                     EpisodeListItem(
                         episode = ep,
-                        onPlay = { onPlayEpisode(anime.id, ep.episodeNumber) }
+                        onPlay = { onPlayEpisode(anime.id, ep.episodeNumber) },
+                        onDownload = {
+                            scope.launch {
+                                downloadsRepository?.startDownload(anime, ep)
+                                snackbarHostState.showSnackbar("Downloading Ep ${ep.episodeNumber} for offline viewing...")
+                            }
+                        }
                     )
                 }
             }
@@ -535,7 +601,9 @@ fun AnimeDetailsScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 6.dp),
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { selectedCharacter = character }
+                                    .padding(vertical = 6.dp, horizontal = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 AsyncImage(
@@ -554,7 +622,7 @@ fun AnimeDetailsScreen(
                                 if (character.voiceActor.isNotBlank()) {
                                     Column(horizontalAlignment = Alignment.End) {
                                         Text(text = character.voiceActor, color = CrimsonNeon, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                                        Text(text = "VA (Japanese)", color = TextMuted, fontSize = 10.sp)
+                                        Text(text = "VA (Tap for bio)", color = TextMuted, fontSize = 10.sp)
                                     }
                                 }
                             }
@@ -696,6 +764,18 @@ fun AnimeDetailsScreen(
                 }
             )
         }
+
+        if (selectedCharacter != null) {
+            CharacterDetailDialog(
+                character = selectedCharacter!!,
+                onDismiss = { selectedCharacter = null }
+            )
+        }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 }
 
@@ -703,6 +783,7 @@ fun AnimeDetailsScreen(
 fun EpisodeListItem(
     episode: Episode,
     onPlay: () -> Unit,
+    onDownload: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -772,6 +853,17 @@ fun EpisodeListItem(
                     fontSize = 10.sp,
                     modifier = Modifier.padding(top = 2.dp)
                 )
+            }
+
+            if (onDownload != null) {
+                IconButton(onClick = onDownload) {
+                    Icon(
+                        imageVector = Icons.Default.Download,
+                        contentDescription = "Download Episode",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }
