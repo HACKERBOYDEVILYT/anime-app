@@ -12,6 +12,10 @@ sealed class Screen(val route: String) {
     object Downloads : Screen("downloads")
     object Quiz : Screen("quiz")
     object MalSync : Screen("mal_sync")
+    object WatchParty : Screen("watch_party")
+    object AnimeRadio : Screen("anime_radio")
+    object TierList : Screen("tier_list")
+    object Quotes : Screen("quotes")
 
     object Details : Screen("details/{animeId}") {
         fun createRoute(animeId: String) = "details/$animeId"

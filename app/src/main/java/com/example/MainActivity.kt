@@ -33,11 +33,15 @@ import com.example.ui.screens.downloads.DownloadsScreen
 import com.example.ui.screens.home.HomeScreen
 import com.example.ui.screens.mal.MalSyncScreen
 import com.example.ui.screens.notifications.NotificationsScreen
+import com.example.ui.screens.party.WatchPartyScreen
 import com.example.ui.screens.player.VideoPlayerScreen
 import com.example.ui.screens.profile.ProfileScreen
 import com.example.ui.screens.quiz.AnimeQuizScreen
+import com.example.ui.screens.quotes.AnimeQuotesScreen
+import com.example.ui.screens.radio.AnimeRadioScreen
 import com.example.ui.screens.schedule.ScheduleScreen
 import com.example.ui.screens.search.SearchScreen
+import com.example.ui.screens.tier.TierListScreen
 import com.example.ui.screens.watchlist.WatchlistScreen
 import com.example.ui.theme.BackgroundDark
 import com.example.ui.theme.KuroStreamTheme
@@ -143,6 +147,18 @@ fun KuroStreamApp(container: KuroAppContainer) {
                         },
                         onMalSyncClick = {
                             navController.navigate(Screen.MalSync.route)
+                        },
+                        onPartyClick = {
+                            navController.navigate(Screen.WatchParty.route)
+                        },
+                        onRadioClick = {
+                            navController.navigate(Screen.AnimeRadio.route)
+                        },
+                        onTierListClick = {
+                            navController.navigate(Screen.TierList.route)
+                        },
+                        onQuotesClick = {
+                            navController.navigate(Screen.Quotes.route)
                         }
                     )
                 }

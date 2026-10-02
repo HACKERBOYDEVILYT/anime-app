@@ -40,6 +40,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -679,7 +681,83 @@ fun AdminDashboardScreen(
                 containerColor = SurfaceDark,
                 title = { Text(text = "Add Custom API Endpoint", color = TextPrimary, fontWeight = FontWeight.Bold) },
                 text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            text = "Quick Presets (Click to autofill):",
+                            color = TextMuted,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            FilterChip(
+                                selected = false,
+                                onClick = {
+                                    viewModel.updateNewApiField(
+                                        name = "AniList GraphQL API",
+                                        url = "https://graphql.anilist.co",
+                                        category = "Metadata & Catalog"
+                                    )
+                                },
+                                label = { Text("AniList", fontSize = 10.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    containerColor = SurfaceVariantDark,
+                                    labelColor = TextPrimary
+                                )
+                            )
+
+                            FilterChip(
+                                selected = false,
+                                onClick = {
+                                    viewModel.updateNewApiField(
+                                        name = "Jikan MyAnimeList API",
+                                        url = "https://api.jikan.moe/v4",
+                                        category = "MAL Sync & Info"
+                                    )
+                                },
+                                label = { Text("Jikan MAL", fontSize = 10.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    containerColor = SurfaceVariantDark,
+                                    labelColor = TextPrimary
+                                )
+                            )
+
+                            FilterChip(
+                                selected = false,
+                                onClick = {
+                                    viewModel.updateNewApiField(
+                                        name = "Kitsu Public API",
+                                        url = "https://kitsu.io/api/edge",
+                                        category = "Catalog Discovery"
+                                    )
+                                },
+                                label = { Text("Kitsu", fontSize = 10.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    containerColor = SurfaceVariantDark,
+                                    labelColor = TextPrimary
+                                )
+                            )
+
+                            FilterChip(
+                                selected = false,
+                                onClick = {
+                                    viewModel.updateNewApiField(
+                                        name = "Custom Streaming CDN",
+                                        url = "https://cdn.anime-node.com/api/v1",
+                                        category = "Streaming HLS"
+                                    )
+                                },
+                                label = { Text("Custom CDN", fontSize = 10.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    containerColor = SurfaceVariantDark,
+                                    labelColor = TextPrimary
+                                )
+                            )
+                        }
+
                         OutlinedTextField(
                             value = uiState.newApiName,
                             onValueChange = { viewModel.updateNewApiField(name = it) },

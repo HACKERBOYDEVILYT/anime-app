@@ -11,9 +11,13 @@ import com.example.data.repository.CommentsRepository
 import com.example.data.repository.DownloadsRepository
 import com.example.data.repository.LocalLicensedMediaProvider
 import com.example.data.repository.MalSyncRepository
+import com.example.data.repository.QuotesRepository
+import com.example.data.repository.RadioRepository
 import com.example.data.repository.RetrofitMetadataProvider
 import com.example.data.repository.ScheduleRepository
+import com.example.data.repository.TierListRepository
 import com.example.data.repository.UserRepository
+import com.example.data.repository.WatchPartyRepository
 import com.example.data.repository.WatchRepository
 
 class KuroAppContainer(context: Context) {
@@ -35,6 +39,10 @@ class KuroAppContainer(context: Context) {
     val commentsRepository = CommentsRepository(database.commentsDao())
     val malSyncRepository = MalSyncRepository(database.malSyncDao())
     val scheduleRepository = ScheduleRepository(animeRepository)
+    val watchPartyRepository = WatchPartyRepository(animeRepository)
+    val radioRepository = RadioRepository()
+    val quotesRepository = QuotesRepository()
+    val tierListRepository = TierListRepository(animeRepository)
 
     companion object {
         @Volatile

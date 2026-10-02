@@ -66,6 +66,10 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Radio
+import androidx.compose.material.icons.filled.FormatListNumbered
+import androidx.compose.material.icons.filled.FormatQuote
 import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.vector.ImageVector
 
@@ -82,6 +86,10 @@ fun HomeScreen(
     onDownloadsClick: () -> Unit = {},
     onQuizClick: () -> Unit = {},
     onMalSyncClick: () -> Unit = {},
+    onPartyClick: () -> Unit = {},
+    onRadioClick: () -> Unit = {},
+    onTierListClick: () -> Unit = {},
+    onQuotesClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()

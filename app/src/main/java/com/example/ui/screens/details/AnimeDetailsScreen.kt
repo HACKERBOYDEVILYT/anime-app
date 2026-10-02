@@ -3,6 +3,7 @@ package com.example.ui.screens.details
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -51,6 +52,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
@@ -588,6 +590,39 @@ fun AnimeDetailsScreen(
                             fontSize = 13.sp,
                             lineHeight = 20.sp
                         )
+
+                        // Manga / Novel Continuation Guide
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = SurfaceDark,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp)
+                                .border(1.dp, CardBorder, RoundedCornerShape(10.dp))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(text = "📖", fontSize = 24.sp)
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        text = "Manga Continuation Guide",
+                                        color = CrimsonNeon,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Anime adapts up to Chapter ${anime.episodesCount * 2 + 10} (Volume ${(anime.episodesCount / 4) + 1}). Start reading from Chapter ${anime.episodesCount * 2 + 11} to continue the story!",
+                                        color = TextPrimary,
+                                        fontSize = 12.sp,
+                                        lineHeight = 16.sp
+                                    )
+                                }
+                            }
+                        }
 
                         Spacer(modifier = Modifier.height(18.dp))
                         Text(
