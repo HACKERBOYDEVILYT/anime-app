@@ -3,9 +3,14 @@ name: Build & Package Android APK
 on:
   push:
     branches: [ "main", "master" ]
+    tags:
+      - 'v*'
   pull_request:
     branches: [ "main", "master" ]
-  workflow_dispatch: # Allows manual trigger from GitHub Actions tab
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -15,6 +20,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -23,15 +30,18 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Prepare Gradle Wrapper
+      - name: Prepare Gradle Wrapper & Permissions
         run: |
           if [ ! -f "gradlew" ]; then
             gradle wrapper
           fi
           chmod +x gradlew
+
+      - name: Ensure Debug Keystore Exists
+        run: |
+          if [ ! -f "debug.keystore" ]; then
+            keytool -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug --stacktrace
@@ -42,19 +52,48 @@ jobs:
       - name: Prepare APK Artifacts
         run: |
           mkdir -p artifacts
-          cp app/build/outputs/apk/release/app-release.apk artifacts/KuroStream-v1.0-Release.apk
-          cp app/build/outputs/apk/debug/app-debug.apk artifacts/KuroStream-v1.0-Debug.apk
+          cp app/build/outputs/apk/release/app-release.apk artifacts/KuroStream-Release.apk
+          cp app/build/outputs/apk/debug/app-debug.apk artifacts/KuroStream-Debug.apk
 
       - name: Upload Release APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: KuroStream-Release-APK
-          path: artifacts/KuroStream-v1.0-Release.apk
+          path: artifacts/KuroStream-Release.apk
           retention-days: 30
 
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: KuroStream-Debug-APK
-          path: artifacts/KuroStream-v1.0-Debug.apk
+          path: artifacts/KuroStream-Debug.apk
           retention-days: 30
+
+      - name: Publish to GitHub Releases
+        if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v1.0.{0}', github.run_number) }}
+          name: ${{ format('KuroStream v1.0.{0} - Latest Android Release', github.run_number) }}
+          draft: false
+          prerelease: false
+          body: |
+            ### KuroStream Anime Streaming App 🎬
+            
+            Download the latest Android APK directly:
+            * **`KuroStream-Release.apk`**: Optimized production release APK.
+            * **`KuroStream-Debug.apk`**: Debug testing build.
+            
+            #### Features included:
+            - 🎬 **Advanced Gestures**: Left swipe brightness, right swipe volume, double-tap 10s skip.
+            - 📺 **Picture-in-Picture (PiP)** & Background Audio mode.
+            - 📥 **Offline Download Manager** with local file playback & device storage tracker.
+            - 📅 **Weekly Airing Calendar** with live real-time countdown timer.
+            - 🔄 **AniList & MyAnimeList Account Sync**.
+            - 💬 **Episode Discussion & Reactions** with spoiler protection.
+            - 🇧🇩 **Bangla & Multi-language subtitles** support.
+          files: |
+            artifacts/KuroStream-Release.apk
+            artifacts/KuroStream-Debug.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
