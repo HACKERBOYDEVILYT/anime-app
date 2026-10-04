@@ -1,5 +1,5 @@
 {
-  "name": "KuroStream",
+  "name": "Robiul",
   "description": "Production-ready anime streaming platform with discovery, HLS streaming, watch history, subtitles, and admin panel.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

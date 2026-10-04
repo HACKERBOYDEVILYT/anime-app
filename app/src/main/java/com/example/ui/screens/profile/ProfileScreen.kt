@@ -59,6 +59,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.example.ui.components.RobiulBrandHeader
+import com.example.ui.components.RsHackerEmblem
 import com.example.ui.components.SecureAuthDialog
 import com.example.ui.components.SecretAdminDialog
 import com.example.ui.theme.BackgroundDark
@@ -113,6 +115,19 @@ fun ProfileScreen(
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 90.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // Top Brand Identity Banner
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RobiulBrandHeader()
+            }
+        }
+
         // User Profile Card
         item {
             Card(
@@ -508,16 +523,19 @@ fun ProfileScreen(
             }
         }
 
-        // App Version Info (Admin trigger disabled here; only 5-tap on KUROSTREAM logo in Home opens Admin)
+        // App Version Info
         item {
-            Box(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 28.dp, bottom = 16.dp),
-                contentAlignment = Alignment.Center
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                RsHackerEmblem(size = 24.dp)
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "KuroStream v2.4.0 (Build 2026)",
+                    text = "Robiul [RS] • Hacker Edition v2.5.0 (Build 2026)",
                     color = TextMuted,
                     fontSize = 11.sp
                 )

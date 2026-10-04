@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KuroStream • Unified Anime Streaming Web & App</title>
+  <title>Robiul [RS] • Hacker Edition Anime Streaming Web & App</title>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <style>
     :root {
@@ -32,12 +32,16 @@
     }
     .brand { display: flex; align-items: center; gap: 10px; cursor: pointer; }
     .brand-logo {
-      width: 36px; height: 36px; border-radius: 9px; background: var(--crimson-neon);
-      display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 19px; color: #fff;
-      box-shadow: 0 0 16px rgba(255, 42, 95, 0.5);
+      width: 40px; height: 40px; border-radius: 10px; background: #070B10;
+      border: 1.5px solid #00FF66;
+      display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 16px;
+      font-family: "Courier New", monospace; letter-spacing: -0.5px;
+      color: #00FF66;
+      box-shadow: 0 0 16px rgba(0, 255, 102, 0.45), inset 0 0 8px rgba(0, 229, 255, 0.25);
     }
-    .brand-title { font-size: 20px; font-weight: 900; letter-spacing: 2px; }
-    .brand-title span { color: var(--crimson-neon); }
+    .brand-logo span { color: #00E5FF; }
+    .brand-title { font-size: 20px; font-weight: 900; letter-spacing: 2px; font-family: monospace; }
+    .brand-title span { color: #00FF66; font-size: 13px; margin-left: 4px; }
     .sync-badge {
       background: rgba(0, 230, 118, 0.14); border: 1px solid rgba(0, 230, 118, 0.45);
       color: var(--emerald); font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px;
@@ -216,14 +220,14 @@
   <!-- Top Unified Navigation Header -->
   <header>
     <div class="brand" onclick="window.scrollTo({top:0,behavior:'smooth'})">
-      <div class="brand-logo">黒</div>
+      <div class="brand-logo">R<span>S</span></div>
       <div>
-        <div class="brand-title">KURO<span>STREAM</span></div>
-        <div style="font-size:10px;color:var(--cyan-glow);font-weight:700;">UNIFIED WEB & ANDROID APP</div>
+        <div class="brand-title">ROBIUL<span>[RS]</span></div>
+        <div style="font-size:10px;color:#00FF66;font-weight:700;font-family:monospace;">&gt;_ RS_HACKER // WEB &amp; APP</div>
       </div>
       <div class="sync-badge" id="syncBadge">
         <span class="dot-live"></span>
-        <span id="syncStatusText">App & Web Synced • v1.1.0</span>
+        <span id="syncStatusText">Robiul App &amp; Web Synced • v1.1.0</span>
       </div>
     </div>
 

@@ -3,7 +3,7 @@
   "name": "kurostream-web",
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/version.json", "destination": "/docs/version.json" },
-    { "source": "/(.*)", "destination": "/docs/index.html" }
+    { "source": "/version.json", "destination": "/version.json" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

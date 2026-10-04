@@ -55,6 +55,7 @@ import com.example.ui.components.AnimeRow
 import com.example.ui.components.ContinueWatchingRow
 import com.example.ui.components.HeroCarousel
 import com.example.ui.components.HomeShimmerScreen
+import com.example.ui.components.RobiulBrandHeader
 import com.example.ui.components.SecretAdminDialog
 import com.example.ui.theme.BackgroundDark
 import com.example.ui.theme.CardBorder
@@ -156,54 +157,23 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Brand Logo & Title (Exclusive Hidden Admin Trigger: tap 5 times on KUROSTREAM)
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .testTag("app_brand_logo")
-                                .clickable {
-                                    val now = System.currentTimeMillis()
-                                    if (now - lastLogoTapTime < 1500) {
-                                        logoTapCount++
-                                        if (logoTapCount >= 5) {
-                                            logoTapCount = 0
-                                            showAdminAuthDialog = true
-                                        }
-                                    } else {
-                                        logoTapCount = 1
+                        // Brand Logo & Title (Exclusive Hidden Admin Trigger: tap 5 times on ROBIUL [RS] logo)
+                        RobiulBrandHeader(
+                            modifier = Modifier.testTag("app_brand_logo"),
+                            onClick = {
+                                val now = System.currentTimeMillis()
+                                if (now - lastLogoTapTime < 1500) {
+                                    logoTapCount++
+                                    if (logoTapCount >= 5) {
+                                        logoTapCount = 0
+                                        showAdminAuthDialog = true
                                     }
-                                    lastLogoTapTime = now
+                                } else {
+                                    logoTapCount = 1
                                 }
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .background(CrimsonNeon, RoundedCornerShape(8.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "黒",
-                                    color = Color.White,
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Black
-                                )
+                                lastLogoTapTime = now
                             }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "KURO",
-                                color = TextPrimary,
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 2.sp
-                            )
-                            Text(
-                                text = "STREAM",
-                                color = CrimsonNeon,
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 2.sp
-                            )
-                        }
+                        )
 
                         // Actions: Schedule, Downloads, Search, Notifications
                         Row(verticalAlignment = Alignment.CenterVertically) {

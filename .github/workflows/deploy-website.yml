@@ -1,0 +1,86 @@
+name: Deploy Live Website (GitHub Pages & gh-pages Branch)
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "kurostream-pages"
+  cancel-in-progress: true
+
+jobs:
+  deploy-pages:
+    name: Instant Deploy Unified Website to GitHub Pages
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate Live version.json & Prepare Static Site
+        run: |
+          VERSION_CODE=$((100 + ${{ github.run_number }}))
+          VERSION_NAME="1.1.${{ github.run_number }}"
+          REPO_OWNER="${{ github.repository_owner }}"
+          REPO_NAME="${{ github.event.repository.name }}"
+          COMMIT_MSG=$(git log -1 --pretty=%B | tr '\n' ' ' | sed 's/"/\\"/g')
+          APK_URL="https://github.com/${{ github.repository }}/releases/latest/download/KuroStream-Release.apk"
+          WEB_URL="https://${REPO_OWNER}.github.io/${REPO_NAME}/"
+
+          mkdir -p _site
+          cp docs/index.html _site/index.html
+          cp docs/index.html _site/404.html
+          touch _site/.nojekyll
+
+          cat > _site/version.json <<EOF
+          {
+            "appName": "KuroStream",
+            "versionCode": ${VERSION_CODE},
+            "versionName": "${VERSION_NAME}",
+            "commitSha": "${{ github.sha }}",
+            "publishedAt": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "forceUpdate": false,
+            "repositorySlug": "${{ github.repository }}",
+            "apkDownloadUrl": "${APK_URL}",
+            "webPortalUrl": "${WEB_URL}",
+            "changelog": "Repository Update (${VERSION_NAME}): ${COMMIT_MSG}"
+          }
+          EOF
+
+      - name: Publish Static Website to gh-pages Branch (Supports Branch-Based Pages)
+        continue-on-error: true
+        run: |
+          cd _site
+          git init
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b gh-pages
+          git add -A
+          git commit -m "Deploy KuroStream Live Website (${{ github.sha }})"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages
+
+      - name: Configure GitHub Pages (Auto-Enable Actions Pages)
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+        continue-on-error: true
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./_site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+        continue-on-error: true

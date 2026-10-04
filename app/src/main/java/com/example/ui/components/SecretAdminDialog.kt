@@ -90,25 +90,13 @@ fun SecretAdminDialog(
                 modifier = Modifier.padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Secret Lock Icon
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .background(VioletAccent.copy(alpha = 0.2f), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Lock,
-                        contentDescription = "Security Gateway",
-                        tint = VioletAccent,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
+                // Secret RS Hacker Emblem
+                RsHackerEmblem(size = 56.dp)
 
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "System Gateway",
+                    text = "Robiul [RS] • Root Gateway",
                     color = TextPrimary,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold

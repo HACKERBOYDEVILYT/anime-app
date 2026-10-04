@@ -91,6 +91,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.data.network.HlsStreamService
 import com.example.data.network.NetworkTrafficSniffer
+import com.example.ui.components.RsHackerEmblem
 import com.example.ui.theme.BackgroundDark
 import com.example.ui.theme.CardBorder
 import com.example.ui.theme.CrimsonNeon
@@ -180,9 +181,10 @@ fun AdminDashboardScreen(
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = TextPrimary)
                 }
-                Spacer(modifier = Modifier.width(4.dp))
+                RsHackerEmblem(size = 34.dp)
+                Spacer(modifier = Modifier.width(8.dp))
                 Column {
-                    Text(text = "Admin Control Suite", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(text = "Robiul [RS] Admin Suite", color = TextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                     Text(text = "Multi-Server API • Stream Catcher • Video Scraper", color = CyanGlow, fontSize = 11.sp)
                 }
             }

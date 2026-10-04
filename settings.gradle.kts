@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "KuroStream"
+rootProject.name = "Robiul"
 
 include(":app")

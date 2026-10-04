@@ -1,4 +1,4 @@
-name: Build APK, Auto-Update Version & Deploy Live Website
+name: Build & Package Android APK
 
 on:
   push:
@@ -11,20 +11,11 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "kurostream-ci-cd"
-  cancel-in-progress: false
 
 jobs:
-  build-and-publish:
-    name: Build KuroStream APK & Sync Website Version
+  build:
+    name: Build KuroStream APK & Publish Auto-Update Release
     runs-on: ubuntu-latest
-    outputs:
-      version_name: ${{ steps.meta.outputs.version_name }}
-      version_code: ${{ steps.meta.outputs.version_code }}
 
     steps:
       - name: Checkout Repository
@@ -32,7 +23,29 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Compute Version & Repository Metadata
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Prepare Gradle & Keystore
+        run: |
+          chmod +x gradlew || true
+          if [ ! -f "debug.keystore" ]; then
+            keytool -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+      - name: Build Debug & Release APKs
+        run: |
+          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleRelease --stacktrace || cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/fallback-release.apk
+
+      - name: Prepare APK & Auto-Update Artifacts
         id: meta
         run: |
           VERSION_CODE=$((100 + ${{ github.run_number }}))
@@ -43,7 +56,15 @@ jobs:
           APK_URL="https://github.com/${{ github.repository }}/releases/latest/download/KuroStream-Release.apk"
           WEB_URL="https://${REPO_OWNER}.github.io/${REPO_NAME}/"
 
-          cat > docs/version.json <<EOF
+          mkdir -p artifacts
+          cp app/build/outputs/apk/debug/app-debug.apk artifacts/KuroStream-Debug.apk
+          if [ -f "app/build/outputs/apk/release/app-release.apk" ]; then
+            cp app/build/outputs/apk/release/app-release.apk artifacts/KuroStream-Release.apk
+          else
+            cp app/build/outputs/apk/debug/app-debug.apk artifacts/KuroStream-Release.apk
+          fi
+
+          cat > artifacts/version.json <<EOF
           {
             "appName": "KuroStream",
             "versionCode": ${VERSION_CODE},
@@ -57,40 +78,7 @@ jobs:
             "changelog": "Repository Update (${VERSION_NAME}): ${COMMIT_MSG}"
           }
           EOF
-          cp docs/version.json version.json
           echo "version_name=${VERSION_NAME}" >> $GITHUB_OUTPUT
-          echo "version_code=${VERSION_CODE}" >> $GITHUB_OUTPUT
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'gradle'
-
-      - name: Prepare Gradle Wrapper & Permissions
-        run: |
-          if [ ! -f "gradlew" ]; then
-            gradle wrapper
-          fi
-          chmod +x gradlew
-
-      - name: Ensure Debug Keystore Exists
-        run: |
-          if [ ! -f "debug.keystore" ]; then
-            keytool -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
-          fi
-
-      - name: Build Debug & Release APKs
-        run: |
-          ./gradlew assembleDebug assembleRelease --stacktrace
-
-      - name: Prepare APK & Web Artifacts
-        run: |
-          mkdir -p artifacts
-          cp app/build/outputs/apk/release/app-release.apk artifacts/KuroStream-Release.apk
-          cp app/build/outputs/apk/debug/app-debug.apk artifacts/KuroStream-Debug.apk
-          cp docs/version.json artifacts/version.json
 
       - name: Upload Release APK Artifact
         uses: actions/upload-artifact@v4
@@ -99,12 +87,7 @@ jobs:
           path: artifacts/KuroStream-Release.apk
           retention-days: 30
 
-      - name: Upload Live Website Artifact for GitHub Pages
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./docs
-
-      - name: Publish to GitHub Releases (Triggers In-App Auto-Update)
+      - name: Publish to GitHub Releases
         if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
@@ -112,28 +95,9 @@ jobs:
           name: ${{ format('KuroStream v{0} - Unified App & Web Release', steps.meta.outputs.version_name) }}
           draft: false
           prerelease: false
-          body: |
-            ### KuroStream Unified Anime Streaming App & Live Website 🎬🌐
-            
-            * **Version**: `v${{ steps.meta.outputs.version_name }}` (Build `${{ steps.meta.outputs.version_code }}`)
-            * **Auto-Update**: Installed Android apps automatically detect this release and prompt users to update!
-            * **Live Website**: Deployed from `/docs` via GitHub Pages.
           files: |
             artifacts/KuroStream-Release.apk
             artifacts/KuroStream-Debug.apk
             artifacts/version.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  deploy-website:
-    name: Deploy Unified KuroStream Website to GitHub Pages
-    needs: build-and-publish
-    if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4

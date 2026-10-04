@@ -353,7 +353,7 @@ fun HomeShimmerScreen(
         contentPadding = PaddingValues(bottom = 90.dp),
         userScrollEnabled = false
     ) {
-        // Keep the top Brand Header interactive so 5-tap KUROSTREAM always works
+        // Keep the top Brand Header interactive so 5-tap ROBIUL [RS] always works
         item {
             Row(
                 modifier = Modifier
@@ -363,41 +363,10 @@ fun HomeShimmerScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .testTag("app_brand_logo")
-                        .clickable { onLogoTap() }
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .background(CrimsonNeon, RoundedCornerShape(8.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "黒",
-                            color = Color.White,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Black
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "KURO",
-                        color = TextPrimary,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 2.sp
-                    )
-                    Text(
-                        text = "STREAM",
-                        color = CrimsonNeon,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 2.sp
-                    )
-                }
+                RobiulBrandHeader(
+                    modifier = Modifier.testTag("app_brand_logo"),
+                    onClick = { onLogoTap() }
+                )
 
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     repeat(4) {
