@@ -111,8 +111,10 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.ui.PlayerView
 import com.example.data.repository.CommentsRepository
 import com.example.data.repository.DownloadsRepository
@@ -156,7 +158,7 @@ fun VideoPlayerScreen(
         mutableIntStateOf(((currentVol.toFloat() / maxVolume.toFloat()) * 100).toInt())
     }
 
-    // ExoPlayer Instance with Browser User-Agent, Cross-Protocol Redirects & HLS/MP4 Support
+    // ExoPlayer Instance with Decoder Fallback, Safe Track Selection, Browser User-Agent & HLS/MP4 Support
     val exoPlayer = remember {
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
             .setUserAgent("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36")
@@ -164,7 +166,19 @@ fun VideoPlayerScreen(
             .setConnectTimeoutMs(10000)
             .setReadTimeoutMs(15000)
 
-        ExoPlayer.Builder(context)
+        val renderersFactory = DefaultRenderersFactory(context)
+            .setEnableDecoderFallback(true)
+
+        val trackSelector = DefaultTrackSelector(context).apply {
+            setParameters(
+                buildUponParameters()
+                    .setMaxVideoSize(1280, 720)
+                    .setMaxVideoBitrate(2_500_000)
+            )
+        }
+
+        ExoPlayer.Builder(context, renderersFactory)
+            .setTrackSelector(trackSelector)
             .setMediaSourceFactory(DefaultMediaSourceFactory(context).setDataSourceFactory(httpDataSourceFactory))
             .build()
             .apply {
@@ -245,11 +259,10 @@ fun VideoPlayerScreen(
         }
     }
 
-    DisposableEffect(uiState.isBackgroundAudioEnabled) {
+    DisposableEffect(exoPlayer) {
         onDispose {
-            if (!uiState.isBackgroundAudioEnabled) {
-                exoPlayer.release()
-            }
+            exoPlayer.stop()
+            exoPlayer.release()
         }
     }
 

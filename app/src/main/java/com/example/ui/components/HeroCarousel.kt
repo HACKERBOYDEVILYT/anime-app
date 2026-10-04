@@ -3,7 +3,6 @@ package com.example.ui.components
 import android.net.Uri
 import android.view.ViewGroup
 import android.widget.FrameLayout
-import androidx.annotation.OptIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -62,8 +61,10 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
@@ -88,80 +89,35 @@ fun HeroCarousel(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var isVideoPreviewEnabled by remember { mutableStateOf(true) }
+    // Keep preview off by default on startup to avoid background Codec2 hardware decoder contention
+    var isVideoPreviewEnabled by remember { mutableStateOf(false) }
     var isMuted by remember { mutableStateOf(true) }
-    var isVideoRendered by remember { mutableStateOf(false) }
     var currentServerIdx by remember { mutableIntStateOf(0) }
 
     val liveServerStreams = remember(anime.id) {
         listOf(
-            "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8" to "HD-1 • VidStreaming (1080p HLS)",
-            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4" to "HD-2 • MegaCloud (1080p MP4)",
-            "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" to "VidCloud • Multi-Bitrate HLS",
-            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4" to "StreamTape • Direct Cloud MP4"
+            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4" to "HD-1 • Direct MP4 Preview",
+            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4" to "HD-2 • MegaCloud (MP4)",
+            "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" to "VidCloud • Adaptive HLS",
+            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4" to "StreamTape • Cloud MP4"
         )
     }
 
     val activeStreamPair = liveServerStreams[currentServerIdx % liveServerStreams.size]
 
-    val heroPlayer = remember {
-        val httpDataSourceFactory = DefaultHttpDataSource.Factory()
-            .setUserAgent("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124.0.0.0 Mobile Safari/537.36")
-            .setAllowCrossProtocolRedirects(true)
-            .setConnectTimeoutMs(8000)
-            .setReadTimeoutMs(12000)
-
-        ExoPlayer.Builder(context)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(context).setDataSourceFactory(httpDataSourceFactory))
-            .build()
-            .apply {
-                volume = 0f
-                repeatMode = Player.REPEAT_MODE_ONE
-                playWhenReady = true
-            }
-    }
-
-    DisposableEffect(heroPlayer) {
-        val listener = object : Player.Listener {
-            override fun onRenderedFirstFrame() {
-                isVideoRendered = true
-            }
-
-            override fun onPlayerError(error: PlaybackException) {
-                if (currentServerIdx < liveServerStreams.size - 1) {
-                    currentServerIdx++
-                }
-            }
-        }
-        heroPlayer.addListener(listener)
-        onDispose {
-            heroPlayer.removeListener(listener)
-            heroPlayer.release()
-        }
-    }
-
-    LaunchedEffect(activeStreamPair.first, isVideoPreviewEnabled) {
-        if (isVideoPreviewEnabled) {
-            heroPlayer.setMediaItem(MediaItem.fromUri(Uri.parse(activeStreamPair.first)))
-            heroPlayer.prepare()
-            heroPlayer.play()
-        } else {
-            heroPlayer.pause()
-        }
-    }
-
-    LaunchedEffect(isMuted) {
-        heroPlayer.volume = if (isMuted) 0f else 1f
-    }
-
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(440.dp)
-            .clickable(onClick = onDetailsClick)
+            .clickable(
+                onClick = {
+                    isVideoPreviewEnabled = false
+                    onDetailsClick()
+                }
+            )
             .testTag("hero_banner")
     ) {
-        // Fallback / Backdrop Hero Image
+        // High-res Backdrop Hero Image
         AsyncImage(
             model = anime.bannerUrl.ifBlank { anime.posterUrl },
             contentDescription = anime.titleEnglish,
@@ -169,8 +125,65 @@ fun HeroCarousel(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Live 1080p Video Stream Player right on Home Screen
+        // Lazily instantiate ExoPlayer ONLY when the user explicitly enables Live Video Preview
         if (isVideoPreviewEnabled) {
+            val heroPlayer = remember(context) {
+                val httpDataSourceFactory = DefaultHttpDataSource.Factory()
+                    .setUserAgent("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124.0.0.0 Mobile Safari/537.36")
+                    .setAllowCrossProtocolRedirects(true)
+                    .setConnectTimeoutMs(8000)
+                    .setReadTimeoutMs(12000)
+
+                val renderersFactory = DefaultRenderersFactory(context)
+                    .setEnableDecoderFallback(true)
+
+                val trackSelector = DefaultTrackSelector(context).apply {
+                    setParameters(
+                        buildUponParameters()
+                            .setMaxVideoSize(854, 480)
+                            .setMaxVideoBitrate(1_200_000)
+                    )
+                }
+
+                ExoPlayer.Builder(context, renderersFactory)
+                    .setTrackSelector(trackSelector)
+                    .setMediaSourceFactory(DefaultMediaSourceFactory(context).setDataSourceFactory(httpDataSourceFactory))
+                    .build()
+                    .apply {
+                        volume = if (isMuted) 0f else 1f
+                        repeatMode = Player.REPEAT_MODE_ONE
+                        playWhenReady = true
+                    }
+            }
+
+            DisposableEffect(heroPlayer) {
+                val listener = object : Player.Listener {
+                    override fun onPlayerError(error: PlaybackException) {
+                        if (currentServerIdx < liveServerStreams.size - 1) {
+                            currentServerIdx++
+                        } else {
+                            isVideoPreviewEnabled = false
+                        }
+                    }
+                }
+                heroPlayer.addListener(listener)
+                onDispose {
+                    heroPlayer.removeListener(listener)
+                    heroPlayer.stop()
+                    heroPlayer.release()
+                }
+            }
+
+            LaunchedEffect(activeStreamPair.first) {
+                heroPlayer.setMediaItem(MediaItem.fromUri(Uri.parse(activeStreamPair.first)))
+                heroPlayer.prepare()
+                heroPlayer.play()
+            }
+
+            LaunchedEffect(isMuted) {
+                heroPlayer.volume = if (isMuted) 0f else 1f
+            }
+
             AndroidView(
                 factory = { ctx ->
                     PlayerView(ctx).apply {
@@ -220,7 +233,11 @@ fun HeroCarousel(
                 modifier = Modifier
                     .border(1.dp, Color(0xFF00E676).copy(alpha = 0.6f), RoundedCornerShape(20.dp))
                     .clickable {
-                        currentServerIdx = (currentServerIdx + 1) % liveServerStreams.size
+                        if (!isVideoPreviewEnabled) {
+                            isVideoPreviewEnabled = true
+                        } else {
+                            currentServerIdx = (currentServerIdx + 1) % liveServerStreams.size
+                        }
                     }
             ) {
                 Row(
@@ -230,11 +247,18 @@ fun HeroCarousel(
                     Box(
                         modifier = Modifier
                             .size(8.dp)
-                            .background(Color(0xFF00E676), CircleShape)
+                            .background(
+                                if (isVideoPreviewEnabled) Color(0xFF00E676) else CrimsonNeon,
+                                CircleShape
+                            )
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "LIVE • ${activeStreamPair.second}",
+                        text = if (isVideoPreviewEnabled) {
+                            "LIVE • ${activeStreamPair.second}"
+                        } else {
+                            "TAP FOR LIVE PREVIEW • ${activeStreamPair.second}"
+                        },
                         color = Color.White,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold
@@ -246,18 +270,20 @@ fun HeroCarousel(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(
-                    onClick = { isMuted = !isMuted },
-                    modifier = Modifier
-                        .size(34.dp)
-                        .background(SurfaceDark.copy(alpha = 0.8f), CircleShape)
-                ) {
-                    Icon(
-                        imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-                        contentDescription = if (isMuted) "Unmute Live Video" else "Mute Live Video",
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
-                    )
+                if (isVideoPreviewEnabled) {
+                    IconButton(
+                        onClick = { isMuted = !isMuted },
+                        modifier = Modifier
+                            .size(34.dp)
+                            .background(SurfaceDark.copy(alpha = 0.8f), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
+                            contentDescription = if (isMuted) "Unmute Live Video" else "Mute Live Video",
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
 
                 IconButton(
@@ -388,7 +414,10 @@ fun HeroCarousel(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Button(
-                    onClick = onWatchClick,
+                    onClick = {
+                        isVideoPreviewEnabled = false
+                        onWatchClick()
+                    },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = CrimsonNeon,
                         contentColor = Color.White

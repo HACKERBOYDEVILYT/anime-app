@@ -27,21 +27,21 @@ import java.util.Date
 import java.util.Locale
 
 data class RepositoryUpdateState(
-    val installedVersionCode: Int = 1,
-    val installedVersionName: String = "1.0.0",
+    val installedVersionCode: Int = 2,
+    val installedVersionName: String = "1.1.0",
     val latestVersionCode: Int = 2,
     val latestVersionName: String = "1.1.0",
     val latestCommitSha: String = "main-latest",
-    val repositorySlug: String = "kurostream/kurostream",
-    val liveWebsiteUrl: String = "https://kurostream.github.io/kurostream/",
-    val apkDownloadUrl: String = "https://github.com/kurostream/kurostream/releases/latest/download/KuroStream-Release.apk",
-    val changelog: String = "• Unified KuroStream Android App & Live Web Streaming Portal from the same repository\n• Custom Media3 ExoPlayer Progress Bar with live buffer, OP/ED chapters & time telemetry\n• Real-time Crunchyroll Simulcast (1080p HLS), HiAnime HD-1/HD-2 & AnimeThemes servers\n• Automatic Repository Update Checker & In-App Update Prompt",
-    val isUpdateAvailable: Boolean = true,
-    val showUpdateDialog: Boolean = true,
+    val repositorySlug: String = "robiul/robiul-rs",
+    val liveWebsiteUrl: String = "https://robiul.github.io/robiul-rs/",
+    val apkDownloadUrl: String = "https://github.com/robiul/robiul-rs/releases/latest/download/Robiul-Release.apk",
+    val changelog: String = "• Robiul [RS] Hacker Edition Android App & Live Web Streaming Portal from the same repository\n• Custom Media3 ExoPlayer Progress Bar with live buffer, OP/ED chapters & time telemetry\n• Real-time Crunchyroll Simulcast (1080p HLS), HiAnime HD-1/HD-2 & AnimeThemes servers\n• Automatic Repository Update Checker & In-App Update Prompt",
+    val isUpdateAvailable: Boolean = false,
+    val showUpdateDialog: Boolean = false,
     val forceUpdate: Boolean = false,
     val autoCheckOnStartup: Boolean = true,
     val isChecking: Boolean = false,
-    val lastCheckedTime: String = "Just now",
+    val lastCheckedTime: String = "Synced",
     val isLanWebServerRunning: Boolean = false,
     val lanWebServerUrl: String = "http://127.0.0.1:8080"
 )
@@ -75,20 +75,20 @@ class AppUpdateRepository(
     }
 
     private fun loadInitialState(): RepositoryUpdateState {
-        val installedCode = prefs.getInt("installed_version_code", 1)
-        val installedName = prefs.getString("installed_version_name", "1.0.0") ?: "1.0.0"
+        val installedCode = prefs.getInt("installed_version_code", 2)
+        val installedName = prefs.getString("installed_version_name", "1.1.0") ?: "1.1.0"
         val latestCode = prefs.getInt("latest_version_code", 2)
         val latestName = prefs.getString("latest_version_name", "1.1.0") ?: "1.1.0"
-        val repoSlug = prefs.getString("repo_slug", "kurostream/kurostream") ?: "kurostream/kurostream"
+        val repoSlug = prefs.getString("repo_slug", "robiul/robiul-rs") ?: "robiul/robiul-rs"
         val webUrl = prefs.getString("live_web_url", "https://${repoSlug.substringBefore("/")}.github.io/${repoSlug.substringAfter("/")}/")
-            ?: "https://kurostream.github.io/kurostream/"
+            ?: "https://robiul.github.io/robiul-rs/"
         val apkUrl = prefs.getString(
             "apk_download_url",
-            "https://github.com/$repoSlug/releases/latest/download/KuroStream-Release.apk"
-        ) ?: "https://github.com/$repoSlug/releases/latest/download/KuroStream-Release.apk"
+            "https://github.com/$repoSlug/releases/latest/download/Robiul-Release.apk"
+        ) ?: "https://github.com/$repoSlug/releases/latest/download/Robiul-Release.apk"
         val changelog = prefs.getString(
             "latest_changelog",
-            "• Unified KuroStream Android App & Live Web Streaming Portal from the same repository\n• Custom Media3 ExoPlayer Progress Bar with live buffer, OP/ED chapters & time telemetry\n• Real-time Crunchyroll Simulcast (1080p HLS), HiAnime HD-1/HD-2 & AnimeThemes servers\n• Automatic Repository Update Checker & In-App Update Prompt"
+            "• Robiul [RS] Hacker Edition Android App & Live Web Streaming Portal from the same repository\n• Custom Media3 ExoPlayer Progress Bar with live buffer, OP/ED chapters & time telemetry\n• Real-time Crunchyroll Simulcast (1080p HLS), HiAnime HD-1/HD-2 & AnimeThemes servers\n• Automatic Repository Update Checker & In-App Update Prompt"
         ) ?: ""
         val forceUpdate = prefs.getBoolean("force_update", false)
         val autoCheck = prefs.getBoolean("auto_check_startup", true)
