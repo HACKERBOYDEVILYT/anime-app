@@ -33,7 +33,8 @@ class DownloadsRepository(
         val existing = downloadsDao.getDownload(downloadId)
         if (existing?.status == "COMPLETED") return@withContext
 
-        val targetUrl = episode.sources.firstOrNull()?.streamUrl ?: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+        val targetUrl = episode.sources.firstOrNull()?.streamUrl
+            ?: anime.trailerUrl.ifBlank { "https://v.animethemes.moe/SousouNoFrieren-OP1-NCBD1080.webm" }
         val totalSize = 220L * 1024L * 1024L // ~220 MB
 
         val entity = DownloadEntity(

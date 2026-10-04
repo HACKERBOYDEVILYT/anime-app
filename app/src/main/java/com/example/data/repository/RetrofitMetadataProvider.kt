@@ -6,103 +6,130 @@ import com.example.data.model.AnimeCharacter
 import com.example.data.model.AnimeStatus
 import com.example.data.model.AnimeType
 import com.example.data.model.Episode
-import com.example.data.model.EpisodeAudio
 import com.example.data.model.EpisodeSource
-import com.example.data.model.EpisodeSubtitle
 import com.example.data.network.KuroApiService
+import com.example.data.network.RetrofitClient
 import com.example.data.network.model.AnimeDto
 import com.example.data.network.model.EpisodeDto
 import com.example.data.network.model.PlaybackSessionResponse
 import com.example.data.network.model.StreamAuthorizationRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.URLEncoder
 import java.util.UUID
 
+/**
+ * Multi-Server API Metadata & Video Stream Provider.
+ * Integrates:
+ * 1) Admin-injected Scraped Videos & Free Storage Server streams
+ * 2) Jikan v4 Free REST API (MyAnimeList Official Catalog & Trailers)
+ * 3) AniList Free GraphQL API (Trending, Airing & Trailers)
+ * 4) AnimeThemes Free Video Storage Server (Direct .webm/.mp4 Anime Streams)
+ * 5) Custom Configured KuroApiService Endpoints
+ */
 class RetrofitMetadataProvider(
     private val apiService: KuroApiService,
     private val fallbackProvider: LocalLicensedMediaProvider = LocalLicensedMediaProvider()
 ) : MetadataProvider {
 
-    private val tag = "RetrofitMetadata"
+    private val tag = "MultiServerApiProvider"
 
     override suspend fun getTrendingAnime(): List<Anime> = withContext(Dispatchers.IO) {
+        // 1. Try Primary Configured REST API
         try {
             val response = apiService.getTrendingAnime()
             if (response.success && !response.data.isNullOrEmpty()) {
-                response.data.map { it.toDomain() }
-            } else {
-                fallbackProvider.getTrendingAnime()
+                val list = response.data.map { it.toDomain() }
+                fallbackProvider.mergeRemoteAnimeList(list)
+                return@withContext fallbackProvider.getTrendingAnime()
             }
-        } catch (e: Exception) {
-            Log.w(tag, "Remote API unreachable, using local licensed catalog: ${e.message}")
-            fallbackProvider.getTrendingAnime()
+        } catch (_: Exception) {}
+
+        // 2. Try Jikan v4 Free Multi-Server API (Top Airing / Popular)
+        val jikanList = fetchFromJikanApi("https://api.jikan.moe/v4/top/anime?filter=airing&limit=10")
+        if (jikanList.isNotEmpty()) {
+            fallbackProvider.mergeRemoteAnimeList(jikanList)
+        } else {
+            // 3. Fallback to AniList Free GraphQL API
+            val anilist = fetchFromAniListGraphQl()
+            if (anilist.isNotEmpty()) {
+                fallbackProvider.mergeRemoteAnimeList(anilist)
+            }
         }
+
+        fallbackProvider.getTrendingAnime()
     }
 
     override suspend fun getPopularAnime(): List<Anime> = withContext(Dispatchers.IO) {
         try {
             val response = apiService.getPopularAnime()
             if (response.success && !response.data.isNullOrEmpty()) {
-                response.data.map { it.toDomain() }
-            } else {
-                fallbackProvider.getPopularAnime()
+                val list = response.data.map { it.toDomain() }
+                fallbackProvider.mergeRemoteAnimeList(list)
+                return@withContext fallbackProvider.getPopularAnime()
             }
-        } catch (e: Exception) {
-            Log.w(tag, "Remote API unreachable, using local licensed catalog: ${e.message}")
-            fallbackProvider.getPopularAnime()
+        } catch (_: Exception) {}
+
+        val jikanList = fetchFromJikanApi("https://api.jikan.moe/v4/top/anime?filter=bypopularity&limit=12")
+        if (jikanList.isNotEmpty()) {
+            fallbackProvider.mergeRemoteAnimeList(jikanList)
         }
+        fallbackProvider.getPopularAnime()
     }
 
     override suspend fun getTopRatedAnime(): List<Anime> = withContext(Dispatchers.IO) {
         try {
             val response = apiService.getTopRatedAnime()
             if (response.success && !response.data.isNullOrEmpty()) {
-                response.data.map { it.toDomain() }
-            } else {
-                fallbackProvider.getTopRatedAnime()
+                return@withContext response.data.map { it.toDomain() }
             }
-        } catch (e: Exception) {
-            fallbackProvider.getTopRatedAnime()
+        } catch (_: Exception) {}
+
+        val jikanList = fetchFromJikanApi("https://api.jikan.moe/v4/top/anime?limit=12")
+        if (jikanList.isNotEmpty()) {
+            fallbackProvider.mergeRemoteAnimeList(jikanList)
         }
+        fallbackProvider.getTopRatedAnime()
     }
 
     override suspend fun getSeasonalAnime(): List<Anime> = withContext(Dispatchers.IO) {
         try {
             val response = apiService.getSeasonalAnime()
             if (response.success && !response.data.isNullOrEmpty()) {
-                response.data.map { it.toDomain() }
-            } else {
-                fallbackProvider.getSeasonalAnime()
+                return@withContext response.data.map { it.toDomain() }
             }
-        } catch (e: Exception) {
-            fallbackProvider.getSeasonalAnime()
+        } catch (_: Exception) {}
+
+        val jikanSeasonal = fetchFromJikanApi("https://api.jikan.moe/v4/seasons/now?limit=10")
+        if (jikanSeasonal.isNotEmpty()) {
+            fallbackProvider.mergeRemoteAnimeList(jikanSeasonal)
         }
+        fallbackProvider.getSeasonalAnime()
     }
 
     override suspend fun getRecentlyAdded(): List<Anime> = withContext(Dispatchers.IO) {
         try {
             val response = apiService.getRecentlyAdded()
             if (response.success && !response.data.isNullOrEmpty()) {
-                response.data.map { it.toDomain() }
-            } else {
-                fallbackProvider.getRecentlyAdded()
+                return@withContext response.data.map { it.toDomain() }
             }
-        } catch (e: Exception) {
-            fallbackProvider.getRecentlyAdded()
-        }
+        } catch (_: Exception) {}
+        fallbackProvider.getRecentlyAdded()
     }
 
     override suspend fun getAnimeById(id: String): Anime? = withContext(Dispatchers.IO) {
         try {
             val response = apiService.getAnimeById(id)
             if (response.success && response.data != null) {
-                response.data.toDomain()
-            } else {
-                fallbackProvider.getAnimeById(id)
+                return@withContext response.data.toDomain()
             }
-        } catch (e: Exception) {
-            fallbackProvider.getAnimeById(id)
-        }
+        } catch (_: Exception) {}
+        fallbackProvider.getAnimeById(id)
     }
 
     override suspend fun searchAnime(
@@ -113,39 +140,32 @@ class RetrofitMetadataProvider(
         status: String?,
         sortBy: String
     ): List<Anime> = withContext(Dispatchers.IO) {
-        try {
-            val response = apiService.searchAnime(
-                query = query,
-                genre = if (genre == "All") null else genre,
-                year = year,
-                type = if (type == "All") null else type,
-                status = if (status == "All") null else status,
-                sortBy = sortBy
-            )
-            if (response.success && !response.data.isNullOrEmpty()) {
-                response.data.map { it.toDomain() }
-            } else {
-                fallbackProvider.searchAnime(query, genre, year, type, status, sortBy)
+        if (query.isNotBlank()) {
+            val encoded = URLEncoder.encode(query.trim(), "UTF-8")
+            val jikanResults = fetchFromJikanApi("https://api.jikan.moe/v4/anime?q=$encoded&limit=10&sfw=true")
+            if (jikanResults.isNotEmpty()) {
+                fallbackProvider.mergeRemoteAnimeList(jikanResults)
             }
-        } catch (e: Exception) {
-            fallbackProvider.searchAnime(query, genre, year, type, status, sortBy)
         }
+        fallbackProvider.searchAnime(query, genre, year, type, status, sortBy)
     }
 
     override suspend fun getEpisodesForAnime(animeId: String): List<Episode> = withContext(Dispatchers.IO) {
-        try {
-            val response = apiService.getEpisodesForAnime(animeId)
-            if (response.success && !response.data.isNullOrEmpty()) {
-                val fallbackEpisodes = fallbackProvider.getEpisodesForAnime(animeId)
-                response.data.map { dto ->
-                    val fallbackEp = fallbackEpisodes.find { it.episodeNumber == dto.episodeNumber }
-                    dto.toDomain(fallbackEp)
-                }
-            } else {
-                fallbackProvider.getEpisodesForAnime(animeId)
+        val baseEpisodes = fallbackProvider.getEpisodesForAnime(animeId)
+        val anime = fallbackProvider.getAnimeById(animeId)
+
+        // Try fetching additional real direct video streams from AnimeThemes Free Video Storage Server
+        val extraStorageStreams = if (anime != null) {
+            fetchAnimeThemesStorageStreams(anime.titleRomaji.ifBlank { anime.titleEnglish })
+        } else emptyList()
+
+        if (extraStorageStreams.isEmpty()) {
+            baseEpisodes
+        } else {
+            baseEpisodes.map { ep ->
+                val mergedSources = (ep.sources + extraStorageStreams).distinctBy { it.streamUrl }
+                ep.copy(sources = mergedSources)
             }
-        } catch (e: Exception) {
-            fallbackProvider.getEpisodesForAnime(animeId)
         }
     }
 
@@ -153,44 +173,259 @@ class RetrofitMetadataProvider(
         try {
             val response = apiService.getRecommendations(animeId)
             if (response.success && !response.data.isNullOrEmpty()) {
-                response.data.map { it.toDomain() }
-            } else {
-                fallbackProvider.getRecommendations(animeId)
+                return@withContext response.data.map { it.toDomain() }
             }
-        } catch (e: Exception) {
-            fallbackProvider.getRecommendations(animeId)
-        }
+        } catch (_: Exception) {}
+        fallbackProvider.getRecommendations(animeId)
     }
 
     override suspend fun getAllGenres(): List<String> = withContext(Dispatchers.IO) {
-        try {
-            val response = apiService.getAllGenres()
-            if (response.success && !response.data.isNullOrEmpty()) {
-                response.data
-            } else {
-                fallbackProvider.getAllGenres()
-            }
-        } catch (e: Exception) {
-            fallbackProvider.getAllGenres()
-        }
+        fallbackProvider.getAllGenres()
     }
 
     override suspend fun getAllStudios(): List<String> = withContext(Dispatchers.IO) {
-        try {
-            val response = apiService.getAllStudios()
-            if (response.success && !response.data.isNullOrEmpty()) {
-                response.data
-            } else {
-                fallbackProvider.getAllStudios()
+        fallbackProvider.getAllStudios()
+    }
+
+    /**
+     * Fetches real anime metadata and official YouTube trailers from Jikan v4 Free API.
+     */
+    private fun fetchFromJikanApi(url: String): List<Anime> {
+        return try {
+            val request = Request.Builder()
+                .url(url)
+                .header("Accept", "application/json")
+                .get()
+                .build()
+
+            RetrofitClient.okHttpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return emptyList()
+                val body = response.body?.string() ?: return emptyList()
+                val root = JSONObject(body)
+                val dataArray = root.optJSONArray("data") ?: return emptyList()
+                val list = mutableListOf<Anime>()
+
+                for (i in 0 until dataArray.length()) {
+                    val item = dataArray.optJSONObject(i) ?: continue
+                    val malId = item.optInt("mal_id", 0)
+                    if (malId == 0) continue
+
+                    val titleEn = item.optString("title_english").takeIf { it.isNotBlank() && it != "null" }
+                        ?: item.optString("title", "Unknown Anime")
+                    val titleRomaji = item.optString("title", titleEn)
+                    val titleJp = item.optString("title_japanese", "")
+                    val synopsis = item.optString("synopsis", "").takeIf { it != "null" } ?: ""
+
+                    val images = item.optJSONObject("images")?.optJSONObject("jpg")
+                    val posterUrl = images?.optString("large_image_url")?.takeIf { it.isNotBlank() }
+                        ?: images?.optString("image_url") ?: ""
+
+                    val trailerObj = item.optJSONObject("trailer")
+                    val embedUrl = trailerObj?.optString("embed_url")?.takeIf { it.isNotBlank() && it != "null" }
+                    val ytId = trailerObj?.optString("youtube_id")?.takeIf { it.isNotBlank() && it != "null" }
+                    val trailerUrl = embedUrl ?: if (ytId != null) "https://www.youtube.com/embed/$ytId" else ""
+                    val bannerUrl = trailerObj?.optJSONObject("images")?.optString("maximum_image_url")
+                        ?.takeIf { it.isNotBlank() && it != "null" } ?: posterUrl
+
+                    val rawScore = item.optDouble("score", 8.5)
+                    val rating5 = if (rawScore.isNaN()) 4.5f else (rawScore / 2.0).toFloat().coerceIn(1f, 5f)
+                    val score100 = if (rawScore.isNaN()) 85 else (rawScore * 10).toInt().coerceIn(1, 100)
+                    val episodesCount = item.optInt("episodes", 12).let { if (it <= 0) 12 else it }
+                    val year = item.optInt("year", 2024).let { if (it <= 0) 2024 else it }
+
+                    val studiosArr = item.optJSONArray("studios")
+                    val studioName = if (studiosArr != null && studiosArr.length() > 0) {
+                        studiosArr.optJSONObject(0)?.optString("name", "Anime Studio") ?: "Anime Studio"
+                    } else "MAPPA"
+
+                    val genresArr = item.optJSONArray("genres") ?: JSONArray()
+                    val genres = mutableListOf<String>()
+                    for (g in 0 until genresArr.length()) {
+                        genresArr.optJSONObject(g)?.optString("name")?.let { genres.add(it) }
+                    }
+                    if (genres.isEmpty()) genres.add("Action")
+
+                    list.add(
+                        Anime(
+                            id = "mal_$malId",
+                            slug = titleEn.lowercase().replace(Regex("[^a-z0-9]+"), "-"),
+                            titleEnglish = titleEn,
+                            titleRomaji = titleRomaji,
+                            titleJapanese = titleJp,
+                            description = synopsis,
+                            posterUrl = posterUrl,
+                            bannerUrl = bannerUrl,
+                            rating = rating5,
+                            score = score100,
+                            type = AnimeType.TV,
+                            status = if (item.optBoolean("airing", false)) AnimeStatus.RELEASING else AnimeStatus.FINISHED,
+                            episodesCount = episodesCount,
+                            releaseYear = year,
+                            season = item.optString("season", "Winter").replaceFirstChar { it.uppercase() } + " $year",
+                            durationMinutes = 24,
+                            studio = studioName,
+                            genres = genres,
+                            trailerUrl = trailerUrl,
+                            isFeatured = i < 3,
+                            isTrending = true,
+                            isPopular = true,
+                            isSeasonal = item.optBoolean("airing", false)
+                        )
+                    )
+                }
+                list
             }
         } catch (e: Exception) {
-            fallbackProvider.getAllStudios()
+            Log.w(tag, "Jikan API fetch warning: ${e.message}")
+            emptyList()
         }
     }
 
     /**
-     * Authorizes and generates signed HLS streaming URLs via the backend API.
+     * Fetches real trending anime & trailers from AniList Free GraphQL API.
      */
+    private fun fetchFromAniListGraphQl(): List<Anime> {
+        return try {
+            val query = """
+                query {
+                  Page(page: 1, perPage: 8) {
+                    media(type: ANIME, sort: TRENDING_DESC) {
+                      id
+                      title { romaji english native }
+                      description(asHtml: false)
+                      episodes
+                      seasonYear
+                      averageScore
+                      coverImage { extraLarge large }
+                      bannerImage
+                      genres
+                      trailer { id site }
+                    }
+                  }
+                }
+            """.trimIndent()
+            val payload = JSONObject().put("query", query).toString()
+            val request = Request.Builder()
+                .url("https://graphql.anilist.co")
+                .post(payload.toRequestBody("application/json".toMediaType()))
+                .build()
+
+            RetrofitClient.okHttpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return emptyList()
+                val body = response.body?.string() ?: return emptyList()
+                val mediaArr = JSONObject(body)
+                    .optJSONObject("data")
+                    ?.optJSONObject("Page")
+                    ?.optJSONArray("media") ?: return emptyList()
+
+                val list = mutableListOf<Anime>()
+                for (i in 0 until mediaArr.length()) {
+                    val m = mediaArr.optJSONObject(i) ?: continue
+                    val id = m.optInt("id", 0)
+                    val titleObj = m.optJSONObject("title")
+                    val en = titleObj?.optString("english")?.takeIf { it.isNotBlank() && it != "null" }
+                        ?: titleObj?.optString("romaji") ?: "Anime"
+                    val romaji = titleObj?.optString("romaji") ?: en
+                    val native = titleObj?.optString("native") ?: ""
+                    val cover = m.optJSONObject("coverImage")?.optString("extraLarge") ?: ""
+                    val banner = m.optString("bannerImage").takeIf { it.isNotBlank() && it != "null" } ?: cover
+                    val trailerObj = m.optJSONObject("trailer")
+                    val trailerUrl = if (trailerObj != null && trailerObj.optString("site") == "youtube") {
+                        val ytId = trailerObj.optString("id")
+                        if (ytId.isNotBlank()) "https://www.youtube.com/embed/$ytId" else ""
+                    } else ""
+
+                    val avgScore = m.optInt("averageScore", 85)
+                    val yearVal = m.optInt("seasonYear", 2024).let { if (it <= 0) 2024 else it }
+                    val genresArr = m.optJSONArray("genres") ?: JSONArray()
+                    val genresList = mutableListOf<String>()
+                    for (g in 0 until genresArr.length()) {
+                        genresArr.optString(g)?.takeIf { it.isNotBlank() }?.let { genresList.add(it) }
+                    }
+                    if (genresList.isEmpty()) genresList.add("Action")
+
+                    list.add(
+                        Anime(
+                            id = "anilist_$id",
+                            slug = en.lowercase().replace(Regex("[^a-z0-9]+"), "-"),
+                            titleEnglish = en,
+                            titleRomaji = romaji,
+                            titleJapanese = native,
+                            description = m.optString("description", "").replace(Regex("<[^>]*>"), ""),
+                            posterUrl = cover,
+                            bannerUrl = banner,
+                            rating = (avgScore / 20f).coerceIn(1f, 5f),
+                            score = avgScore,
+                            type = AnimeType.TV,
+                            status = AnimeStatus.RELEASING,
+                            episodesCount = m.optInt("episodes", 12).let { if (it <= 0) 12 else it },
+                            releaseYear = yearVal,
+                            season = "Winter $yearVal",
+                            durationMinutes = 24,
+                            studio = "Anime Studio",
+                            genres = genresList,
+                            trailerUrl = trailerUrl,
+                            isTrending = true,
+                            isPopular = true
+                        )
+                    )
+                }
+                list
+            }
+        } catch (e: Exception) {
+            Log.w(tag, "AniList GraphQL fetch warning: ${e.message}")
+            emptyList()
+        }
+    }
+
+    /**
+     * Fetches real direct .webm video streams from AnimeThemes Free Video Storage Server.
+     */
+    private fun fetchAnimeThemesStorageStreams(animeTitle: String): List<EpisodeSource> {
+        return try {
+            val encoded = URLEncoder.encode(animeTitle, "UTF-8")
+            val url = "https://api.animethemes.moe/anime?q=$encoded&include=animethemes.animethemeentries.videos&page[size]=1"
+            val request = Request.Builder().url(url).get().build()
+
+            RetrofitClient.okHttpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return emptyList()
+                val body = response.body?.string() ?: return emptyList()
+                val animeArr = JSONObject(body).optJSONArray("anime") ?: return emptyList()
+                if (animeArr.length() == 0) return emptyList()
+
+                val firstAnime = animeArr.optJSONObject(0) ?: return emptyList()
+                val themes = firstAnime.optJSONArray("animethemes") ?: return emptyList()
+                val sources = mutableListOf<EpisodeSource>()
+
+                for (t in 0 until themes.length().coerceAtMost(3)) {
+                    val theme = themes.optJSONObject(t) ?: continue
+                    val slug = theme.optString("slug", "OP")
+                    val entries = theme.optJSONArray("animethemeentries") ?: continue
+                    for (e in 0 until entries.length()) {
+                        val videos = entries.optJSONObject(e)?.optJSONArray("videos") ?: continue
+                        for (v in 0 until videos.length()) {
+                            val vObj = videos.optJSONObject(v) ?: continue
+                            val link = vObj.optString("link").takeIf { it.isNotBlank() } ?: continue
+                            val res = vObj.optInt("resolution", 1080)
+                            sources.add(
+                                EpisodeSource(
+                                    id = "at_live_${slug}_$v",
+                                    quality = "${res}p AnimeThemes Storage ($slug)",
+                                    streamUrl = link,
+                                    isHls = link.endsWith(".m3u8"),
+                                    cdnNode = "AnimeThemes Free Storage Server"
+                                )
+                            )
+                        }
+                    }
+                }
+                sources
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
     suspend fun authorizeStream(
         episodeId: String,
         animeId: String,
@@ -211,11 +446,8 @@ class RetrofitMetadataProvider(
             if (response.success && response.data != null) {
                 return@withContext response.data
             }
-        } catch (e: Exception) {
-            Log.w(tag, "Authorize stream remote call failed, generating authorized local session: ${e.message}")
-        }
+        } catch (_: Exception) {}
 
-        // Fallback: create an authorized playback session using local HLS streams
         val ep = fallbackProvider.getEpisodesForAnime(animeId).find { it.id == episodeId }
         val sources = ep?.sources ?: emptyList()
         val subs = ep?.subtitles ?: emptyList()
@@ -224,8 +456,8 @@ class RetrofitMetadataProvider(
         PlaybackSessionResponse(
             sessionId = "sess_${UUID.randomUUID()}",
             episodeId = episodeId,
-            expiresAt = System.currentTimeMillis() + (1000 * 60 * 60 * 4), // 4 hours valid
-            masterPlaylistUrl = sources.find { it.quality.contains("1080p") }?.streamUrl ?: sources.firstOrNull()?.streamUrl ?: "",
+            expiresAt = System.currentTimeMillis() + (1000 * 60 * 60 * 4),
+            masterPlaylistUrl = sources.firstOrNull()?.streamUrl ?: "",
             streamQualities = sources.map {
                 com.example.data.network.model.QualityStreamDto(
                     quality = it.quality,
@@ -249,7 +481,7 @@ class RetrofitMetadataProvider(
                     isDefault = it.isDefault
                 )
             },
-            cdnNode = "Cloudflare Global Edge",
+            cdnNode = sources.firstOrNull()?.cdnNode ?: "Multi-Server Storage",
             drmToken = null
         )
     }

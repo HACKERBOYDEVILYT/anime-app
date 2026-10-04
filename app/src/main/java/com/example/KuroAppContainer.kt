@@ -24,7 +24,7 @@ class KuroAppContainer(context: Context) {
     private val database = KuroDatabase.getInstance(context)
 
     val apiService: KuroApiService = RetrofitClient.apiService
-    val localMediaProvider = LocalLicensedMediaProvider()
+    val localMediaProvider = LocalLicensedMediaProvider(database.adminScrapedDao())
     val metadataProvider = RetrofitMetadataProvider(apiService, localMediaProvider)
 
     val animeRepository = AnimeRepository(metadataProvider)
@@ -33,8 +33,8 @@ class KuroAppContainer(context: Context) {
         watchlistDao = database.watchlistDao(),
         socialDao = database.socialDao()
     )
-    val userRepository = UserRepository()
-    val adminRepository = AdminRepository(localMediaProvider)
+    val userRepository = UserRepository(database.adminScrapedDao())
+    val adminRepository = AdminRepository(localMediaProvider, database.adminScrapedDao())
     val downloadsRepository = DownloadsRepository(database.downloadsDao())
     val commentsRepository = CommentsRepository(database.commentsDao())
     val malSyncRepository = MalSyncRepository(database.malSyncDao())

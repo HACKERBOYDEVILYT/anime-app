@@ -1,15 +1,23 @@
 package com.example.ui.screens.admin
 
+import android.annotation.SuppressLint
+import android.view.ViewGroup
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -19,20 +27,24 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.HourglassTop
-import androidx.compose.material.icons.filled.Movie
-import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -40,14 +52,20 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
@@ -55,6 +73,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,10 +83,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.example.data.network.HlsStreamService
+import com.example.data.network.NetworkTrafficSniffer
 import com.example.ui.theme.BackgroundDark
 import com.example.ui.theme.CardBorder
 import com.example.ui.theme.CrimsonNeon
@@ -82,6 +107,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+@OptIn(ExperimentalLayoutApi::class)
+@SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun AdminDashboardScreen(
     viewModel: AdminViewModel,
@@ -96,8 +123,27 @@ fun AdminDashboardScreen(
     val users by viewModel.users.collectAsStateWithLifecycle()
     val auditLogs by viewModel.auditLogs.collectAsStateWithLifecycle()
     val apiConfigs by viewModel.apiConfigs.collectAsStateWithLifecycle()
+    val scrapedVideos by viewModel.scrapedVideos.collectAsStateWithLifecycle()
 
-    val tabs = listOf("Analytics", "Catalog CMS", "Video Pipeline", "Moderation", "Audit Logs", "API Manager")
+    // HTTP Catcher / Stream Sniffer state
+    val isCaptureEnabled by NetworkTrafficSniffer.isCaptureEnabled.collectAsStateWithLifecycle()
+    val mediaOnlyFilter by NetworkTrafficSniffer.mediaOnlyFilter.collectAsStateWithLifecycle()
+    val capturedPackets by NetworkTrafficSniffer.capturedPackets.collectAsStateWithLifecycle()
+    val activePrimaryProvider by HlsStreamService.activePrimaryProvider.collectAsStateWithLifecycle()
+    val autoFailoverEnabled by HlsStreamService.autoFailoverEnabled.collectAsStateWithLifecycle()
+    var showSnifferBrowser by remember { mutableStateOf(false) }
+    var snifferBrowserUrl by remember { mutableStateOf("https://animethemes.moe") }
+    var activeWebViewUrl by remember { mutableStateOf("https://animethemes.moe") }
+
+    val tabs = listOf(
+        "Scrap Video",
+        "HTTP Catcher",
+        "API Status",
+        "Catalog CMS",
+        "Analytics",
+        "Moderation",
+        "Audit Logs"
+    )
 
     Column(
         modifier = modifier
@@ -120,16 +166,20 @@ fun AdminDashboardScreen(
                 Spacer(modifier = Modifier.width(4.dp))
                 Column {
                     Text(text = "Admin Control Suite", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Text(text = "KuroStream Master Console", color = VioletAccent, fontSize = 11.sp)
+                    Text(text = "Multi-Server API • Stream Catcher • Video Scraper", color = CyanGlow, fontSize = 11.sp)
                 }
             }
 
-            Box(
-                modifier = Modifier
-                    .background(VioletAccent.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            Button(
+                onClick = { viewModel.setShowAddScrapedDialog(true) },
+                colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon),
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                modifier = Modifier.testTag("admin_header_add_scrap_btn")
             ) {
-                Text(text = "SuperAdmin", color = VioletAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(15.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("+ Scrap Video", fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -138,12 +188,14 @@ fun AdminDashboardScreen(
             selectedTabIndex = uiState.selectedTab,
             containerColor = BackgroundDark,
             contentColor = CrimsonNeon,
-            edgePadding = 16.dp,
+            edgePadding = 12.dp,
             indicator = { tabPositions ->
-                TabRowDefaults.SecondaryIndicator(
-                    Modifier.tabIndicatorOffset(tabPositions[uiState.selectedTab]),
-                    color = CrimsonNeon
-                )
+                if (uiState.selectedTab < tabPositions.size) {
+                    TabRowDefaults.SecondaryIndicator(
+                        Modifier.tabIndicatorOffset(tabPositions[uiState.selectedTab]),
+                        color = CrimsonNeon
+                    )
+                }
             }
         ) {
             tabs.forEachIndexed { index, title ->
@@ -168,68 +220,169 @@ fun AdminDashboardScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Tab 0: Analytics Overview
+            // =========================================================================
+            // TAB 0: SCRAP VIDEO & REAL STREAM INJECTOR
+            // =========================================================================
             if (uiState.selectedTab == 0) {
-                // Key KPI Metrics Grid
                 item {
-                    Text(text = "Platform Telemetry", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    Card(
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, CrimsonNeon.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
                     ) {
-                        KpiCard("Active Users", "${stats.activeUsers}", "/ ${stats.totalUsers}", CyanGlow, Modifier.weight(1f))
-                        KpiCard("Watch Time", "${stats.totalWatchTimeHours}h", "Total Streamed", StarAmber, Modifier.weight(1f))
-                    }
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        KpiCard("Catalog Size", "${stats.totalAnime} Anime", "${stats.totalEpisodes} Episodes", CrimsonNeon, Modifier.weight(1f))
-                        KpiCard("Stream Sessions", "${stats.totalWatchSessions}", "HLS Manifest hits", VioletAccent, Modifier.weight(1f))
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Scraped Video & Trailer Injector",
+                                        color = TextPrimary,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "Add real .m3u8, .mp4, .webm, Free Storage or Official Trailer links to any anime episode",
+                                        color = TextSecondary,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Button(
+                                    onClick = { viewModel.setShowAddScrapedDialog(true) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.testTag("open_add_scraped_video_dialog_btn")
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Add Stream", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
                     }
                 }
 
-                // Daily Views Bar Visualizer
+                // Auto Web Page Video Link Scanner
                 item {
-                    Spacer(modifier = Modifier.height(6.dp))
                     Card(
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(containerColor = SurfaceDark),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(text = "Weekly Stream Views (Mon - Sun)", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                            Spacer(modifier = Modifier.height(16.dp))
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Search, contentDescription = null, tint = CyanGlow, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Auto Web Page Video Link Scanner",
+                                    color = TextPrimary,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Text(
+                                text = "Paste any anime webpage, API response URL, or YouTube link to automatically extract playable .m3u8, .mp4, .webm or embed streams.",
+                                color = TextMuted,
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(top = 4.dp, bottom = 10.dp)
+                            )
+
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(140.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.Bottom
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                val maxViews = stats.dailyViews.maxOfOrNull { it.views } ?: 30000
-                                stats.dailyViews.forEach { stat ->
-                                    val heightFraction = (stat.views.toFloat() / maxViews.toFloat()).coerceIn(0.1f, 1f)
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.Bottom,
-                                        modifier = Modifier.fillMaxHeight()
-                                    ) {
-                                        Text(text = "${stat.views / 1000}k", color = TextMuted, fontSize = 9.sp)
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Box(
+                                OutlinedTextField(
+                                    value = uiState.webPageScrapeUrl,
+                                    onValueChange = { viewModel.updateWebPageScrapeUrl(it) },
+                                    placeholder = { Text("https://api.animethemes.moe/anime?include=...", fontSize = 11.sp) },
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = CyanGlow,
+                                        focusedTextColor = TextPrimary,
+                                        unfocusedTextColor = TextPrimary
+                                    ),
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Button(
+                                    onClick = { viewModel.extractVideoLinksFromWeb() },
+                                    enabled = !uiState.isExtractingLinks && uiState.webPageScrapeUrl.isNotBlank(),
+                                    colors = ButtonDefaults.buttonColors(containerColor = VioletAccent),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    if (uiState.isExtractingLinks) {
+                                        CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+                                    } else {
+                                        Text("Extract", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+
+                            // Quick sample scan presets
+                            FlowRow(
+                                modifier = Modifier.padding(top = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                FilterChip(
+                                    selected = false,
+                                    onClick = {
+                                        viewModel.updateWebPageScrapeUrl("https://api.animethemes.moe/anime?include=animethemes.animethemeentries.videos&page[size]=3")
+                                        viewModel.extractVideoLinksFromWeb()
+                                    },
+                                    label = { Text("Scan AnimeThemes Storage API", fontSize = 10.sp) },
+                                    colors = FilterChipDefaults.filterChipColors(containerColor = SurfaceVariantDark, labelColor = CyanGlow)
+                                )
+                                FilterChip(
+                                    selected = false,
+                                    onClick = {
+                                        viewModel.selectTab(1) // Switch to HTTP Catcher tab
+                                    },
+                                    label = { Text("Open Live HTTP Stream Catcher →", fontSize = 10.sp) },
+                                    colors = FilterChipDefaults.filterChipColors(containerColor = SurfaceVariantDark, labelColor = CrimsonNeon)
+                                )
+                            }
+
+                            uiState.extractionMessage?.let { msg ->
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(text = msg, color = CyanGlow, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            }
+
+                            if (uiState.extractedVideoLinks.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    uiState.extractedVideoLinks.forEach { link ->
+                                        Row(
                                             modifier = Modifier
-                                                .width(24.dp)
-                                                .height((100 * heightFraction).dp)
-                                                .background(
-                                                    if (stat.day == "Sat" || stat.day == "Sun") CrimsonNeon else VioletAccent,
-                                                    RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)
-                                                )
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(text = stat.day, color = TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                .fillMaxWidth()
+                                                .background(SurfaceVariantDark, RoundedCornerShape(8.dp))
+                                                .padding(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                text = link,
+                                                color = TextPrimary,
+                                                fontSize = 11.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Button(
+                                                onClick = { viewModel.useExtractedVideoLink(link) },
+                                                colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon),
+                                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                                modifier = Modifier.height(30.dp)
+                                            ) {
+                                                Text("Use Stream", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -237,50 +390,649 @@ fun AdminDashboardScreen(
                     }
                 }
 
-                // Device Distribution
-                item {
-                    Card(
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(text = "Client Device Distribution", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                            Spacer(modifier = Modifier.height(10.dp))
-                            stats.deviceStats.forEach { (device, percent) ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 4.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(text = device, color = TextSecondary, fontSize = 12.sp)
-                                    Text(text = "$percent%", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                }
-                                LinearProgressIndicator(
-                                    progress = { percent / 100f },
-                                    color = CrimsonNeon,
-                                    trackColor = SurfaceVariantDark,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(4.dp)
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Tab 1: Catalog CMS
-            if (uiState.selectedTab == 1) {
+                // Active Scraped Video Streams List Header
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(text = "Anime Catalog (${uiState.animeList.size})", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "Active Scraped Streams & Trailers (${scrapedVideos.size})",
+                            color = TextPrimary,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                items(scrapedVideos, key = { it.id }) { item ->
+                    Card(
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "${item.animeTitle} • Ep ${item.episodeNumber}",
+                                        color = TextPrimary,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = item.episodeTitle,
+                                        color = TextSecondary,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .background(
+                                            if (item.status.contains("Online", true) || item.status.contains("Ready", true))
+                                                Color(0xFF00E676).copy(alpha = 0.18f)
+                                            else StarAmber.copy(alpha = 0.18f),
+                                            RoundedCornerShape(6.dp)
+                                        )
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        text = item.status,
+                                        color = if (item.status.contains("Online", true) || item.status.contains("Ready", true))
+                                            Color(0xFF00E676)
+                                        else StarAmber,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = item.streamUrl,
+                                color = CyanGlow,
+                                fontSize = 11.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .background(VioletAccent.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(text = item.qualityLabel, color = VioletAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .background(CrimsonNeon.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(text = item.serverSource, color = CrimsonNeon, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    TextButton(onClick = { viewModel.testScrapedVideo(item.id) }) {
+                                        Icon(Icons.Default.NetworkCheck, contentDescription = null, tint = CyanGlow, modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Check Stream", color = CyanGlow, fontSize = 11.sp)
+                                    }
+                                    IconButton(onClick = { viewModel.deleteScrapedVideo(item.id) }) {
+                                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red.copy(alpha = 0.8f), modifier = Modifier.size(18.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // =========================================================================
+            // TAB 1: STREAM / HTTP CATCHER (NETWORK TRAFFIC & MEDIA STREAM ANALYZER)
+            // =========================================================================
+            if (uiState.selectedTab == 1) {
+                item {
+                    Card(
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, CyanGlow.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                    Icon(Icons.Default.Radar, contentDescription = null, tint = CyanGlow, modifier = Modifier.size(22.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Column {
+                                        Text(
+                                            text = "Stream / HTTP Catcher Proxy",
+                                            color = TextPrimary,
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = "Real-time network traffic & media stream (.m3u8 / .mp4 / .webm) sniffer",
+                                            color = TextSecondary,
+                                            fontSize = 11.sp
+                                        )
+                                    }
+                                }
+                                Switch(
+                                    checked = isCaptureEnabled,
+                                    onCheckedChange = { NetworkTrafficSniffer.setCaptureEnabled(it) },
+                                    colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = Color(0xFF00E676))
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    FilterChip(
+                                        selected = !mediaOnlyFilter,
+                                        onClick = { NetworkTrafficSniffer.setMediaOnlyFilter(false) },
+                                        label = { Text("All Traffic (${capturedPackets.size})", fontSize = 11.sp) }
+                                    )
+                                    FilterChip(
+                                        selected = mediaOnlyFilter,
+                                        onClick = { NetworkTrafficSniffer.setMediaOnlyFilter(true) },
+                                        label = {
+                                            val mediaCount = capturedPackets.count { it.isMediaStream }
+                                            Text("Media Streams ($mediaCount)", fontSize = 11.sp)
+                                        }
+                                    )
+                                }
+                                TextButton(onClick = { NetworkTrafficSniffer.clearCapturedPackets() }) {
+                                    Text("Clear", color = CrimsonNeon, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                OutlinedButton(
+                                    onClick = { showSnifferBrowser = !showSnifferBrowser },
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Icon(Icons.Default.Language, contentDescription = null, tint = CyanGlow, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = if (showSnifferBrowser) "Hide Sniffer Browser" else "Open Web Stream Sniffer Browser",
+                                        color = CyanGlow,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                Button(
+                                    onClick = { viewModel.checkAllApisStatus() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = VioletAccent),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text("Generate API Traffic", fontSize = 11.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Built-in WebView Stream Sniffer Browser (intercepts every video/network request like HTTP Catcher)
+                if (showSnifferBrowser) {
+                    item {
+                        Card(
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    text = "In-App Web Stream Sniffer (Loads site & catches all Media Streams below)",
+                                    color = CyanGlow,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    OutlinedTextField(
+                                        value = snifferBrowserUrl,
+                                        onValueChange = { snifferBrowserUrl = it },
+                                        placeholder = { Text("https://...", fontSize = 11.sp) },
+                                        singleLine = true,
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = CyanGlow,
+                                            focusedTextColor = TextPrimary,
+                                            unfocusedTextColor = TextPrimary
+                                        ),
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Button(
+                                        onClick = {
+                                            activeWebViewUrl = if (snifferBrowserUrl.startsWith("http")) snifferBrowserUrl else "https://$snifferBrowserUrl"
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon)
+                                    ) {
+                                        Text("Go", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(240.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .border(1.dp, CardBorder, RoundedCornerShape(8.dp))
+                                ) {
+                                    AndroidView(
+                                        factory = { ctx ->
+                                            WebView(ctx).apply {
+                                                layoutParams = ViewGroup.LayoutParams(
+                                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                                    ViewGroup.LayoutParams.MATCH_PARENT
+                                                )
+                                                settings.javaScriptEnabled = true
+                                                settings.domStorageEnabled = true
+                                                settings.mediaPlaybackRequiresUserGesture = false
+                                                webViewClient = object : WebViewClient() {
+                                                    override fun shouldInterceptRequest(
+                                                        view: WebView?,
+                                                        request: WebResourceRequest?
+                                                    ): WebResourceResponse? {
+                                                        val reqUrl = request?.url?.toString()
+                                                        if (!reqUrl.isNullOrBlank()) {
+                                                            val accept = request.requestHeaders["Accept"] ?: ""
+                                                            NetworkTrafficSniffer.recordPacket(
+                                                                method = request.method ?: "GET",
+                                                                url = reqUrl,
+                                                                statusCode = 200,
+                                                                contentType = accept,
+                                                                latencyMs = 18L,
+                                                                sourceTag = "WebView Stream Sniffer"
+                                                            )
+                                                        }
+                                                        return super.shouldInterceptRequest(view, request)
+                                                    }
+                                                }
+                                                loadUrl(activeWebViewUrl)
+                                            }
+                                        },
+                                        update = { webView ->
+                                            if (webView.url != activeWebViewUrl) {
+                                                webView.loadUrl(activeWebViewUrl)
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                val filteredPackets = if (mediaOnlyFilter) {
+                    capturedPackets.filter { it.isMediaStream }
+                } else {
+                    capturedPackets
+                }
+
+                if (filteredPackets.isEmpty()) {
+                    item {
+                        Card(
+                            shape = RoundedCornerShape(10.dp),
+                            colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "No network packets captured yet.",
+                                    color = TextPrimary,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "Tap 'Generate API Traffic' or open the Web Stream Sniffer Browser above to inspect live requests and catch media streams.",
+                                    color = TextMuted,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                items(filteredPackets, key = { it.id }) { pkt ->
+                    Card(
+                        shape = RoundedCornerShape(10.dp),
+                        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(
+                                width = 1.dp,
+                                color = if (pkt.isMediaStream) CrimsonNeon.copy(alpha = 0.5f) else Color.Transparent,
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .background(
+                                                if (pkt.statusCode in 200..299) Color(0xFF00E676).copy(alpha = 0.2f) else CrimsonNeon.copy(alpha = 0.2f),
+                                                RoundedCornerShape(4.dp)
+                                            )
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = "${pkt.method} ${pkt.statusCode}",
+                                            color = if (pkt.statusCode in 200..299) Color(0xFF00E676) else CrimsonNeon,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                    Text(text = pkt.host, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    if (pkt.isMediaStream) {
+                                        Box(
+                                            modifier = Modifier
+                                                .background(CrimsonNeon, RoundedCornerShape(4.dp))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(text = "MEDIA STREAM", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                                        }
+                                    }
+                                }
+                                Text(text = "${pkt.latencyMs}ms • ${pkt.timestamp}", color = TextMuted, fontSize = 10.sp)
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = pkt.url,
+                                color = if (pkt.isMediaStream) CyanGlow else TextSecondary,
+                                fontSize = 11.sp,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "${pkt.sourceTag} • ${pkt.contentType}",
+                                    color = TextMuted,
+                                    fontSize = 10.sp
+                                )
+                                Button(
+                                    onClick = { viewModel.useExtractedVideoLink(pkt.url) },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (pkt.isMediaStream) CrimsonNeon else VioletAccent
+                                    ),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                    modifier = Modifier.height(28.dp)
+                                ) {
+                                    Text("Inject to Anime", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // =========================================================================
+            // TAB 2: MULTI-SERVER API STATUS & FREE STORAGE SERVERS
+            // =========================================================================
+            if (uiState.selectedTab == 2) {
+                item {
+                    val onlineCount = apiConfigs.count { it.status.contains("Online", true) || it.status.contains("Ready", true) }
+                    val avgLatency = apiConfigs.filter { it.latencyMs > 0 }.map { it.latencyMs }.average().let {
+                        if (it.isNaN()) 0L else it.toLong()
+                    }
+
+                    Card(
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, VioletAccent.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Multi-Server API & Free Storage Status",
+                                        color = TextPrimary,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "$onlineCount / ${apiConfigs.size} Servers Online • Avg Ping: ${avgLatency}ms",
+                                        color = Color(0xFF00E676),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.padding(top = 2.dp)
+                                    )
+                                }
+
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(
+                                        onClick = { viewModel.checkAllApisStatus() },
+                                        colors = ButtonDefaults.buttonColors(containerColor = CyanGlow),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                        modifier = Modifier.testTag("check_all_apis_status_btn")
+                                    ) {
+                                        Icon(Icons.Default.Refresh, contentDescription = null, tint = Color.Black, modifier = Modifier.size(15.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Check All", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    Button(
+                                        onClick = { viewModel.setShowAddApiDialog(true) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = VioletAccent),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(15.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Add API", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(SurfaceVariantDark, RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Primary Endpoint: ${activePrimaryProvider.name}",
+                                        color = CyanGlow,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = "Dynamic Auto-Failover & HLS Stream Routing",
+                                        color = TextMuted,
+                                        fontSize = 10.sp
+                                    )
+                                }
+                                Switch(
+                                    checked = autoFailoverEnabled,
+                                    onCheckedChange = { HlsStreamService.setAutoFailover(it) },
+                                    colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = VioletAccent)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                items(apiConfigs, key = { it.id }) { api ->
+                    val isOnline = api.status.contains("Online", true) || api.status.contains("Ready", true)
+                    val isChecking = api.status.contains("Checking", true)
+
+                    Card(
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = api.name,
+                                        color = TextPrimary,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = api.baseUrl,
+                                        color = CyanGlow,
+                                        fontSize = 11.sp
+                                    )
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .background(
+                                            when {
+                                                isChecking -> StarAmber.copy(alpha = 0.2f)
+                                                isOnline -> Color(0xFF00E676).copy(alpha = 0.2f)
+                                                else -> CrimsonNeon.copy(alpha = 0.2f)
+                                            },
+                                            RoundedCornerShape(6.dp)
+                                        )
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        text = api.status,
+                                        color = when {
+                                            isChecking -> StarAmber
+                                            isOnline -> Color(0xFF00E676)
+                                            else -> CrimsonNeon
+                                        },
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "${api.category} • Ping: ${api.latencyMs}ms • ${api.lastTested}",
+                                    color = TextMuted,
+                                    fontSize = 11.sp
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                TextButton(onClick = { viewModel.testApi(api.id) }) {
+                                    Icon(Icons.Default.NetworkCheck, contentDescription = null, tint = CyanGlow, modifier = Modifier.size(15.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Check Status", color = CyanGlow, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Button(
+                                    onClick = { viewModel.activateApi(api.id) },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (api.isActive) Color(0xFF00E676).copy(alpha = 0.2f) else SurfaceVariantDark
+                                    ),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                    modifier = Modifier.height(30.dp)
+                                ) {
+                                    Text(
+                                        text = if (api.isActive) "Active in Multi-API" else "Enable Server",
+                                        color = if (api.isActive) Color(0xFF00E676) else TextSecondary,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                IconButton(onClick = { viewModel.deleteApi(api.id) }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Remove API", tint = Color.Red.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // =========================================================================
+            // TAB 3: CATALOG CMS
+            // =========================================================================
+            if (uiState.selectedTab == 3) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(text = "Anime Series Catalog CMS", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Text(text = "Add series or inject scraped video streams directly", color = TextMuted, fontSize = 11.sp)
+                        }
                         Button(
                             onClick = { viewModel.setShowAddAnimeDialog(true) },
                             colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon),
@@ -316,8 +1068,21 @@ fun AdminDashboardScreen(
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(text = anime.titleEnglish, color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                Text(text = "${anime.studio} • ${anime.episodesCount} Episodes • ${anime.type.name}", color = TextMuted, fontSize = 11.sp)
-                                Text(text = "Rating: ${anime.rating} ★ (${anime.score}%)", color = StarAmber, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                Text(text = "${anime.studio} • ${anime.episodesCount} Episodes", color = TextMuted, fontSize = 11.sp)
+                                Text(
+                                    text = if (anime.trailerUrl.isNotBlank()) "Official Trailer Linked ✓" else "No Trailer",
+                                    color = Color(0xFF00E676),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Button(
+                                onClick = { viewModel.openScrapedDialogForAnime(anime) },
+                                colors = ButtonDefaults.buttonColors(containerColor = VioletAccent),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Text("+ Scrap Video", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                             }
                             IconButton(onClick = { viewModel.deleteAnime(anime) }) {
                                 Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red.copy(alpha = 0.8f))
@@ -327,83 +1092,82 @@ fun AdminDashboardScreen(
                 }
             }
 
-            // Tab 2: Video Transcoding Pipeline
-            if (uiState.selectedTab == 2) {
+            // =========================================================================
+            // TAB 4: ANALYTICS OVERVIEW
+            // =========================================================================
+            if (uiState.selectedTab == 4) {
                 item {
-                    Text(text = "HLS Transcoding Pipeline", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    Text(text = "FFmpeg Master → 1080p, 720p, 480p Multi-bitrate HLS", color = TextMuted, fontSize = 11.sp)
-                }
-
-                items(videoJobs, key = { it.id }) { job ->
-                    Card(
-                        shape = RoundedCornerShape(10.dp),
-                        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-                        modifier = Modifier.fillMaxWidth()
+                    Text(text = "Real-Time Multi-Server Telemetry", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(text = "${job.animeTitle} - Episode ${job.episodeNumber}", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                Box(
-                                    modifier = Modifier
-                                        .background(
-                                            when (job.status) {
-                                                "Completed" -> Color(0xFF00E676).copy(alpha = 0.2f)
-                                                "Processing" -> CrimsonNeon.copy(alpha = 0.2f)
-                                                else -> Color.Gray.copy(alpha = 0.2f)
-                                            },
-                                            RoundedCornerShape(4.dp)
-                                        )
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        text = job.status,
-                                        color = when (job.status) {
-                                            "Completed" -> Color(0xFF00E676)
-                                            "Processing" -> CrimsonNeon
-                                            else -> TextSecondary
-                                        },
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(text = "Source: ${job.sourceResolution} | Target: master.m3u8", color = TextMuted, fontSize = 11.sp)
-
-                            Spacer(modifier = Modifier.height(8.dp))
-                            LinearProgressIndicator(
-                                progress = { job.progressPercent / 100f },
-                                color = if (job.status == "Completed") Color(0xFF00E676) else CrimsonNeon,
-                                trackColor = SurfaceVariantDark,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(4.dp)
-                            )
-
-                            if (job.status != "Completed") {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-                                    TextButton(onClick = { viewModel.triggerTranscode(job.animeTitle, job.episodeNumber) }) {
-                                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Restart Transcode", fontSize = 11.sp, color = CrimsonNeon)
-                                    }
-                                }
-                            }
-                        }
+                        KpiCard(
+                            title = "REGISTERED USERS",
+                            value = "${stats.totalUsers}",
+                            subtitle = "Real SQLite Accounts",
+                            accentColor = CyanGlow,
+                            modifier = Modifier.weight(1f)
+                        )
+                        KpiCard(
+                            title = "SCRAPED STREAMS",
+                            value = "${scrapedVideos.size}",
+                            subtitle = "Real Video & Trailers",
+                            accentColor = CrimsonNeon,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        KpiCard(
+                            title = "MULTI-API SERVERS",
+                            value = "${apiConfigs.size}",
+                            subtitle = "Free API & Storage",
+                            accentColor = VioletAccent,
+                            modifier = Modifier.weight(1f)
+                        )
+                        KpiCard(
+                            title = "CATALOG SERIES",
+                            value = "${uiState.animeList.size}",
+                            subtitle = "Live Synced Titles",
+                            accentColor = StarAmber,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
             }
 
-            // Tab 3: Moderation
-            if (uiState.selectedTab == 3) {
+            // =========================================================================
+            // TAB 5: REAL USER MODERATION (NO FAKE DEMO USERS)
+            // =========================================================================
+            if (uiState.selectedTab == 5) {
                 item {
-                    Text(text = "User Moderation & Access Control", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(text = "Registered User Accounts (${users.size})", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(text = "Only real accounts registered on this device are shown (Zero fake demo accounts)", color = TextSecondary, fontSize = 11.sp)
+                }
+
+                if (users.isEmpty()) {
+                    item {
+                        Card(
+                            shape = RoundedCornerShape(10.dp),
+                            colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(20.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text("No registered user accounts yet.", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Text("Create a real account from the Profile tab to see it listed here.", color = TextMuted, fontSize = 11.sp)
+                            }
+                        }
+                    }
                 }
 
                 items(users, key = { it.id }) { user ->
@@ -422,13 +1186,12 @@ fun AdminDashboardScreen(
                                 Text(text = user.username, color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                 Text(text = "${user.email} • Role: ${user.role.name}", color = TextMuted, fontSize = 11.sp)
                                 Text(
-                                    text = "Status: ${user.status} • Reports: ${user.reportsCount}",
+                                    text = "Status: ${user.status}",
                                     color = if (user.status == "Banned") Color.Red else Color(0xFF00E676),
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
-
                             Row {
                                 if (user.status == "Banned") {
                                     Button(
@@ -439,9 +1202,6 @@ fun AdminDashboardScreen(
                                         Text("Unban", fontSize = 11.sp)
                                     }
                                 } else {
-                                    IconButton(onClick = { viewModel.moderateUser(user.id, "Warned") }) {
-                                        Icon(Icons.Default.Warning, contentDescription = "Warn", tint = StarAmber)
-                                    }
                                     IconButton(onClick = { viewModel.moderateUser(user.id, "Banned") }) {
                                         Icon(Icons.Default.Block, contentDescription = "Ban", tint = Color.Red)
                                     }
@@ -452,8 +1212,10 @@ fun AdminDashboardScreen(
                 }
             }
 
-            // Tab 4: Audit Logs
-            if (uiState.selectedTab == 4) {
+            // =========================================================================
+            // TAB 6: AUDIT LOGS
+            // =========================================================================
+            if (uiState.selectedTab == 6) {
                 item {
                     Text(text = "Administrative Audit Trail", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
@@ -474,10 +1236,9 @@ fun AdminDashboardScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(text = log.action, color = CrimsonNeon, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 Text(text = "Target: ${log.target}", color = TextPrimary, fontSize = 12.sp)
-                                Text(text = "By: ${log.adminName}", color = TextMuted, fontSize = 10.sp)
                             }
                             Text(
-                                text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(log.timestamp)),
+                                text = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(log.timestamp)),
                                 color = TextMuted,
                                 fontSize = 11.sp
                             )
@@ -485,283 +1246,235 @@ fun AdminDashboardScreen(
                     }
                 }
             }
-
-            // Tab 5: Dynamic API Endpoint Manager
-            if (uiState.selectedTab == 5) {
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(text = "Dynamic API Endpoints", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                            Text(text = "Add, test and switch network services in real time", color = TextSecondary, fontSize = 11.sp)
-                        }
-                        Button(
-                            onClick = { viewModel.setShowAddApiDialog(true) },
-                            colors = ButtonDefaults.buttonColors(containerColor = VioletAccent),
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Add API", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-
-                // Active Live Route Banner
-                item {
-                    val activeApi = apiConfigs.firstOrNull { it.isActive }
-                    Card(
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(10.dp)
-                                            .background(Color(0xFF00E676), CircleShape)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "ACTIVE LIVE ROUTE",
-                                        color = Color(0xFF00E676),
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                                Text(
-                                    text = "${activeApi?.latencyMs ?: 35}ms latency",
-                                    color = TextMuted,
-                                    fontSize = 11.sp
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = activeApi?.name ?: "KuroStream Master Cluster",
-                                color = TextPrimary,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = activeApi?.baseUrl ?: "https://api.kurostream.app/",
-                                color = CyanGlow,
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-                }
-
-                // List of all configured API endpoints
-                items(apiConfigs, key = { it.id }) { api ->
-                    Card(
-                        shape = RoundedCornerShape(10.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (api.isActive) SurfaceVariantDark else SurfaceDark
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = api.name,
-                                            color = TextPrimary,
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        if (api.isActive) {
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Box(
-                                                modifier = Modifier
-                                                    .background(Color(0xFF00E676).copy(alpha = 0.2f), RoundedCornerShape(4.dp))
-                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                                            ) {
-                                                Text(text = "CURRENT ACTIVE", color = Color(0xFF00E676), fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                                            }
-                                        }
-                                    }
-                                    Text(
-                                        text = api.baseUrl,
-                                        color = TextSecondary,
-                                        fontSize = 11.sp
-                                    )
-                                }
-
-                                Box(
-                                    modifier = Modifier
-                                        .background(VioletAccent.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                ) {
-                                    Text(text = api.category, color = VioletAccent, fontSize = 10.sp)
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(8.dp)
-                                            .background(
-                                                if (api.status == "Online") Color(0xFF00E676) else StarAmber,
-                                                CircleShape
-                                            )
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "${api.status} • ${api.latencyMs}ms",
-                                        color = TextMuted,
-                                        fontSize = 11.sp
-                                    )
-                                }
-
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Button(
-                                        onClick = { viewModel.testApi(api.id) },
-                                        colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark),
-                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                        shape = RoundedCornerShape(6.dp)
-                                    ) {
-                                        Icon(Icons.Default.Refresh, contentDescription = "Ping", modifier = Modifier.size(12.dp), tint = TextSecondary)
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Test Ping", fontSize = 10.sp, color = TextSecondary)
-                                    }
-
-                                    if (!api.isActive) {
-                                        Button(
-                                            onClick = { viewModel.activateApi(api.id) },
-                                            colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon),
-                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                                            shape = RoundedCornerShape(6.dp)
-                                        ) {
-                                            Text("Set Active", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                        }
-                                    }
-
-                                    if (api.id.startsWith("api_") && !api.id.startsWith("api_main") && !api.id.startsWith("api_cdn")) {
-                                        IconButton(
-                                            onClick = { viewModel.deleteApi(api.id) },
-                                            modifier = Modifier.size(28.dp)
-                                        ) {
-                                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red, modifier = Modifier.size(14.dp))
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
         }
 
-        // Add Custom API Modal Dialog
+        // =========================================================================
+        // DIALOG 1: ADD SCRAPED VIDEO / STREAM / TRAILER
+        // =========================================================================
+        if (uiState.showAddScrapedDialog) {
+            var showAnimeDropdown by remember { mutableStateOf(false) }
+
+            AlertDialog(
+                onDismissRequest = { viewModel.setShowAddScrapedDialog(false) },
+                containerColor = SurfaceDark,
+                title = {
+                    Text(
+                        text = "Add Scraped Video / Stream",
+                        color = TextPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 17.sp
+                    )
+                },
+                text = {
+                    Column(
+                        modifier = Modifier.verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Select Anime & Episode, then paste your scraped .m3u8, .mp4, .webm, Free Storage link, or Official Trailer.",
+                            color = TextSecondary,
+                            fontSize = 11.sp
+                        )
+
+                        // Anime Dropdown Selector
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            OutlinedButton(
+                                onClick = { showAnimeDropdown = true },
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = "Anime: ${uiState.scrapeAnimeTitle}",
+                                    color = CyanGlow,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = showAnimeDropdown,
+                                onDismissRequest = { showAnimeDropdown = false },
+                                modifier = Modifier.background(SurfaceDark)
+                            ) {
+                                uiState.animeList.forEach { anime ->
+                                    DropdownMenuItem(
+                                        text = { Text(anime.titleEnglish, color = TextPrimary, fontSize = 12.sp) },
+                                        onClick = {
+                                            viewModel.selectScrapedAnime(anime)
+                                            showAnimeDropdown = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        // Quick Stream Presets
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            FilterChip(
+                                selected = false,
+                                onClick = {
+                                    viewModel.updateScrapedVideoField(
+                                        streamUrl = "https://v.animethemes.moe/SousouNoFrieren-OP1-NCBD1080.webm",
+                                        qualityLabel = "1080p BD WebM",
+                                        serverSource = "AnimeThemes Free Storage"
+                                    )
+                                },
+                                label = { Text("AnimeThemes 1080p", fontSize = 10.sp) }
+                            )
+                            FilterChip(
+                                selected = false,
+                                onClick = {
+                                    viewModel.updateScrapedVideoField(
+                                        streamUrl = "https://www.youtube.com/embed/Iwr1aLEDpe4",
+                                        qualityLabel = "Official Trailer HD",
+                                        serverSource = "YouTube Official"
+                                    )
+                                },
+                                label = { Text("Official Trailer", fontSize = 10.sp) }
+                            )
+                            FilterChip(
+                                selected = false,
+                                onClick = {
+                                    viewModel.updateScrapedVideoField(
+                                        qualityLabel = "1080p HLS Master",
+                                        serverSource = "HiAnime Scraper"
+                                    )
+                                },
+                                label = { Text("HiAnime HLS", fontSize = 10.sp) }
+                            )
+                        }
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = uiState.scrapeEpisodeNumber,
+                                onValueChange = { viewModel.updateScrapedVideoField(episodeNumber = it) },
+                                placeholder = { Text("Ep # (e.g. 1)") },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CrimsonNeon, focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary),
+                                modifier = Modifier.weight(0.35f)
+                            )
+                            OutlinedTextField(
+                                value = uiState.scrapeEpisodeTitle,
+                                onValueChange = { viewModel.updateScrapedVideoField(episodeTitle = it) },
+                                placeholder = { Text("Episode Title") },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CrimsonNeon, focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary),
+                                modifier = Modifier.weight(0.65f)
+                            )
+                        }
+
+                        OutlinedTextField(
+                            value = uiState.scrapeStreamUrl,
+                            onValueChange = { viewModel.updateScrapedVideoField(streamUrl = it) },
+                            placeholder = { Text("Stream URL (.m3u8, .mp4, .webm, YouTube)") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CrimsonNeon, focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = uiState.scrapeQualityLabel,
+                                onValueChange = { viewModel.updateScrapedVideoField(qualityLabel = it) },
+                                placeholder = { Text("Quality (1080p)") },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CrimsonNeon, focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary),
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedTextField(
+                                value = uiState.scrapeServerSource,
+                                onValueChange = { viewModel.updateScrapedVideoField(serverSource = it) },
+                                placeholder = { Text("Server (HiAnime)") },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CrimsonNeon, focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+
+                        OutlinedTextField(
+                            value = uiState.scrapeSubtitleUrl,
+                            onValueChange = { viewModel.updateScrapedVideoField(subtitleUrl = it) },
+                            placeholder = { Text("Subtitle .vtt/.srt URL (Optional)") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CrimsonNeon, focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { viewModel.addScrapedVideo() },
+                        enabled = uiState.scrapeStreamUrl.isNotBlank(),
+                        colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon)
+                    ) {
+                        Text("Save & Inject Video", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { viewModel.setShowAddScrapedDialog(false) }) {
+                        Text("Cancel", color = TextMuted)
+                    }
+                }
+            )
+        }
+
+        // =========================================================================
+        // DIALOG 2: ADD MULTI-SERVER API / FREE STORAGE ENDPOINT
+        // =========================================================================
         if (uiState.showAddApiDialog) {
             AlertDialog(
                 onDismissRequest = { viewModel.setShowAddApiDialog(false) },
                 containerColor = SurfaceDark,
-                title = { Text(text = "Add Custom API Endpoint", color = TextPrimary, fontWeight = FontWeight.Bold) },
+                title = { Text(text = "Add API / Free Storage Server", color = TextPrimary, fontWeight = FontWeight.Bold) },
                 text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(
-                            text = "Quick Presets (Click to autofill):",
-                            color = TextMuted,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-
-                        Row(
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.fillMaxWidth()
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             FilterChip(
                                 selected = false,
                                 onClick = {
                                     viewModel.updateNewApiField(
-                                        name = "AniList GraphQL API",
-                                        url = "https://graphql.anilist.co",
-                                        category = "Metadata & Catalog"
+                                        name = "Consumet HiAnime Scraper API",
+                                        url = "https://api.consumet.org/anime/zoro/",
+                                        category = "Multi-Server Scraper API"
                                     )
                                 },
-                                label = { Text("AniList", fontSize = 10.sp) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    containerColor = SurfaceVariantDark,
-                                    labelColor = TextPrimary
-                                )
+                                label = { Text("Consumet / HiAnime", fontSize = 10.sp) }
                             )
-
                             FilterChip(
                                 selected = false,
                                 onClick = {
                                     viewModel.updateNewApiField(
-                                        name = "Jikan MyAnimeList API",
-                                        url = "https://api.jikan.moe/v4",
-                                        category = "MAL Sync & Info"
+                                        name = "AnimeThemes Free Video Storage",
+                                        url = "https://api.animethemes.moe/",
+                                        category = "Free Video Storage Server"
                                     )
                                 },
-                                label = { Text("Jikan MAL", fontSize = 10.sp) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    containerColor = SurfaceVariantDark,
-                                    labelColor = TextPrimary
-                                )
+                                label = { Text("AnimeThemes Storage", fontSize = 10.sp) }
                             )
-
                             FilterChip(
                                 selected = false,
                                 onClick = {
                                     viewModel.updateNewApiField(
-                                        name = "Kitsu Public API",
-                                        url = "https://kitsu.io/api/edge",
-                                        category = "Catalog Discovery"
+                                        name = "Archive.org Free Video Cloud",
+                                        url = "https://archive.org/",
+                                        category = "Free Video Storage Server"
                                     )
                                 },
-                                label = { Text("Kitsu", fontSize = 10.sp) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    containerColor = SurfaceVariantDark,
-                                    labelColor = TextPrimary
-                                )
-                            )
-
-                            FilterChip(
-                                selected = false,
-                                onClick = {
-                                    viewModel.updateNewApiField(
-                                        name = "Custom Streaming CDN",
-                                        url = "https://cdn.anime-node.com/api/v1",
-                                        category = "Streaming HLS"
-                                    )
-                                },
-                                label = { Text("Custom CDN", fontSize = 10.sp) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    containerColor = SurfaceVariantDark,
-                                    labelColor = TextPrimary
-                                )
+                                label = { Text("Archive.org Cloud", fontSize = 10.sp) }
                             )
                         }
 
                         OutlinedTextField(
                             value = uiState.newApiName,
                             onValueChange = { viewModel.updateNewApiField(name = it) },
-                            placeholder = { Text("API Name (e.g. Frankfurt Mirror)") },
+                            placeholder = { Text("Server Name") },
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = VioletAccent, focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary),
                             modifier = Modifier.fillMaxWidth()
@@ -769,7 +1482,7 @@ fun AdminDashboardScreen(
                         OutlinedTextField(
                             value = uiState.newApiUrl,
                             onValueChange = { viewModel.updateNewApiField(url = it) },
-                            placeholder = { Text("Base URL (e.g. https://node.example.com/)") },
+                            placeholder = { Text("Base URL (https://...)") },
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = VioletAccent, focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary),
                             modifier = Modifier.fillMaxWidth()
@@ -777,7 +1490,7 @@ fun AdminDashboardScreen(
                         OutlinedTextField(
                             value = uiState.newApiCategory,
                             onValueChange = { viewModel.updateNewApiField(category = it) },
-                            placeholder = { Text("Category (Streaming HLS, Catalog, Backup)") },
+                            placeholder = { Text("Category (Free Video Storage Server, Scraper API)") },
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = VioletAccent, focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary),
                             modifier = Modifier.fillMaxWidth()
@@ -785,7 +1498,7 @@ fun AdminDashboardScreen(
                         OutlinedTextField(
                             value = uiState.newApiKey,
                             onValueChange = { viewModel.updateNewApiField(key = it) },
-                            placeholder = { Text("API Key / Bearer Token (Optional)") },
+                            placeholder = { Text("API Key / Token (Optional)") },
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = VioletAccent, focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary),
                             modifier = Modifier.fillMaxWidth()
@@ -798,7 +1511,7 @@ fun AdminDashboardScreen(
                         enabled = uiState.newApiName.isNotBlank() && uiState.newApiUrl.isNotBlank(),
                         colors = ButtonDefaults.buttonColors(containerColor = VioletAccent)
                     ) {
-                        Text("Add Endpoint", color = Color.White)
+                        Text("Add & Check Status", color = Color.White)
                     }
                 },
                 dismissButton = {
@@ -809,7 +1522,9 @@ fun AdminDashboardScreen(
             )
         }
 
-        // Add Anime Modal Dialog
+        // =========================================================================
+        // DIALOG 3: ADD NEW ANIME SERIES (WITH TRAILER URL)
+        // =========================================================================
         if (uiState.showAddAnimeDialog) {
             AlertDialog(
                 onDismissRequest = { viewModel.setShowAddAnimeDialog(false) },
@@ -826,9 +1541,9 @@ fun AdminDashboardScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
                         OutlinedTextField(
-                            value = uiState.newAnimeJapanese,
-                            onValueChange = { viewModel.updateNewAnimeField(japanese = it) },
-                            placeholder = { Text("Japanese Title (e.g. BLEACH 千年血戦篇)") },
+                            value = uiState.newAnimeTrailerUrl,
+                            onValueChange = { viewModel.updateNewAnimeField(trailerUrl = it) },
+                            placeholder = { Text("Official YouTube Trailer URL") },
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CrimsonNeon, focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary),
                             modifier = Modifier.fillMaxWidth()

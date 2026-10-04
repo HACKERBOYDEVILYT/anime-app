@@ -106,3 +106,55 @@ data class MalSyncEntity(
     val lastSyncedTimestamp: Long = 0L
 )
 
+@Entity(tableName = "scraped_videos")
+data class ScrapedVideoEntity(
+    @PrimaryKey
+    val id: String,
+    val animeId: String,
+    val animeTitle: String,
+    val episodeNumber: Int,
+    val episodeTitle: String,
+    val streamUrl: String,
+    val qualityLabel: String = "1080p FHD",
+    val isHls: Boolean = true,
+    val isWebEmbed: Boolean = false,
+    val subtitleUrl: String? = null,
+    val subtitleLanguage: String? = "Bangla",
+    val audioLanguage: String? = "Japanese [Original]",
+    val serverSource: String = "Free Storage Server", // e.g., "HiAnime", "AnimeThemes", "Archive.org Storage", "YouTube Trailer"
+    val status: String = "Online",
+    val createdAt: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "user_accounts")
+data class UserAccountEntity(
+    @PrimaryKey
+    val email: String,
+    val userId: String,
+    val username: String,
+    val salt: String,
+    val passwordHash: String,
+    val avatarUrl: String,
+    val tier: String = "Standard Member",
+    val watchTimeHours: Float = 0f,
+    val episodesWatched: Int = 0,
+    val joinDate: String,
+    val isActiveSession: Boolean = false
+)
+
+@Entity(tableName = "api_endpoints")
+data class ApiEndpointEntity(
+    @PrimaryKey
+    val id: String,
+    val name: String,
+    val baseUrl: String,
+    val category: String,
+    val apiKey: String? = null,
+    val isActive: Boolean = true,
+    val status: String = "Online",
+    val httpCode: Int = 200,
+    val latencyMs: Long = 0L,
+    val lastTested: String = "Not checked"
+)
+
+

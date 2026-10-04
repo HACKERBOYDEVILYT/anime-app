@@ -135,14 +135,14 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Brand Logo & Title (Hidden Admin Trigger: tap 5 times)
+                        // Brand Logo & Title (Exclusive Hidden Admin Trigger: tap 5 times on KUROSTREAM)
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .testTag("app_brand_logo")
                                 .clickable {
                                     val now = System.currentTimeMillis()
-                                    if (now - lastLogoTapTime < 800) {
+                                    if (now - lastLogoTapTime < 1500) {
                                         logoTapCount++
                                         if (logoTapCount >= 5) {
                                             logoTapCount = 0
@@ -274,6 +274,13 @@ fun HomeScreen(
                             emoji = "🔄",
                             icon = Icons.Default.CloudSync,
                             onClick = onMalSyncClick,
+                            modifier = Modifier.weight(1f)
+                        )
+                        QuickHubButton(
+                            title = "Admin",
+                            emoji = "🛡️",
+                            icon = Icons.Default.AutoAwesome,
+                            onClick = onAdminClick,
                             modifier = Modifier.weight(1f)
                         )
                     }

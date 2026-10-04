@@ -7,6 +7,7 @@ import com.example.data.model.Episode
 import com.example.data.model.EpisodeAudio
 import com.example.data.model.EpisodeSource
 import com.example.data.model.EpisodeSubtitle
+import com.example.data.network.HlsStreamService
 import com.example.data.repository.AnimeRepository
 import com.example.data.repository.UserRepository
 import com.example.data.repository.WatchRepository
@@ -75,11 +76,12 @@ class PlayerViewModel(
             try {
                 val anime = animeRepository.getAnimeById(animeId)
                 val episodes = animeRepository.getEpisodes(animeId)
-                val episode = episodes.find { it.episodeNumber == episodeNumber } ?: episodes.firstOrNull()
+                val rawEpisode = episodes.find { it.episodeNumber == episodeNumber } ?: episodes.firstOrNull()
 
-                if (episode != null && anime != null) {
-                    val defaultSource = episode.sources.find { it.quality.contains("1080p") }
-                        ?: episode.sources.firstOrNull()
+                if (rawEpisode != null && anime != null) {
+                    val prioritizedSources = HlsStreamService.prioritizeEpisodeSources(rawEpisode.sources)
+                    val episode = rawEpisode.copy(sources = prioritizedSources)
+                    val defaultSource = prioritizedSources.firstOrNull()
                     val defaultSub = episode.subtitles.find { it.isDefault }
                         ?: episode.subtitles.firstOrNull()
                     val defaultAud = episode.audioTracks.find { it.isDefault }
@@ -96,6 +98,7 @@ class PlayerViewModel(
                             currentEpisode = episode,
                             allEpisodes = episodes,
                             currentSource = defaultSource,
+                            selectedQuality = defaultSource?.quality ?: "1080p",
                             selectedSubtitle = defaultSub,
                             selectedAudio = defaultAud,
                             currentPositionMs = resumePos,

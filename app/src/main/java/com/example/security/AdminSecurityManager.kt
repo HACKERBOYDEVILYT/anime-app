@@ -74,7 +74,8 @@ object AdminSecurityManager {
         }
 
         val internalSecret = getInternalSecret()
-        val isMatch = timingSafeEquals(password, internalSecret)
+        val trimmed = password.trim()
+        val isMatch = timingSafeEquals(trimmed, internalSecret)
 
         if (isMatch) {
             failedAttempts = 0

@@ -90,6 +90,7 @@ object RetrofitClient {
             .writeTimeout(WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
             .addInterceptor(headersInterceptor)
+            .addInterceptor(NetworkTrafficSniffer.okHttpSnifferInterceptor)
             .addInterceptor(loggingInterceptor)
             .build()
     }

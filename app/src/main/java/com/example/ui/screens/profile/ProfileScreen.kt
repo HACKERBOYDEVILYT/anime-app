@@ -167,28 +167,46 @@ fun ProfileScreen(
                                 Box(
                                     modifier = Modifier
                                         .padding(top = 4.dp)
-                                        .background(CrimsonNeon.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
+                                        .background(
+                                            if (isLoggedIn) CrimsonNeon.copy(alpha = 0.2f) else SurfaceVariantDark,
+                                            RoundedCornerShape(4.dp)
+                                        )
                                         .padding(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
                                     Text(
-                                        text = user.tier,
-                                        color = CrimsonNeon,
+                                        text = if (isLoggedIn) user.tier else "Not Signed In",
+                                        color = if (isLoggedIn) CrimsonNeon else TextMuted,
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
 
-                                TextButton(
-                                    onClick = { showAuthDialog = true },
-                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
-                                    modifier = Modifier.testTag("profile_auth_switch_btn")
-                                ) {
-                                    Text(
-                                        text = if (isLoggedIn) "Switch Account" else "Sign In",
-                                        color = VioletAccent,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    TextButton(
+                                        onClick = { showAuthDialog = true },
+                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                        modifier = Modifier.testTag("profile_auth_switch_btn")
+                                    ) {
+                                        Text(
+                                            text = if (isLoggedIn) "Switch Account" else "Sign In / Register",
+                                            color = VioletAccent,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                    if (isLoggedIn) {
+                                        TextButton(
+                                            onClick = { viewModel.logout() },
+                                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = "Sign Out",
+                                                color = CrimsonNeon,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -490,22 +508,8 @@ fun ProfileScreen(
             }
         }
 
-        // Stealth App Version (Hidden Admin Trigger: tap 5 times)
+        // App Version Info (Admin trigger disabled here; only 5-tap on KUROSTREAM logo in Home opens Admin)
         item {
-            var showAdminAuthDialog by remember { mutableStateOf(false) }
-            var versionTapCount by remember { mutableIntStateOf(0) }
-            var lastVersionTapTime by remember { mutableLongStateOf(0L) }
-
-            if (showAdminAuthDialog) {
-                SecretAdminDialog(
-                    onDismiss = { showAdminAuthDialog = false },
-                    onSuccess = {
-                        showAdminAuthDialog = false
-                        onAdminClick()
-                    }
-                )
-            }
-
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -515,22 +519,7 @@ fun ProfileScreen(
                 Text(
                     text = "KuroStream v2.4.0 (Build 2026)",
                     color = TextMuted,
-                    fontSize = 11.sp,
-                    modifier = Modifier
-                        .testTag("app_version_easter_egg")
-                        .clickable {
-                            val now = System.currentTimeMillis()
-                            if (now - lastVersionTapTime < 800) {
-                                versionTapCount++
-                                if (versionTapCount >= 5) {
-                                    versionTapCount = 0
-                                    showAdminAuthDialog = true
-                                }
-                            } else {
-                                versionTapCount = 1
-                            }
-                            lastVersionTapTime = now
-                        }
+                    fontSize = 11.sp
                 )
             }
         }

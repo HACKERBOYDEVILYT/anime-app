@@ -9,6 +9,9 @@ import android.os.Build
 import android.util.Rational
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.webkit.WebChromeClient
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
@@ -156,17 +159,26 @@ fun VideoPlayerScreen(
         }
     }
 
+    val currentStreamUrl = uiState.currentSource?.streamUrl.orEmpty()
+    val isWebEmbedOrTrailer = remember(currentStreamUrl) {
+        currentStreamUrl.contains("youtube.com/embed", ignoreCase = true) ||
+            currentStreamUrl.contains("youtube.com/watch", ignoreCase = true) ||
+            currentStreamUrl.contains("youtu.be/", ignoreCase = true) ||
+            currentStreamUrl.contains("/embed/", ignoreCase = true)
+    }
+
     // Set Media Item when currentSource changes
-    LaunchedEffect(uiState.currentSource?.streamUrl) {
-        val streamUrl = uiState.currentSource?.streamUrl
-        if (!streamUrl.isNullOrBlank()) {
-            val mediaItem = MediaItem.fromUri(Uri.parse(streamUrl))
+    LaunchedEffect(currentStreamUrl, isWebEmbedOrTrailer) {
+        if (currentStreamUrl.isNotBlank() && !isWebEmbedOrTrailer) {
+            val mediaItem = MediaItem.fromUri(Uri.parse(currentStreamUrl))
             exoPlayer.setMediaItem(mediaItem)
             if (uiState.currentPositionMs > 0) {
                 exoPlayer.seekTo(uiState.currentPositionMs)
             }
             exoPlayer.prepare()
             exoPlayer.play()
+        } else if (isWebEmbedOrTrailer) {
+            exoPlayer.pause()
         }
     }
 
@@ -281,20 +293,47 @@ fun VideoPlayerScreen(
             }
             .testTag("video_player_container")
     ) {
-        // ExoPlayer View
-        AndroidView(
-            factory = { ctx ->
-                PlayerView(ctx).apply {
-                    player = exoPlayer
-                    useController = false
-                    layoutParams = FrameLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                    )
-                }
-            },
-            modifier = Modifier.fillMaxSize()
-        )
+        if (isWebEmbedOrTrailer) {
+            // Official Trailer / Web Embed Stream View
+            AndroidView(
+                factory = { ctx ->
+                    WebView(ctx).apply {
+                        setBackgroundColor(android.graphics.Color.BLACK)
+                        layoutParams = FrameLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                        settings.javaScriptEnabled = true
+                        settings.domStorageEnabled = true
+                        settings.mediaPlaybackRequiresUserGesture = false
+                        webChromeClient = WebChromeClient()
+                        webViewClient = WebViewClient()
+                        loadUrl(currentStreamUrl)
+                    }
+                },
+                update = { webView ->
+                    if (webView.url != currentStreamUrl && currentStreamUrl.isNotBlank()) {
+                        webView.loadUrl(currentStreamUrl)
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            // ExoPlayer View for Direct .m3u8 / .mp4 / .webm Streams
+            AndroidView(
+                factory = { ctx ->
+                    PlayerView(ctx).apply {
+                        player = exoPlayer
+                        useController = false
+                        layoutParams = FrameLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
 
         // On-screen Bangla Subtitle Rendering
         if (uiState.selectedSubtitle?.language == "bn" && uiState.isPlaying) {
