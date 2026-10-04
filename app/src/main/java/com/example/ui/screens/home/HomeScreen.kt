@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.Anime
+import com.example.data.repository.AdminRepository
 import com.example.ui.components.AnimeRow
 import com.example.ui.components.ContinueWatchingRow
 import com.example.ui.components.HeroCarousel
@@ -95,6 +96,7 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val continueWatching by viewModel.continueWatching.collectAsStateWithLifecycle()
     val notifications by viewModel.notifications.collectAsStateWithLifecycle()
+    val adMobConfig by AdminRepository.globalAdMobConfig.collectAsStateWithLifecycle()
     val unreadNotifsCount = notifications.count { !it.isRead }
 
     var showAdminAuthDialog by remember { mutableStateOf(false) }
@@ -276,13 +278,60 @@ fun HomeScreen(
                             onClick = onMalSyncClick,
                             modifier = Modifier.weight(1f)
                         )
-                        QuickHubButton(
-                            title = "Admin",
-                            emoji = "🛡️",
-                            icon = Icons.Default.AutoAwesome,
-                            onClick = onAdminClick,
-                            modifier = Modifier.weight(1f)
-                        )
+                    }
+                }
+
+                // Live Google AdMob Banner Slot (Controlled from Admin Panel -> Google AdMob Tab)
+                if (adMobConfig.adsEnabled && adMobConfig.bannerAdsEnabled) {
+                    item {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = SurfaceDark,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 6.dp)
+                                .border(1.dp, CrimsonNeon.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .background(Color(0xFFFFB300), RoundedCornerShape(4.dp))
+                                                .padding(horizontal = 5.dp, vertical = 1.dp)
+                                        ) {
+                                            Text(
+                                                text = "Ad • Google AdMob",
+                                                color = Color.Black,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Black
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = if (adMobConfig.testModeEnabled) "Test Mode Banner" else "Live AdMob Banner",
+                                            color = TextPrimary,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                    Text(
+                                        text = "Unit: ${adMobConfig.bannerAdUnitId} • ${adMobConfig.publisherId}",
+                                        color = TextSecondary,
+                                        fontSize = 10.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.padding(top = 2.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 

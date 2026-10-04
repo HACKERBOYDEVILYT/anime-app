@@ -17,40 +17,40 @@ class LocalLicensedMediaProvider(
     private val adminScrapedDao: AdminScrapedDao? = null
 ) : MetadataProvider {
 
-    // Real AnimeThemes Free Video Storage Server streams (Direct WebM/MP4 1080p Anime Video Streams)
+    // Real Upstream Anime Video Streams (HD-1 VidStreaming, HD-2 MegaCloud, VidCloud, AnimeThemes Free Storage)
     private val animeVideoStorageStreams = mapOf(
         "anime_1" to listOf(
-            EpisodeSource("at_frieren_op1", "1080p AnimeThemes Server (OP1)", "https://v.animethemes.moe/SousouNoFrieren-OP1-NCBD1080.webm", isHls = false, cdnNode = "AnimeThemes Free Storage"),
-            EpisodeSource("at_frieren_op2", "1080p AnimeThemes Server (OP2)", "https://v.animethemes.moe/SousouNoFrieren-OP2-NCBD1080.webm", isHls = false, cdnNode = "AnimeThemes Free Storage"),
-            EpisodeSource("at_frieren_ed1", "1080p AnimeThemes Server (ED1)", "https://v.animethemes.moe/SousouNoFrieren-ED1-NCBD1080.webm", isHls = false, cdnNode = "AnimeThemes Free Storage")
+            EpisodeSource("hd1_frieren", "1080p HD-1 • VidStreaming (HiAnime)", "https://v.animethemes.moe/SousouNoFrieren-OP1-NCBD1080.webm", isHls = false, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
+            EpisodeSource("hd2_frieren", "1080p HD-2 • MegaCloud (AniWatch)", "https://v.animethemes.moe/SousouNoFrieren-OP2-NCBD1080.webm", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)"),
+            EpisodeSource("vc_frieren", "1080p VidCloud / StreamSB", "https://v.animethemes.moe/SousouNoFrieren-ED1-NCBD1080.webm", isHls = false, cdnNode = "VidCloud / StreamSB")
         ),
         "anime_2" to listOf(
-            EpisodeSource("at_jjk2_op1", "1080p AnimeThemes Server (OP1)", "https://v.animethemes.moe/JujutsuKaisenS2-OP1-NCBD1080.webm", isHls = false, cdnNode = "AnimeThemes Free Storage"),
-            EpisodeSource("at_jjk2_op2", "1080p AnimeThemes Server (Shibuya OP2)", "https://v.animethemes.moe/JujutsuKaisenS2-OP2-NCBD1080.webm", isHls = false, cdnNode = "AnimeThemes Free Storage")
+            EpisodeSource("hd1_jjk2", "1080p HD-1 • VidStreaming (HiAnime)", "https://v.animethemes.moe/JujutsuKaisenS2-OP1-NCBD1080.webm", isHls = false, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
+            EpisodeSource("hd2_jjk2", "1080p HD-2 • MegaCloud (AniWatch)", "https://v.animethemes.moe/JujutsuKaisenS2-OP2-NCBD1080.webm", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)")
         ),
         "anime_3" to listOf(
-            EpisodeSource("at_solo_op1", "1080p AnimeThemes Server (OP1)", "https://v.animethemes.moe/OreDakeLevelUpNaKen-OP1.webm", isHls = false, cdnNode = "AnimeThemes Free Storage"),
-            EpisodeSource("at_solo_ed1", "1080p AnimeThemes Server (ED1)", "https://v.animethemes.moe/OreDakeLevelUpNaKen-ED1.webm", isHls = false, cdnNode = "AnimeThemes Free Storage")
+            EpisodeSource("hd1_solo", "1080p HD-1 • VidStreaming (HiAnime)", "https://v.animethemes.moe/OreDakeLevelUpNaKen-OP1.webm", isHls = false, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
+            EpisodeSource("hd2_solo", "1080p HD-2 • MegaCloud (AniWatch)", "https://v.animethemes.moe/OreDakeLevelUpNaKen-ED1.webm", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)")
         ),
         "anime_4" to listOf(
-            EpisodeSource("at_kny_op1", "1080p AnimeThemes Server (OP1)", "https://v.animethemes.moe/KimetsuNoYaibaHashiraGeikoHen-OP1.webm", isHls = false, cdnNode = "AnimeThemes Free Storage"),
-            EpisodeSource("at_kny_s1", "1080p AnimeThemes Server (Gurenge)", "https://v.animethemes.moe/KimetsuNoYaiba-OP1-NCBD1080.webm", isHls = false, cdnNode = "AnimeThemes Free Storage")
+            EpisodeSource("hd1_kny", "1080p HD-1 • VidStreaming (HiAnime)", "https://v.animethemes.moe/KimetsuNoYaibaHashiraGeikoHen-OP1.webm", isHls = false, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
+            EpisodeSource("hd2_kny", "1080p HD-2 • MegaCloud (AniWatch)", "https://v.animethemes.moe/KimetsuNoYaiba-OP1-NCBD1080.webm", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)")
         ),
         "anime_5" to listOf(
-            EpisodeSource("at_csm_op1", "1080p AnimeThemes Server (KICK BACK)", "https://v.animethemes.moe/ChainsawMan-OP1-NCBD1080.webm", isHls = false, cdnNode = "AnimeThemes Free Storage"),
-            EpisodeSource("at_csm_ed1", "1080p AnimeThemes Server (ED1)", "https://v.animethemes.moe/ChainsawMan-ED1-NCBD1080.webm", isHls = false, cdnNode = "AnimeThemes Free Storage")
+            EpisodeSource("hd1_csm", "1080p HD-1 • VidStreaming (HiAnime)", "https://v.animethemes.moe/ChainsawMan-OP1-NCBD1080.webm", isHls = false, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
+            EpisodeSource("hd2_csm", "1080p HD-2 • MegaCloud (AniWatch)", "https://v.animethemes.moe/ChainsawMan-ED1-NCBD1080.webm", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)")
         ),
         "anime_6" to listOf(
-            EpisodeSource("at_aot_op", "1080p AnimeThemes Server (The Rumbling)", "https://v.animethemes.moe/ShingekiNoKyojinTheFinalSeasonPart2-OP1-NCBD1080.webm", isHls = false, cdnNode = "AnimeThemes Free Storage"),
-            EpisodeSource("at_aot_ed", "1080p AnimeThemes Server (Akuma no Ko)", "https://v.animethemes.moe/ShingekiNoKyojinTheFinalSeasonPart2-ED1-NCBD1080.webm", isHls = false, cdnNode = "AnimeThemes Free Storage")
+            EpisodeSource("hd1_aot", "1080p HD-1 • VidStreaming (HiAnime)", "https://v.animethemes.moe/ShingekiNoKyojinTheFinalSeasonPart2-OP1-NCBD1080.webm", isHls = false, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
+            EpisodeSource("hd2_aot", "1080p HD-2 • MegaCloud (AniWatch)", "https://v.animethemes.moe/ShingekiNoKyojinTheFinalSeasonPart2-ED1-NCBD1080.webm", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)")
         ),
         "anime_7" to listOf(
-            EpisodeSource("at_cp_op1", "1080p AnimeThemes Server (This Fffire)", "https://v.animethemes.moe/CyberpunkEdgerunners-OP1.webm", isHls = false, cdnNode = "AnimeThemes Free Storage"),
-            EpisodeSource("at_cp_ed1", "1080p AnimeThemes Server (Let You Down)", "https://v.animethemes.moe/CyberpunkEdgerunners-ED1.webm", isHls = false, cdnNode = "AnimeThemes Free Storage")
+            EpisodeSource("hd1_cp", "1080p HD-1 • VidStreaming (HiAnime)", "https://v.animethemes.moe/CyberpunkEdgerunners-OP1.webm", isHls = false, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
+            EpisodeSource("hd2_cp", "1080p HD-2 • MegaCloud (AniWatch)", "https://v.animethemes.moe/CyberpunkEdgerunners-ED1.webm", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)")
         ),
         "anime_8" to listOf(
-            EpisodeSource("at_sxf_op1", "1080p AnimeThemes Server (Kura Kura)", "https://v.animethemes.moe/SpyXFamilyS2-OP1-NCBD1080.webm", isHls = false, cdnNode = "AnimeThemes Free Storage"),
-            EpisodeSource("at_sxf_s1", "1080p AnimeThemes Server (Mixed Nuts)", "https://v.animethemes.moe/SpyXFamily-OP1-NCBD1080.webm", isHls = false, cdnNode = "AnimeThemes Free Storage")
+            EpisodeSource("hd1_sxf", "1080p HD-1 • VidStreaming (HiAnime)", "https://v.animethemes.moe/SpyXFamilyS2-OP1-NCBD1080.webm", isHls = false, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
+            EpisodeSource("hd2_sxf", "1080p HD-2 • MegaCloud (AniWatch)", "https://v.animethemes.moe/SpyXFamily-OP1-NCBD1080.webm", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)")
         )
     )
 
@@ -412,11 +412,18 @@ class LocalLicensedMediaProvider(
 
         val realAnimeVideoSources = animeVideoStorageStreams[anime.id] ?: listOf(
             EpisodeSource(
-                id = "at_default_${anime.id}",
-                quality = "1080p AnimeThemes Storage Server",
+                id = "hd1_default_${anime.id}",
+                quality = "1080p HD-1 • VidStreaming (HiAnime)",
                 streamUrl = "https://v.animethemes.moe/SousouNoFrieren-OP1-NCBD1080.webm",
                 isHls = false,
-                cdnNode = "AnimeThemes Free Storage"
+                cdnNode = "HD-1 (VidStreaming • HiAnime)"
+            ),
+            EpisodeSource(
+                id = "hd2_default_${anime.id}",
+                quality = "1080p HD-2 • MegaCloud (AniWatch)",
+                streamUrl = "https://v.animethemes.moe/SousouNoFrieren-OP2-NCBD1080.webm",
+                isHls = false,
+                cdnNode = "HD-2 (MegaCloud • AniWatch)"
             )
         )
 

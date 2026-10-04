@@ -157,4 +157,28 @@ data class ApiEndpointEntity(
     val lastTested: String = "Not checked"
 )
 
+@Entity(tableName = "admob_config")
+data class AdMobConfigEntity(
+    @PrimaryKey
+    val id: String = "primary_admob_account",
+    val accountEmail: String = "",
+    val publisherId: String = "pub-3940256099942544",
+    val appId: String = "ca-app-pub-3940256099942544~3347511713",
+    val bannerAdUnitId: String = "ca-app-pub-3940256099942544/6300978111",
+    val interstitialAdUnitId: String = "ca-app-pub-3940256099942544/1033173712",
+    val rewardedAdUnitId: String = "ca-app-pub-3940256099942544/5224354917",
+    val nativeAdUnitId: String = "ca-app-pub-3940256099942544/2247696110",
+    val adsEnabled: Boolean = true,
+    val bannerAdsEnabled: Boolean = true,
+    val interstitialAdsEnabled: Boolean = true,
+    val rewardedAdsEnabled: Boolean = true,
+    val testModeEnabled: Boolean = true,
+    val impressionsCount: Int = 0,
+    val clicksCount: Int = 0,
+    val estimatedRevenueUsd: Double = 0.0,
+    val accountStatus: String = "Connected (Google AdMob)",
+    val updatedAt: Long = System.currentTimeMillis()
+)
+
+
 

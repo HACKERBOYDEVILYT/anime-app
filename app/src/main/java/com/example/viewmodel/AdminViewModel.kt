@@ -2,6 +2,7 @@ package com.example.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.local.entity.AdMobConfigEntity
 import com.example.data.local.entity.ScrapedVideoEntity
 import com.example.data.model.AdminStats
 import com.example.data.model.Anime
@@ -74,6 +75,7 @@ class AdminViewModel(
     val auditLogs: StateFlow<List<AuditLog>> = adminRepository.auditLogs
     val apiConfigs: StateFlow<List<ApiConfig>> = adminRepository.apiConfigs
     val scrapedVideos: StateFlow<List<ScrapedVideoEntity>> = adminRepository.scrapedVideos
+    val adMobConfig: StateFlow<AdMobConfigEntity> = adminRepository.adMobConfig
 
     init {
         loadCatalog()
@@ -396,5 +398,43 @@ class AdminViewModel(
 
     fun deleteApi(apiId: String) {
         adminRepository.deleteApiConfig(apiId)
+    }
+
+    // ===================================
+    // Google AdMob Account & Monetization
+    // ===================================
+
+    fun saveAdMobConfig(
+        accountEmail: String,
+        publisherId: String,
+        appId: String,
+        bannerAdUnitId: String,
+        interstitialAdUnitId: String,
+        rewardedAdUnitId: String,
+        nativeAdUnitId: String,
+        adsEnabled: Boolean,
+        bannerAdsEnabled: Boolean,
+        interstitialAdsEnabled: Boolean,
+        rewardedAdsEnabled: Boolean,
+        testModeEnabled: Boolean
+    ) {
+        adminRepository.saveAdMobAccountConfig(
+            accountEmail = accountEmail,
+            publisherId = publisherId,
+            appId = appId,
+            bannerAdUnitId = bannerAdUnitId,
+            interstitialAdUnitId = interstitialAdUnitId,
+            rewardedAdUnitId = rewardedAdUnitId,
+            nativeAdUnitId = nativeAdUnitId,
+            adsEnabled = adsEnabled,
+            bannerAdsEnabled = bannerAdsEnabled,
+            interstitialAdsEnabled = interstitialAdsEnabled,
+            rewardedAdsEnabled = rewardedAdsEnabled,
+            testModeEnabled = testModeEnabled
+        )
+    }
+
+    fun testAdMobImpression() {
+        adminRepository.recordTestAdMobImpression()
     }
 }

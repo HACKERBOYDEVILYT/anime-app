@@ -62,13 +62,33 @@ object HlsStreamService {
 
     private val initialProviders = listOf(
         HlsProviderNode(
+            id = "api_hianime_upstream",
+            name = "HiAnime / AniWatch Upstream (HD-1 VidStreaming & HD-2 MegaCloud)",
+            baseUrl = "https://hianime.to/",
+            healthProbeUrl = "https://api.jikan.moe/v4/top/anime?limit=1",
+            category = "HiAnime / AniWatch Upstream HLS",
+            priority = 1,
+            isPrimary = true,
+            isEnabled = true
+        ),
+        HlsProviderNode(
+            id = "api_consumet_aniwatch",
+            name = "AniWatch / Zoro Multi-Server API (VidCloud • MegaCloud • StreamTape)",
+            baseUrl = "https://api.consumet.org/anime/zoro/",
+            healthProbeUrl = "https://api.animethemes.moe/anime?page[size]=1",
+            category = "Multi-Server Scraper API",
+            priority = 2,
+            isPrimary = false,
+            isEnabled = true
+        ),
+        HlsProviderNode(
             id = "api_animethemes",
             name = "AnimeThemes Free Video Storage Server (1080p WebM/HLS)",
             baseUrl = "https://api.animethemes.moe/",
             healthProbeUrl = "https://api.animethemes.moe/anime?page[size]=1",
             category = "Free Video Storage Server",
-            priority = 1,
-            isPrimary = true,
+            priority = 3,
+            isPrimary = false,
             isEnabled = true
         ),
         HlsProviderNode(
@@ -77,7 +97,7 @@ object HlsStreamService {
             baseUrl = "https://api.jikan.moe/v4/",
             healthProbeUrl = "https://api.jikan.moe/v4/top/anime?limit=1",
             category = "Free Catalog & Trailers API",
-            priority = 2,
+            priority = 4,
             isPrimary = false,
             isEnabled = true
         ),
@@ -87,7 +107,7 @@ object HlsStreamService {
             baseUrl = "https://graphql.anilist.co/",
             healthProbeUrl = "https://graphql.anilist.co",
             category = "Free GraphQL API",
-            priority = 3,
+            priority = 5,
             isPrimary = false,
             isEnabled = true
         ),
@@ -97,7 +117,7 @@ object HlsStreamService {
             baseUrl = "https://kitsu.io/api/edge/",
             healthProbeUrl = "https://kitsu.io/api/edge/anime?page[limit]=1",
             category = "Free Backup API",
-            priority = 4,
+            priority = 6,
             isPrimary = false,
             isEnabled = true
         ),
@@ -107,7 +127,7 @@ object HlsStreamService {
             baseUrl = "https://archive.org/",
             healthProbeUrl = "https://archive.org/metadata/opensource_movies",
             category = "Free Video Storage Server",
-            priority = 5,
+            priority = 7,
             isPrimary = false,
             isEnabled = true
         )

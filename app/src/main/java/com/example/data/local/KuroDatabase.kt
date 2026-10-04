@@ -11,6 +11,7 @@ import com.example.data.local.dao.MalSyncDao
 import com.example.data.local.dao.SocialDao
 import com.example.data.local.dao.WatchDao
 import com.example.data.local.dao.WatchlistDao
+import com.example.data.local.entity.AdMobConfigEntity
 import com.example.data.local.entity.ApiEndpointEntity
 import com.example.data.local.entity.DownloadEntity
 import com.example.data.local.entity.EpisodeCommentEntity
@@ -33,9 +34,10 @@ import com.example.data.local.entity.WatchlistEntity
         MalSyncEntity::class,
         ScrapedVideoEntity::class,
         UserAccountEntity::class,
-        ApiEndpointEntity::class
+        ApiEndpointEntity::class,
+        AdMobConfigEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class KuroDatabase : RoomDatabase() {

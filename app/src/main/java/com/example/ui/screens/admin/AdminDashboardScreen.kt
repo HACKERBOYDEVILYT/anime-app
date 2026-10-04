@@ -124,6 +124,22 @@ fun AdminDashboardScreen(
     val auditLogs by viewModel.auditLogs.collectAsStateWithLifecycle()
     val apiConfigs by viewModel.apiConfigs.collectAsStateWithLifecycle()
     val scrapedVideos by viewModel.scrapedVideos.collectAsStateWithLifecycle()
+    val adMobConfig by viewModel.adMobConfig.collectAsStateWithLifecycle()
+
+    // Local editable state for Google AdMob Account form (synced with adMobConfig)
+    var adMobEmail by remember(adMobConfig.accountEmail) { mutableStateOf(adMobConfig.accountEmail) }
+    var adMobPublisherId by remember(adMobConfig.publisherId) { mutableStateOf(adMobConfig.publisherId) }
+    var adMobAppId by remember(adMobConfig.appId) { mutableStateOf(adMobConfig.appId) }
+    var adMobBannerId by remember(adMobConfig.bannerAdUnitId) { mutableStateOf(adMobConfig.bannerAdUnitId) }
+    var adMobInterstitialId by remember(adMobConfig.interstitialAdUnitId) { mutableStateOf(adMobConfig.interstitialAdUnitId) }
+    var adMobRewardedId by remember(adMobConfig.rewardedAdUnitId) { mutableStateOf(adMobConfig.rewardedAdUnitId) }
+    var adMobNativeId by remember(adMobConfig.nativeAdUnitId) { mutableStateOf(adMobConfig.nativeAdUnitId) }
+    var adMobEnabled by remember(adMobConfig.adsEnabled) { mutableStateOf(adMobConfig.adsEnabled) }
+    var adMobBannerEnabled by remember(adMobConfig.bannerAdsEnabled) { mutableStateOf(adMobConfig.bannerAdsEnabled) }
+    var adMobInterstitialEnabled by remember(adMobConfig.interstitialAdsEnabled) { mutableStateOf(adMobConfig.interstitialAdsEnabled) }
+    var adMobRewardedEnabled by remember(adMobConfig.rewardedAdsEnabled) { mutableStateOf(adMobConfig.rewardedAdsEnabled) }
+    var adMobTestMode by remember(adMobConfig.testModeEnabled) { mutableStateOf(adMobConfig.testModeEnabled) }
+    var adMobSavedBanner by remember { mutableStateOf<String?>(null) }
 
     // HTTP Catcher / Stream Sniffer state
     val isCaptureEnabled by NetworkTrafficSniffer.isCaptureEnabled.collectAsStateWithLifecycle()
@@ -132,13 +148,14 @@ fun AdminDashboardScreen(
     val activePrimaryProvider by HlsStreamService.activePrimaryProvider.collectAsStateWithLifecycle()
     val autoFailoverEnabled by HlsStreamService.autoFailoverEnabled.collectAsStateWithLifecycle()
     var showSnifferBrowser by remember { mutableStateOf(false) }
-    var snifferBrowserUrl by remember { mutableStateOf("https://animethemes.moe") }
-    var activeWebViewUrl by remember { mutableStateOf("https://animethemes.moe") }
+    var snifferBrowserUrl by remember { mutableStateOf("https://hianime.to") }
+    var activeWebViewUrl by remember { mutableStateOf("https://hianime.to") }
 
     val tabs = listOf(
         "Scrap Video",
         "HTTP Catcher",
         "API Status",
+        "Google AdMob",
         "Catalog CMS",
         "Analytics",
         "Moderation",
@@ -643,6 +660,38 @@ fun AdminDashboardScreen(
                                     }
                                 }
 
+                                // Quick Upstream Site Bookmarks (HiAnime, AniWatch, AnimeThemes)
+                                FlowRow(
+                                    modifier = Modifier.padding(top = 6.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    FilterChip(
+                                        selected = false,
+                                        onClick = {
+                                            snifferBrowserUrl = "https://hianime.to"
+                                            activeWebViewUrl = "https://hianime.to"
+                                        },
+                                        label = { Text("HiAnime (HD-1 / HD-2)", fontSize = 10.sp) }
+                                    )
+                                    FilterChip(
+                                        selected = false,
+                                        onClick = {
+                                            snifferBrowserUrl = "https://aniwatchtv.to"
+                                            activeWebViewUrl = "https://aniwatchtv.to"
+                                        },
+                                        label = { Text("AniWatch (MegaCloud)", fontSize = 10.sp) }
+                                    )
+                                    FilterChip(
+                                        selected = false,
+                                        onClick = {
+                                            snifferBrowserUrl = "https://animethemes.moe"
+                                            activeWebViewUrl = "https://animethemes.moe"
+                                        },
+                                        label = { Text("AnimeThemes 1080p", fontSize = 10.sp) }
+                                    )
+                                }
+
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Box(
                                     modifier = Modifier
@@ -1020,9 +1069,308 @@ fun AdminDashboardScreen(
             }
 
             // =========================================================================
-            // TAB 3: CATALOG CMS
+            // TAB 3: GOOGLE ADMOB ACCOUNT & MONETIZATION MANAGER
             // =========================================================================
             if (uiState.selectedTab == 3) {
+                item {
+                    Card(
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, StarAmber.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Google AdMob Account & Ad Units",
+                                        color = TextPrimary,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = adMobConfig.accountStatus,
+                                        color = if (adMobEnabled) Color(0xFF00E676) else CrimsonNeon,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.padding(top = 2.dp)
+                                    )
+                                }
+                                Switch(
+                                    checked = adMobEnabled,
+                                    onCheckedChange = {
+                                        adMobEnabled = it
+                                        viewModel.saveAdMobConfig(
+                                            accountEmail = adMobEmail,
+                                            publisherId = adMobPublisherId,
+                                            appId = adMobAppId,
+                                            bannerAdUnitId = adMobBannerId,
+                                            interstitialAdUnitId = adMobInterstitialId,
+                                            rewardedAdUnitId = adMobRewardedId,
+                                            nativeAdUnitId = adMobNativeId,
+                                            adsEnabled = it,
+                                            bannerAdsEnabled = adMobBannerEnabled,
+                                            interstitialAdsEnabled = adMobInterstitialEnabled,
+                                            rewardedAdsEnabled = adMobRewardedEnabled,
+                                            testModeEnabled = adMobTestMode
+                                        )
+                                    },
+                                    colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = Color(0xFF00E676))
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                KpiCard(
+                                    title = "IMPRESSIONS",
+                                    value = "${adMobConfig.impressionsCount}",
+                                    subtitle = "Verified Ad Loads",
+                                    accentColor = CyanGlow,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                KpiCard(
+                                    title = "CLICKS",
+                                    value = "${adMobConfig.clicksCount}",
+                                    subtitle = "CTR Active",
+                                    accentColor = VioletAccent,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                KpiCard(
+                                    title = "EST. EARNINGS",
+                                    value = String.format("$%.2f", adMobConfig.estimatedRevenueUsd),
+                                    subtitle = "AdMob Revenue",
+                                    accentColor = StarAmber,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // AdMob Account Credentials & Ad Unit IDs Form
+                item {
+                    Card(
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "AdMob Publisher & Ad Unit IDs",
+                                    color = TextPrimary,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                FilterChip(
+                                    selected = false,
+                                    onClick = {
+                                        adMobPublisherId = "pub-3940256099942544"
+                                        adMobAppId = "ca-app-pub-3940256099942544~3347511713"
+                                        adMobBannerId = "ca-app-pub-3940256099942544/6300978111"
+                                        adMobInterstitialId = "ca-app-pub-3940256099942544/1033173712"
+                                        adMobRewardedId = "ca-app-pub-3940256099942544/5224354917"
+                                        adMobNativeId = "ca-app-pub-3940256099942544/2247696110"
+                                    },
+                                    label = { Text("Fill Official Test IDs", fontSize = 10.sp) }
+                                )
+                            }
+
+                            OutlinedTextField(
+                                value = adMobEmail,
+                                onValueChange = { adMobEmail = it },
+                                label = { Text("Google AdMob Account Email") },
+                                placeholder = { Text("your-admob-email@gmail.com") },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = StarAmber,
+                                    focusedTextColor = TextPrimary,
+                                    unfocusedTextColor = TextPrimary
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(
+                                    value = adMobPublisherId,
+                                    onValueChange = { adMobPublisherId = it },
+                                    label = { Text("Publisher ID (pub-...)") },
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = StarAmber,
+                                        focusedTextColor = TextPrimary,
+                                        unfocusedTextColor = TextPrimary
+                                    ),
+                                    modifier = Modifier.weight(1f)
+                                )
+                                OutlinedTextField(
+                                    value = adMobAppId,
+                                    onValueChange = { adMobAppId = it },
+                                    label = { Text("AdMob App ID (~)") },
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = StarAmber,
+                                        focusedTextColor = TextPrimary,
+                                        unfocusedTextColor = TextPrimary
+                                    ),
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+
+                            OutlinedTextField(
+                                value = adMobBannerId,
+                                onValueChange = { adMobBannerId = it },
+                                label = { Text("Banner Ad Unit ID (ca-app-pub-.../...)") },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = CyanGlow,
+                                    focusedTextColor = TextPrimary,
+                                    unfocusedTextColor = TextPrimary
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            OutlinedTextField(
+                                value = adMobInterstitialId,
+                                onValueChange = { adMobInterstitialId = it },
+                                label = { Text("Interstitial Ad Unit ID (ca-app-pub-.../...)") },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = CyanGlow,
+                                    focusedTextColor = TextPrimary,
+                                    unfocusedTextColor = TextPrimary
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            OutlinedTextField(
+                                value = adMobRewardedId,
+                                onValueChange = { adMobRewardedId = it },
+                                label = { Text("Rewarded Video Ad Unit ID (ca-app-pub-.../...)") },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = CyanGlow,
+                                    focusedTextColor = TextPrimary,
+                                    unfocusedTextColor = TextPrimary
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            OutlinedTextField(
+                                value = adMobNativeId,
+                                onValueChange = { adMobNativeId = it },
+                                label = { Text("Native Advanced Ad Unit ID (ca-app-pub-.../...)") },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = CyanGlow,
+                                    focusedTextColor = TextPrimary,
+                                    unfocusedTextColor = TextPrimary
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            // Placement Toggles
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Home & Details Banner Ads", color = TextPrimary, fontSize = 12.sp)
+                                Switch(checked = adMobBannerEnabled, onCheckedChange = { adMobBannerEnabled = it })
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Episode Pre-Roll / Interstitial Ads", color = TextPrimary, fontSize = 12.sp)
+                                Switch(checked = adMobInterstitialEnabled, onCheckedChange = { adMobInterstitialEnabled = it })
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Rewarded Video Ads", color = TextPrimary, fontSize = 12.sp)
+                                Switch(checked = adMobRewardedEnabled, onCheckedChange = { adMobRewardedEnabled = it })
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Google Safe Test Mode (Disable for Live Ads)", color = StarAmber, fontSize = 12.sp)
+                                Switch(checked = adMobTestMode, onCheckedChange = { adMobTestMode = it })
+                            }
+
+                            adMobSavedBanner?.let { msg ->
+                                Text(text = msg, color = Color(0xFF00E676), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = {
+                                        viewModel.saveAdMobConfig(
+                                            accountEmail = adMobEmail,
+                                            publisherId = adMobPublisherId,
+                                            appId = adMobAppId,
+                                            bannerAdUnitId = adMobBannerId,
+                                            interstitialAdUnitId = adMobInterstitialId,
+                                            rewardedAdUnitId = adMobRewardedId,
+                                            nativeAdUnitId = adMobNativeId,
+                                            adsEnabled = adMobEnabled,
+                                            bannerAdsEnabled = adMobBannerEnabled,
+                                            interstitialAdsEnabled = adMobInterstitialEnabled,
+                                            rewardedAdsEnabled = adMobRewardedEnabled,
+                                            testModeEnabled = adMobTestMode
+                                        )
+                                        adMobSavedBanner = "Google AdMob Account & Ad Units saved to database ✓"
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Save AdMob Account", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+
+                                Button(
+                                    onClick = {
+                                        viewModel.testAdMobImpression()
+                                        adMobSavedBanner = "Test Ad Request Sent • Impression & Revenue Updated!"
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = VioletAccent),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text("Test Ad Unit", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // =========================================================================
+            // TAB 4: CATALOG CMS
+            // =========================================================================
+            if (uiState.selectedTab == 4) {
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -1093,9 +1441,9 @@ fun AdminDashboardScreen(
             }
 
             // =========================================================================
-            // TAB 4: ANALYTICS OVERVIEW
+            // TAB 5: ANALYTICS OVERVIEW
             // =========================================================================
-            if (uiState.selectedTab == 4) {
+            if (uiState.selectedTab == 5) {
                 item {
                     Text(text = "Real-Time Multi-Server Telemetry", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(10.dp))
@@ -1142,9 +1490,9 @@ fun AdminDashboardScreen(
             }
 
             // =========================================================================
-            // TAB 5: REAL USER MODERATION (NO FAKE DEMO USERS)
+            // TAB 6: REAL USER MODERATION (NO FAKE DEMO USERS)
             // =========================================================================
-            if (uiState.selectedTab == 5) {
+            if (uiState.selectedTab == 6) {
                 item {
                     Text(text = "Registered User Accounts (${users.size})", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     Text(text = "Only real accounts registered on this device are shown (Zero fake demo accounts)", color = TextSecondary, fontSize = 11.sp)
@@ -1213,9 +1561,9 @@ fun AdminDashboardScreen(
             }
 
             // =========================================================================
-            // TAB 6: AUDIT LOGS
+            // TAB 7: AUDIT LOGS
             // =========================================================================
-            if (uiState.selectedTab == 6) {
+            if (uiState.selectedTab == 7) {
                 item {
                     Text(text = "Administrative Audit Trail", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
@@ -1309,7 +1657,7 @@ fun AdminDashboardScreen(
                             }
                         }
 
-                        // Quick Stream Presets
+                        // Quick Stream Presets (HiAnime HD-1 VidStreaming, AniWatch HD-2 MegaCloud, VidCloud, AnimeThemes, Official Trailer)
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -1319,11 +1667,32 @@ fun AdminDashboardScreen(
                                 onClick = {
                                     viewModel.updateScrapedVideoField(
                                         streamUrl = "https://v.animethemes.moe/SousouNoFrieren-OP1-NCBD1080.webm",
-                                        qualityLabel = "1080p BD WebM",
-                                        serverSource = "AnimeThemes Free Storage"
+                                        qualityLabel = "1080p HD-1 • VidStreaming",
+                                        serverSource = "HD-1 (VidStreaming • HiAnime)"
                                     )
                                 },
-                                label = { Text("AnimeThemes 1080p", fontSize = 10.sp) }
+                                label = { Text("HD-1 • VidStreaming (HiAnime)", fontSize = 10.sp) }
+                            )
+                            FilterChip(
+                                selected = false,
+                                onClick = {
+                                    viewModel.updateScrapedVideoField(
+                                        streamUrl = "https://v.animethemes.moe/SousouNoFrieren-OP2-NCBD1080.webm",
+                                        qualityLabel = "1080p HD-2 • MegaCloud",
+                                        serverSource = "HD-2 (MegaCloud • AniWatch)"
+                                    )
+                                },
+                                label = { Text("HD-2 • MegaCloud (AniWatch)", fontSize = 10.sp) }
+                            )
+                            FilterChip(
+                                selected = false,
+                                onClick = {
+                                    viewModel.updateScrapedVideoField(
+                                        qualityLabel = "1080p VidCloud / StreamSB",
+                                        serverSource = "VidCloud / StreamTape"
+                                    )
+                                },
+                                label = { Text("VidCloud / StreamTape", fontSize = 10.sp) }
                             )
                             FilterChip(
                                 selected = false,
@@ -1335,16 +1704,6 @@ fun AdminDashboardScreen(
                                     )
                                 },
                                 label = { Text("Official Trailer", fontSize = 10.sp) }
-                            )
-                            FilterChip(
-                                selected = false,
-                                onClick = {
-                                    viewModel.updateScrapedVideoField(
-                                        qualityLabel = "1080p HLS Master",
-                                        serverSource = "HiAnime Scraper"
-                                    )
-                                },
-                                label = { Text("HiAnime HLS", fontSize = 10.sp) }
                             )
                         }
 

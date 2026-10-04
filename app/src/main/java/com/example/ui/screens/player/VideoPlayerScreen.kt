@@ -752,7 +752,7 @@ fun VideoPlayerScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Quality Selector
+                        // Server & Quality Selector (HiAnime HD-1 VidStreaming / AniWatch HD-2 MegaCloud / VidCloud)
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
@@ -763,7 +763,14 @@ fun VideoPlayerScreen(
                         ) {
                             Icon(Icons.Default.HighQuality, contentDescription = null, tint = CrimsonNeon, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = uiState.selectedQuality, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = "${uiState.selectedQuality} • ${uiState.currentSource?.cdnNode?.substringBefore(" (") ?: "HD-1"}",
+                                color = Color.White,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
 
                         // Subtitle Selector

@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import com.example.data.local.entity.AdMobConfigEntity
 import com.example.data.local.entity.ApiEndpointEntity
 import com.example.data.local.entity.ScrapedVideoEntity
 import com.example.data.local.entity.UserAccountEntity
@@ -61,4 +62,14 @@ interface AdminScrapedDao {
 
     @Query("DELETE FROM api_endpoints WHERE id = :id")
     suspend fun deleteApiEndpoint(id: String)
+
+    // Google AdMob Account Configuration
+    @Query("SELECT * FROM admob_config WHERE id = 'primary_admob_account' LIMIT 1")
+    fun getAdMobConfig(): Flow<AdMobConfigEntity?>
+
+    @Query("SELECT * FROM admob_config WHERE id = 'primary_admob_account' LIMIT 1")
+    suspend fun getAdMobConfigOnce(): AdMobConfigEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun saveAdMobConfig(config: AdMobConfigEntity)
 }

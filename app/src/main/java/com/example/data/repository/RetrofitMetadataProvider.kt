@@ -153,17 +153,24 @@ class RetrofitMetadataProvider(
     override suspend fun getEpisodesForAnime(animeId: String): List<Episode> = withContext(Dispatchers.IO) {
         val baseEpisodes = fallbackProvider.getEpisodesForAnime(animeId)
         val anime = fallbackProvider.getAnimeById(animeId)
+        val searchTitle = anime?.titleRomaji?.ifBlank { anime.titleEnglish } ?: ""
 
-        // Try fetching additional real direct video streams from AnimeThemes Free Video Storage Server
-        val extraStorageStreams = if (anime != null) {
-            fetchAnimeThemesStorageStreams(anime.titleRomaji.ifBlank { anime.titleEnglish })
+        // 1) Try resolving upstream streams from HiAnime / AniWatch / Consumet API (HD-1 VidStreaming, HD-2 MegaCloud)
+        val upstreamStreams = if (searchTitle.isNotBlank()) {
+            fetchHiAnimeAniWatchUpstreamStreams(searchTitle)
         } else emptyList()
 
-        if (extraStorageStreams.isEmpty()) {
+        // 2) Try fetching additional real direct video streams from AnimeThemes Free Video Storage Server
+        val extraStorageStreams = if (searchTitle.isNotBlank()) {
+            fetchAnimeThemesStorageStreams(searchTitle)
+        } else emptyList()
+
+        val allExtra = upstreamStreams + extraStorageStreams
+        if (allExtra.isEmpty()) {
             baseEpisodes
         } else {
             baseEpisodes.map { ep ->
-                val mergedSources = (ep.sources + extraStorageStreams).distinctBy { it.streamUrl }
+                val mergedSources = (ep.sources + allExtra).distinctBy { it.streamUrl }
                 ep.copy(sources = mergedSources)
             }
         }
@@ -421,6 +428,83 @@ class RetrofitMetadataProvider(
                 }
                 sources
             }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    /**
+     * Queries HiAnime / AniWatch / Consumet Zoro upstream API endpoints to resolve
+     * multi-server HLS (.m3u8) streams from HD-1 (VidStreaming), HD-2 (MegaCloud), StreamSB, and StreamTape.
+     */
+    private fun fetchHiAnimeAniWatchUpstreamStreams(animeTitle: String): List<EpisodeSource> {
+        return try {
+            val encoded = URLEncoder.encode(animeTitle, "UTF-8")
+            val activeBase = RetrofitClient.getActiveBaseUrl().trimEnd('/')
+            val searchBase = if (activeBase.contains("consumet") || activeBase.contains("zoro") || activeBase.contains("aniwatch") || activeBase.contains("hianime")) {
+                activeBase
+            } else {
+                "https://api.consumet.org/anime/zoro"
+            }
+
+            val searchReq = Request.Builder().url("$searchBase/$encoded").get().build()
+            val zoroAnimeId = RetrofitClient.okHttpClient.newCall(searchReq).execute().use { resp ->
+                if (!resp.isSuccessful) return emptyList()
+                val body = resp.body?.string() ?: return emptyList()
+                val results = JSONObject(body).optJSONArray("results") ?: return emptyList()
+                if (results.length() == 0) return emptyList()
+                results.optJSONObject(0)?.optString("id").orEmpty()
+            }
+            if (zoroAnimeId.isBlank()) return emptyList()
+
+            val infoReq = Request.Builder().url("$searchBase/info?id=$zoroAnimeId").get().build()
+            val firstEpId = RetrofitClient.okHttpClient.newCall(infoReq).execute().use { resp ->
+                if (!resp.isSuccessful) return emptyList()
+                val body = resp.body?.string() ?: return emptyList()
+                val eps = JSONObject(body).optJSONArray("episodes") ?: return emptyList()
+                if (eps.length() == 0) return emptyList()
+                eps.optJSONObject(0)?.optString("id").orEmpty()
+            }
+            if (firstEpId.isBlank()) return emptyList()
+
+            val resolvedSources = mutableListOf<EpisodeSource>()
+            val upstreamServers = listOf(
+                "vidstreaming" to "HD-1 (VidStreaming • HiAnime)",
+                "megacloud" to "HD-2 (MegaCloud • AniWatch)",
+                "streamsb" to "StreamSB (HLS Backup)",
+                "streamtape" to "StreamTape (Direct Cloud)"
+            )
+
+            for ((serverParam, serverLabel) in upstreamServers.take(2)) {
+                runCatching {
+                    val watchUrl = "$searchBase/watch?episodeId=$firstEpId&server=$serverParam"
+                    val watchReq = Request.Builder().url(watchUrl).get().build()
+                    RetrofitClient.okHttpClient.newCall(watchReq).execute().use { resp ->
+                        if (resp.isSuccessful) {
+                            val body = resp.body?.string().orEmpty()
+                            val sourcesArr = JSONObject(body).optJSONArray("sources")
+                            if (sourcesArr != null) {
+                                for (i in 0 until sourcesArr.length()) {
+                                    val srcObj = sourcesArr.optJSONObject(i) ?: continue
+                                    val streamUrl = srcObj.optString("url").takeIf { it.isNotBlank() } ?: continue
+                                    val quality = srcObj.optString("quality", "1080p")
+                                    val isM3u8 = srcObj.optBoolean("isM3U8", streamUrl.contains(".m3u8"))
+                                    resolvedSources.add(
+                                        EpisodeSource(
+                                            id = "upstream_${serverParam}_$i",
+                                            quality = "$quality • $serverLabel",
+                                            streamUrl = streamUrl,
+                                            isHls = isM3u8,
+                                            cdnNode = serverLabel
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            resolvedSources
         } catch (_: Exception) {
             emptyList()
         }
