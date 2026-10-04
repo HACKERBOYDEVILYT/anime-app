@@ -69,8 +69,9 @@ class AppUpdateRepository(
     private var isServerActive = false
 
     init {
+        startLanWebServer(8080)
         if (_updateState.value.autoCheckOnStartup) {
-            checkForRepositoryUpdate(autoPrompt = true)
+            checkForRepositoryUpdate(autoPrompt = false)
         }
     }
 
@@ -334,7 +335,7 @@ class AppUpdateRepository(
         val state = _updateState.value
         val catalog: List<Anime> = mediaProvider.getAllCatalogSnapshot()
         val root = JSONObject()
-        root.put("appName", "KuroStream")
+        root.put("appName", "Robiul")
         root.put("versionName", state.latestVersionName)
         root.put("versionCode", state.latestVersionCode)
         root.put("repositorySlug", state.repositorySlug)

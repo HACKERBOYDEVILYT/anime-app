@@ -1,6 +1,9 @@
 package com.example.ui.screens.web
 
 import android.annotation.SuppressLint
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.view.ViewGroup
@@ -8,6 +11,7 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -30,10 +34,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SystemUpdateAlt
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -189,42 +195,104 @@ fun WebPortalScreen(
         }
 
         if (selectedTab == 0) {
-            // Top Status Bar for Unified Web Portal
-            Row(
+            // Prominent Website Link Bar (Copy Link, Share Link, Open in Browser)
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(SurfaceDark)
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(8.dp).background(Color(0xFF00E676), CircleShape))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = if (updateState.isLanWebServerRunning) {
-                            "LAN Server Live: ${updateState.lanWebServerUrl}"
-                        } else {
-                            "Synced with Repo: ${updateState.repositorySlug}"
-                        },
-                        color = TextSecondary,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(modifier = Modifier.size(8.dp).background(Color(0xFF00FF66), CircleShape))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "LIVE WEBSITE LINK (CLICK TO COPY OR OPEN)",
+                                color = Color(0xFF00FF66),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = updateState.liveWebsiteUrl,
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            text = "Local Server Link: ${updateState.lanWebServerUrl} • Preview: https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app",
+                            color = CyanGlow,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = { appUpdateRepository.toggleLanWebServer() },
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Button(
+                        onClick = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                            clipboard?.setPrimaryClip(ClipData.newPlainText("Robiul Website Link", updateState.liveWebsiteUrl))
+                            Toast.makeText(context, "Website Link Copied: ${updateState.liveWebsiteUrl}", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00FF66)),
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        modifier = Modifier.height(30.dp)
+                        modifier = Modifier
+                            .height(32.dp)
+                            .testTag("copy_website_link_btn")
                     ) {
-                        Text(
-                            text = if (updateState.isLanWebServerRunning) "Stop LAN Server" else "Start LAN Server :8080",
-                            color = if (updateState.isLanWebServerRunning) Color(0xFF00E676) else CyanGlow,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Icon(Icons.Default.ContentCopy, contentDescription = "Copy Link", tint = Color.Black, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Copy Website Link", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                            clipboard?.setPrimaryClip(ClipData.newPlainText("Robiul Local Server Link", updateState.lanWebServerUrl))
+                            Toast.makeText(context, "Local Website Link Copied: ${updateState.lanWebServerUrl}", Toast.LENGTH_SHORT).show()
+                        },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier.height(32.dp)
+                    ) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = "Copy LAN Link", tint = CyanGlow, modifier = Modifier.size(13.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Copy :8080 Link", color = CyanGlow, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            try {
+                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(
+                                        Intent.EXTRA_TEXT,
+                                        "Robiul [RS] Live Streaming Website:\nGitHub Pages: ${updateState.liveWebsiteUrl}\nLAN Server: ${updateState.lanWebServerUrl}\nShared App URL: https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app"
+                                    )
+                                }
+                                context.startActivity(Intent.createChooser(shareIntent, "Share Website Link"))
+                            } catch (_: Exception) {
+                            }
+                        },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier.height(32.dp)
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = "Share Link", tint = Color.White, modifier = Modifier.size(13.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Share", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
 
                     OutlinedButton(
@@ -236,7 +304,7 @@ fun WebPortalScreen(
                             }
                         },
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        modifier = Modifier.height(30.dp)
+                        modifier = Modifier.height(32.dp)
                     ) {
                         Icon(Icons.Default.OpenInBrowser, contentDescription = null, tint = CrimsonNeon, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
@@ -440,8 +508,19 @@ fun WebPortalScreen(
 
                             OutlinedTextField(
                                 value = repoSlugInput,
-                                onValueChange = { repoSlugInput = it },
-                                label = { Text("GitHub Repository (owner/repo)") },
+                                onValueChange = { newSlug ->
+                                    repoSlugInput = newSlug
+                                    val clean = newSlug.trim().removePrefix("https://github.com/").removeSuffix("/")
+                                    if (clean.contains("/")) {
+                                        val owner = clean.substringBefore("/")
+                                        val repo = clean.substringAfter("/")
+                                        if (owner.isNotBlank() && repo.isNotBlank()) {
+                                            webUrlInput = "https://$owner.github.io/$repo/"
+                                            apkUrlInput = "https://github.com/$owner/$repo/releases/latest/download/Robiul-Release.apk"
+                                        }
+                                    }
+                                },
+                                label = { Text("GitHub Repository (owner/repo) — Auto-generates Website Link") },
                                 singleLine = true,
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = CyanGlow,

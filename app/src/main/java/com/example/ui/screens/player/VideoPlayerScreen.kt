@@ -22,6 +22,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -52,6 +53,8 @@ import androidx.compose.material.icons.filled.ClosedCaption
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.FastRewind
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.HighQuality
 import androidx.compose.material.icons.filled.Lock
@@ -91,8 +94,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
@@ -115,7 +125,11 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.example.data.repository.CommentsRepository
 import com.example.data.repository.DownloadsRepository
 import com.example.ui.components.CustomVideoProgressBar
@@ -156,6 +170,38 @@ fun VideoPlayerScreen(
     var currentVolumePercent by remember {
         val currentVol = audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: 10
         mutableIntStateOf(((currentVol.toFloat() / maxVolume.toFloat()) * 100).toInt())
+    }
+    var isFullscreen by remember { mutableStateOf(false) }
+    var kbdShortcutToast by remember { mutableStateOf<String?>(null) }
+    val playerFocusRequester = remember { FocusRequester() }
+
+    val toggleFullscreenMode: () -> Unit = {
+        isFullscreen = !isFullscreen
+        activity?.window?.let { window ->
+            val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+            insetsController.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            if (isFullscreen) {
+                insetsController.hide(WindowInsetsCompat.Type.systemBars())
+            } else {
+                insetsController.show(WindowInsetsCompat.Type.systemBars())
+            }
+        }
+        kbdShortcutToast = if (isFullscreen) "⛶ Fullscreen Mode ON [F]" else "🗗 Fullscreen Mode OFF [F]"
+    }
+
+    LaunchedEffect(kbdShortcutToast) {
+        if (kbdShortcutToast != null) {
+            delay(1400)
+            kbdShortcutToast = null
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        try {
+            playerFocusRequester.requestFocus()
+        } catch (_: Exception) {
+        }
     }
 
     // ExoPlayer Instance with Decoder Fallback, Safe Track Selection, Browser User-Agent & HLS/MP4 Support
@@ -278,6 +324,70 @@ fun VideoPlayerScreen(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
+            .focusRequester(playerFocusRequester)
+            .focusable()
+            .onPreviewKeyEvent { keyEvent ->
+                if (keyEvent.type == KeyEventType.KeyDown && !uiState.isLocked) {
+                    when (keyEvent.key) {
+                        Key.Spacebar, Key.MediaPlayPause -> {
+                            if (exoPlayer.isPlaying) {
+                                exoPlayer.pause()
+                                viewModel.setPlaying(false)
+                                kbdShortcutToast = "⏸ Paused [Space]"
+                            } else {
+                                exoPlayer.play()
+                                viewModel.setPlaying(true)
+                                kbdShortcutToast = "▶ Playing [Space]"
+                            }
+                            true
+                        }
+                        Key.DirectionLeft -> {
+                            val newPos = (exoPlayer.currentPosition - 10000L).coerceAtLeast(0L)
+                            exoPlayer.seekTo(newPos)
+                            viewModel.showSeekGestureIndicator(isForward = false, deltaSec = 10)
+                            kbdShortcutToast = "⏪ Rewind -10s [←]"
+                            true
+                        }
+                        Key.DirectionRight -> {
+                            val maxDur = if (exoPlayer.duration != C.TIME_UNSET && exoPlayer.duration > 0L) {
+                                exoPlayer.duration
+                            } else {
+                                uiState.totalDurationMs.coerceAtLeast(exoPlayer.currentPosition + 10000L)
+                            }
+                            val newPos = (exoPlayer.currentPosition + 10000L).coerceIn(0L, maxDur)
+                            exoPlayer.seekTo(newPos)
+                            viewModel.showSeekGestureIndicator(isForward = true, deltaSec = 10)
+                            kbdShortcutToast = "⏩ Forward +10s [→]"
+                            true
+                        }
+                        Key.DirectionUp -> {
+                            val newVolPercent = (currentVolumePercent + 10).coerceIn(0, 100)
+                            currentVolumePercent = newVolPercent
+                            val targetStreamVol = ((newVolPercent / 100f) * maxVolume).toInt()
+                            audioManager?.setStreamVolume(AudioManager.STREAM_MUSIC, targetStreamVol, 0)
+                            viewModel.setVolumePercent(newVolPercent)
+                            kbdShortcutToast = "🔊 Volume $newVolPercent% [↑]"
+                            true
+                        }
+                        Key.DirectionDown -> {
+                            val newVolPercent = (currentVolumePercent - 10).coerceIn(0, 100)
+                            currentVolumePercent = newVolPercent
+                            val targetStreamVol = ((newVolPercent / 100f) * maxVolume).toInt()
+                            audioManager?.setStreamVolume(AudioManager.STREAM_MUSIC, targetStreamVol, 0)
+                            viewModel.setVolumePercent(newVolPercent)
+                            kbdShortcutToast = "🔉 Volume $newVolPercent% [↓]"
+                            true
+                        }
+                        Key.F -> {
+                            toggleFullscreenMode()
+                            true
+                        }
+                        else -> false
+                    }
+                } else {
+                    false
+                }
+            }
             .onGloballyPositioned { containerSize = it.size }
             .pointerInput(uiState.isLocked) {
                 if (!uiState.isLocked) {
@@ -385,14 +495,46 @@ fun VideoPlayerScreen(
                     PlayerView(ctx).apply {
                         player = exoPlayer
                         useController = false
+                        resizeMode = if (isFullscreen) {
+                            AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                        } else {
+                            AspectRatioFrameLayout.RESIZE_MODE_FIT
+                        }
                         layoutParams = FrameLayout.LayoutParams(
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT
                         )
                     }
                 },
+                update = { playerView ->
+                    playerView.resizeMode = if (isFullscreen) {
+                        AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    } else {
+                        AspectRatioFrameLayout.RESIZE_MODE_FIT
+                    }
+                },
                 modifier = Modifier.fillMaxSize()
             )
+        }
+
+        // Keyboard Shortcut Toast Overlay (Space, Arrow Keys, F Fullscreen)
+        if (kbdShortcutToast != null) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(top = 56.dp)
+                    .background(Color(0xFF070B10).copy(alpha = 0.9f), RoundedCornerShape(20.dp))
+                    .border(1.dp, Color(0xFF00FF66), RoundedCornerShape(20.dp))
+                    .padding(horizontal = 16.dp, vertical = 7.dp)
+            ) {
+                Text(
+                    text = kbdShortcutToast ?: "",
+                    color = Color(0xFF00FF66),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
         }
 
         // On-screen Bangla Subtitle Rendering
@@ -878,6 +1020,33 @@ fun VideoPlayerScreen(
                             Icon(Icons.Default.Speed, contentDescription = null, tint = CrimsonNeon, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(text = "${uiState.playbackSpeed}x", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        // Fullscreen Toggle Button ('F' Key Shortcut)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .background(
+                                    if (isFullscreen) CrimsonNeon.copy(alpha = 0.85f) else SurfaceDark.copy(alpha = 0.8f),
+                                    RoundedCornerShape(6.dp)
+                                )
+                                .clickable { toggleFullscreenMode() }
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                .testTag("player_fullscreen_btn")
+                        ) {
+                            Icon(
+                                imageVector = if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
+                                contentDescription = "Toggle Fullscreen (F)",
+                                tint = if (isFullscreen) Color.White else CrimsonNeon,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (isFullscreen) "Exit [F]" else "Full [F]",
+                                color = Color.White,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }

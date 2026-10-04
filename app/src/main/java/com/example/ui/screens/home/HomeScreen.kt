@@ -1,5 +1,9 @@
 package com.example.ui.screens.home
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -74,11 +78,14 @@ import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material.icons.filled.FormatListNumbered
 import androidx.compose.material.icons.filled.FormatQuote
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import coil.compose.AsyncImage
 
 @Composable
@@ -106,6 +113,7 @@ fun HomeScreen(
     val notifications by viewModel.notifications.collectAsStateWithLifecycle()
     val adMobConfig by AdminRepository.globalAdMobConfig.collectAsStateWithLifecycle()
     val unreadNotifsCount = notifications.count { !it.isRead }
+    val context = LocalContext.current
 
     var showAdminAuthDialog by remember { mutableStateOf(false) }
     var logoTapCount by remember { mutableIntStateOf(0) }
@@ -274,6 +282,90 @@ fun HomeScreen(
                             onClick = onWebPortalClick,
                             modifier = Modifier.weight(1f)
                         )
+                    }
+                }
+
+                // Direct Live Website Link Card on Home Screen (Copy Link & Open Live Website)
+                item {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = SurfaceDark,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp)
+                            .border(1.dp, Color(0xFF00FF66).copy(alpha = 0.45f), RoundedCornerShape(10.dp))
+                            .clickable { onWebPortalClick() }
+                            .testTag("home_website_link_banner")
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(7.dp)
+                                            .background(Color(0xFF00FF66), CircleShape)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "🌐 ROBIUL [RS] LIVE WEBSITE LINK",
+                                        color = Color(0xFF00FF66),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "https://robiul.github.io/robiul-rs/ • http://127.0.0.1:8080",
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = Color(0xFF00FF66),
+                                modifier = Modifier
+                                    .clickable {
+                                        val link = "https://robiul.github.io/robiul-rs/"
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                        clipboard?.setPrimaryClip(ClipData.newPlainText("Robiul Website Link", link))
+                                        Toast.makeText(context, "Website Link Copied: $link", Toast.LENGTH_SHORT).show()
+                                    }
+                                    .testTag("home_copy_website_link_btn")
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ContentCopy,
+                                        contentDescription = "Copy Website Link",
+                                        tint = Color.Black,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Copy Link",
+                                        color = Color.Black,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 

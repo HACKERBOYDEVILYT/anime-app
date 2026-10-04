@@ -158,7 +158,33 @@
     .player-box {
       width: 100%; max-width: 980px; background: var(--surface-dark);
       border: 1px solid rgba(255,42,95,0.4); border-radius: 14px; overflow: hidden;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.85);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.85); transition: all 0.2s ease;
+    }
+    .player-box.fullscreen-active {
+      max-width: 100vw; width: 100vw; height: 100vh; border-radius: 0; border: none;
+      display: flex; flex-direction: column; justify-content: space-between; background: #000;
+    }
+    .player-box.fullscreen-active .video-stage {
+      flex: 1; aspect-ratio: auto; height: calc(100vh - 150px);
+    }
+    .player-key-toast {
+      position: absolute; top: 18px; left: 50%; transform: translateX(-50%);
+      background: rgba(7, 11, 16, 0.88); border: 1px solid #00FF66;
+      color: #00FF66; font-family: monospace; font-size: 13px; font-weight: 800;
+      padding: 7px 16px; border-radius: 20px; pointer-events: none;
+      opacity: 0; transition: opacity 0.2s ease; z-index: 20;
+      box-shadow: 0 0 16px rgba(0, 255, 102, 0.35);
+    }
+    .player-key-toast.visible { opacity: 1; }
+    .kbd-hint-bar {
+      padding: 6px 16px; background: rgba(7, 11, 16, 0.9);
+      border-top: 1px solid var(--border-color);
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
+      font-size: 11px; color: var(--text-secondary); font-family: monospace;
+    }
+    .kbd-tag {
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2);
+      color: #fff; padding: 1px 6px; border-radius: 4px; font-weight: 700; font-size: 10px;
     }
     .player-header {
       padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;
@@ -305,19 +331,23 @@
     <div class="anime-grid" id="animeGrid"></div>
   </div>
 
-  <!-- Full-Featured Video Player Modal with Custom Progress Bar -->
-  <div class="player-modal" id="playerModal">
-    <div class="player-box">
+  <!-- Full-Featured Video Player Modal with Custom Progress Bar & Keyboard Shortcuts -->
+  <div class="player-modal" id="playerModal" tabindex="-1">
+    <div class="player-box" id="playerBox">
       <div class="player-header">
         <div>
           <div style="font-size:15px;font-weight:800;" id="modalAnimeTitle">Frieren: Beyond Journey's End</div>
           <div style="font-size:11px;color:var(--cyan-glow);" id="modalEpisodeSub">Episode 1 • 1080p HLS Stream</div>
         </div>
-        <button class="btn btn-outline" onclick="closePlayerModal()">✕ Close Player</button>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn btn-outline" id="fullscreenBtn" onclick="toggleModalFullscreen()">⛶ Fullscreen (F)</button>
+          <button class="btn btn-outline" onclick="closePlayerModal()">✕ Close Player</button>
+        </div>
       </div>
 
-      <div class="video-stage" onclick="toggleModalPlay()">
+      <div class="video-stage" id="videoStage" onclick="toggleModalPlay()">
         <video id="modalVideo" playsinline></video>
+        <div class="player-key-toast" id="playerKeyToast">▶ Playing [Space]</div>
         <div class="bangla-sub-overlay" id="banglaSubOverlay">আমরা একসাথে পরবর্তী রোমাঞ্চকর অভিযানের জন্য প্রস্তুত...</div>
       </div>
 
@@ -357,7 +387,12 @@
         </div>
         <div class="chip-group">
           <button class="chip active" id="subToggleBtn" onclick="toggleBanglaSub()">🇧🇩 Bangla Sub: ON</button>
+          <button class="chip" id="modalFsChip" onclick="toggleModalFullscreen()">⛶ Fullscreen [F]</button>
         </div>
+      </div>
+      <div class="kbd-hint-bar">
+        <div>⌨️ Shortcuts: <span class="kbd-tag">Space</span> Play/Pause • <span class="kbd-tag">←</span> / <span class="kbd-tag">→</span> Seek ±10s • <span class="kbd-tag">↑</span> / <span class="kbd-tag">↓</span> Volume • <span class="kbd-tag">F</span> Fullscreen • <span class="kbd-tag">Esc</span> Exit</div>
+        <div id="kbdLastAction" style="color:#00FF66;">Ready</div>
       </div>
     </div>
   </div>
@@ -503,14 +538,128 @@
 
     function toggleModalPlay() {
       const v = document.getElementById("modalVideo");
-      if (v.paused) { v.play(); document.getElementById("playPauseBtn").textContent = "⏸ Pause"; }
-      else { v.pause(); document.getElementById("playPauseBtn").textContent = "▶ Play"; }
+      if (v.paused) {
+        v.play().catch(() => {});
+        document.getElementById("playPauseBtn").textContent = "⏸ Pause";
+        showPlayerKeyToast("▶ Playing [Space]");
+      } else {
+        v.pause();
+        document.getElementById("playPauseBtn").textContent = "▶ Play";
+        showPlayerKeyToast("⏸ Paused [Space]");
+      }
     }
 
     function skipSeconds(delta) {
       const v = document.getElementById("modalVideo");
-      v.currentTime = Math.max(0, Math.min(v.duration || 1440, v.currentTime + delta));
+      const maxDur = (v.duration && !isNaN(v.duration) && v.duration > 0) ? v.duration : 1440;
+      v.currentTime = Math.max(0, Math.min(maxDur, (v.currentTime || 0) + delta));
+      const label = delta > 0 ? `⏩ Forward +${delta}s [→]` : `⏪ Rewind ${delta}s [←]`;
+      showPlayerKeyToast(`${label} • ${formatTimeSec(v.currentTime)}`);
     }
+
+    let keyToastTimer = null;
+    function showPlayerKeyToast(message) {
+      const toast = document.getElementById("playerKeyToast");
+      const statusEl = document.getElementById("kbdLastAction");
+      if (statusEl) statusEl.textContent = message;
+      if (!toast) return;
+      toast.textContent = message;
+      toast.classList.add("visible");
+      if (keyToastTimer) clearTimeout(keyToastTimer);
+      keyToastTimer = setTimeout(() => {
+        toast.classList.remove("visible");
+      }, 1300);
+    }
+
+    function toggleModalFullscreen() {
+      const box = document.getElementById("playerBox");
+      const fsBtn = document.getElementById("fullscreenBtn");
+      const fsChip = document.getElementById("modalFsChip");
+      if (!box) return;
+
+      const isNativeFs = !!document.fullscreenElement || !!document.webkitFullscreenElement;
+      const isCssFs = box.classList.contains("fullscreen-active");
+
+      if (!isNativeFs && !isCssFs) {
+        box.classList.add("fullscreen-active");
+        if (box.requestFullscreen) {
+          box.requestFullscreen().catch(() => {});
+        } else if (box.webkitRequestFullscreen) {
+          box.webkitRequestFullscreen();
+        }
+        if (fsBtn) fsBtn.textContent = "🗗 Exit Fullscreen (F)";
+        if (fsChip) fsChip.textContent = "🗗 Exit Fullscreen [F]";
+        showPlayerKeyToast("⛶ Fullscreen Mode ON [F]");
+      } else {
+        box.classList.remove("fullscreen-active");
+        if (document.fullscreenElement && document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        } else if (document.webkitFullscreenElement && document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        }
+        if (fsBtn) fsBtn.textContent = "⛶ Fullscreen (F)";
+        if (fsChip) fsChip.textContent = "⛶ Fullscreen [F]";
+        showPlayerKeyToast("🗗 Fullscreen Mode OFF [F]");
+      }
+    }
+
+    document.addEventListener("fullscreenchange", () => {
+      const box = document.getElementById("playerBox");
+      const fsBtn = document.getElementById("fullscreenBtn");
+      const fsChip = document.getElementById("modalFsChip");
+      if (!document.fullscreenElement && box) {
+        box.classList.remove("fullscreen-active");
+        if (fsBtn) fsBtn.textContent = "⛶ Fullscreen (F)";
+        if (fsChip) fsChip.textContent = "⛶ Fullscreen [F]";
+      }
+    });
+
+    // Keyboard Event Listeners for Video Player Modal:
+    // - Spacebar: Play / Pause
+    // - ArrowLeft / ArrowRight: Seek backward / forward 10s
+    // - ArrowUp / ArrowDown: Volume up / down 10%
+    // - 'F' / 'f': Fullscreen toggle
+    // - 'Escape': Exit fullscreen or close modal
+    window.addEventListener("keydown", (e) => {
+      const modal = document.getElementById("playerModal");
+      if (!modal || !modal.classList.contains("active")) return;
+
+      const tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : "";
+      if (tag === "INPUT" || tag === "TEXTAREA" || (e.target && e.target.isContentEditable)) return;
+
+      if (e.code === "Space" || e.key === " ") {
+        e.preventDefault();
+        toggleModalPlay();
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        skipSeconds(-10);
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        skipSeconds(10);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        const v = document.getElementById("modalVideo");
+        v.muted = false;
+        v.volume = Math.min(1, Math.round((v.volume + 0.1) * 10) / 10);
+        showPlayerKeyToast(`🔊 Volume ${Math.round(v.volume * 100)}% [↑]`);
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        const v = document.getElementById("modalVideo");
+        v.volume = Math.max(0, Math.round((v.volume - 0.1) * 10) / 10);
+        showPlayerKeyToast(`🔉 Volume ${Math.round(v.volume * 100)}% [↓]`);
+      } else if (e.key === "f" || e.key === "F" || e.code === "KeyF") {
+        e.preventDefault();
+        toggleModalFullscreen();
+      } else if (e.key === "Escape") {
+        const box = document.getElementById("playerBox");
+        if (box && box.classList.contains("fullscreen-active")) {
+          e.preventDefault();
+          toggleModalFullscreen();
+        } else {
+          closePlayerModal();
+        }
+      }
+    });
 
     function seekFromProgressBar(e) {
       const bar = document.getElementById("customProgressBar");
