@@ -4,6 +4,7 @@ import com.example.data.model.Anime
 import com.example.data.model.Episode
 
 interface MetadataProvider {
+    fun getInitialCatalogSnapshot(): List<Anime> = emptyList()
     suspend fun getTrendingAnime(): List<Anime>
     suspend fun getPopularAnime(): List<Anime>
     suspend fun getTopRatedAnime(): List<Anime>

@@ -165,34 +165,8 @@ class WatchRepository(
     }
 
     suspend fun seedInitialNotificationsIfEmpty() {
-        // Sample notifications for realistic streaming platform
-        socialDao.insertNotification(
-            NotificationEntity(
-                id = "notif_1",
-                title = "New Episode Released!",
-                message = "Solo Leveling Episode 12 is now streaming in 4K HDR.",
-                animeId = "anime_3",
-                timestamp = System.currentTimeMillis() - 1000 * 60 * 45
-            )
-        )
-        socialDao.insertNotification(
-            NotificationEntity(
-                id = "notif_2",
-                title = "Frieren Season Finale Available",
-                message = "The journey reaches its winter checkpoint. Stream all 28 episodes now.",
-                animeId = "anime_1",
-                timestamp = System.currentTimeMillis() - 1000 * 60 * 60 * 5
-            )
-        )
-        socialDao.insertNotification(
-            NotificationEntity(
-                id = "notif_3",
-                title = "Weekly Anime Ranking Updated",
-                message = "Check out the top 10 community trending anime of the week.",
-                animeId = null,
-                timestamp = System.currentTimeMillis() - 1000 * 60 * 60 * 24
-            )
-        )
+        // Purge any previously seeded demo notifications so only real notifications appear
+        socialDao.deleteFakeSeededNotifications()
     }
 
     private fun WatchHistoryEntity.toDomain() = WatchHistoryItem(

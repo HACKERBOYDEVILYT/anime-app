@@ -205,7 +205,7 @@ fun AnimeRadioScreen(
                                 }
 
                                 Text(
-                                    text = "🎧 ${currentStation.listenersCount} listening",
+                                    text = "🎧 ${currentStation.serverProtocol}",
                                     color = TextMuted,
                                     fontSize = 11.sp
                                 )

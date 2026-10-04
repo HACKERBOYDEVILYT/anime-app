@@ -132,7 +132,7 @@ fun EpisodeCommentsSheet(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Overall Episode Quick Reactions Bar
+            // Overall Episode Quick Reactions Bar (Calculated from Real User Comments)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -141,16 +141,16 @@ fun EpisodeCommentsSheet(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                ReactionChip(emoji = "🔥", label = "Hype", count = 342) {
+                ReactionChip(emoji = "🔥", label = "Hype", count = comments.sumOf { it.fireReactions }) {
                     scope.launch { comments.firstOrNull()?.let { commentsRepository.react(it.id, "FIRE") } }
                 }
-                ReactionChip(emoji = "😭", label = "Sad", count = 189) {
+                ReactionChip(emoji = "😭", label = "Sad", count = comments.sumOf { it.cryReactions }) {
                     scope.launch { comments.firstOrNull()?.let { commentsRepository.react(it.id, "CRY") } }
                 }
-                ReactionChip(emoji = "😱", label = "Shock", count = 520) {
+                ReactionChip(emoji = "😱", label = "Shock", count = comments.sumOf { it.shockReactions }) {
                     scope.launch { comments.firstOrNull()?.let { commentsRepository.react(it.id, "SHOCK") } }
                 }
-                ReactionChip(emoji = "❤️", label = "Love", count = 812) {
+                ReactionChip(emoji = "❤️", label = "Love", count = comments.sumOf { it.loveReactions }) {
                     scope.launch { comments.firstOrNull()?.let { commentsRepository.react(it.id, "LOVE") } }
                 }
             }
@@ -158,22 +158,37 @@ fun EpisodeCommentsSheet(
             Spacer(modifier = Modifier.height(14.dp))
 
             // Comments list
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 340.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(comments, key = { it.id }) { comment ->
-                    val isRevealed = revealedSpoilers[comment.id] == true
-                    CommentItem(
-                        comment = comment,
-                        isRevealed = isRevealed,
-                        onRevealSpoiler = { revealedSpoilers[comment.id] = true },
-                        onReact = { type ->
-                            scope.launch { commentsRepository.react(comment.id, type) }
-                        }
+            if (comments.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No comments yet for Episode $episodeNumber. Be the first to post a real comment!",
+                        color = TextMuted,
+                        fontSize = 12.sp
                     )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 340.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(comments, key = { it.id }) { comment ->
+                        val isRevealed = revealedSpoilers[comment.id] == true
+                        CommentItem(
+                            comment = comment,
+                            isRevealed = isRevealed,
+                            onRevealSpoiler = { revealedSpoilers[comment.id] = true },
+                            onReact = { type ->
+                                scope.launch { commentsRepository.react(comment.id, type) }
+                            }
+                        )
+                    }
                 }
             }
 
@@ -212,8 +227,8 @@ fun EpisodeCommentsSheet(
                                     commentsRepository.addComment(
                                         animeId = animeId,
                                         epNum = episodeNumber,
-                                        userName = "Ayan",
-                                        userAvatar = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120",
+                                        userName = "You",
+                                        userAvatar = "https://api.dicebear.com/7.x/bottts/png?seed=KuroUser",
                                         text = newCommentText.trim(),
                                         isSpoiler = isSpoilerPost
                                     )

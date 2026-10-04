@@ -4,7 +4,6 @@ import com.example.data.local.dao.CommentsDao
 import com.example.data.local.entity.EpisodeCommentEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
 import java.util.UUID
 
@@ -15,51 +14,8 @@ class CommentsRepository(
         commentsDao.getCommentsForEpisode(animeId, epNum)
 
     suspend fun seedInitialCommentsIfEmpty(animeId: String, epNum: Int) = withContext(Dispatchers.IO) {
-        val existing = commentsDao.getCommentsForEpisode(animeId, epNum).firstOrNull()
-        if (existing.isNullOrEmpty()) {
-            val sampleComments = listOf(
-                EpisodeCommentEntity(
-                    id = UUID.randomUUID().toString(),
-                    animeId = animeId,
-                    episodeNumber = epNum,
-                    userName = "KuroFan99",
-                    userAvatar = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120",
-                    text = "The animation during the climax battle was absolute cinema! Madhouse / MAPPA never misses! 🔥",
-                    isSpoiler = false,
-                    fireReactions = 45,
-                    cryReactions = 2,
-                    shockReactions = 18,
-                    loveReactions = 62
-                ),
-                EpisodeCommentEntity(
-                    id = UUID.randomUUID().toString(),
-                    animeId = animeId,
-                    episodeNumber = epNum,
-                    userName = "OtakuSenpai",
-                    userAvatar = "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=120",
-                    text = "That plot twist near the ending completely blew my mind! Did NOT see that betrayal coming at all! 😱",
-                    isSpoiler = true,
-                    fireReactions = 28,
-                    cryReactions = 7,
-                    shockReactions = 84,
-                    loveReactions = 19
-                ),
-                EpisodeCommentEntity(
-                    id = UUID.randomUUID().toString(),
-                    animeId = animeId,
-                    episodeNumber = epNum,
-                    userName = "SakuraBlossom",
-                    userAvatar = "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120",
-                    text = "The soundtrack when they said their final goodbyes made me tear up so hard... 10/10 episode! 😭❤️",
-                    isSpoiler = false,
-                    fireReactions = 14,
-                    cryReactions = 95,
-                    shockReactions = 5,
-                    loveReactions = 110
-                )
-            )
-            commentsDao.insertAll(sampleComments)
-        }
+        // Purge any legacy fake demo comments; only real user comments are stored
+        commentsDao.deleteFakeDemoComments()
     }
 
     suspend fun addComment(
@@ -78,10 +34,10 @@ class CommentsRepository(
             userAvatar = userAvatar,
             text = text,
             isSpoiler = isSpoiler,
-            fireReactions = 1,
+            fireReactions = 0,
             cryReactions = 0,
             shockReactions = 0,
-            loveReactions = 1,
+            loveReactions = 0,
             timestamp = System.currentTimeMillis()
         )
         commentsDao.insertComment(comment)

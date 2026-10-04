@@ -105,10 +105,13 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import com.example.data.repository.CommentsRepository
 import com.example.data.repository.DownloadsRepository
@@ -151,12 +154,21 @@ fun VideoPlayerScreen(
         mutableIntStateOf(((currentVol.toFloat() / maxVolume.toFloat()) * 100).toInt())
     }
 
-    // ExoPlayer Instance
+    // ExoPlayer Instance with Browser User-Agent, Cross-Protocol Redirects & HLS/MP4 Support
     val exoPlayer = remember {
-        ExoPlayer.Builder(context).build().apply {
-            playWhenReady = true
-            repeatMode = Player.REPEAT_MODE_OFF
-        }
+        val httpDataSourceFactory = DefaultHttpDataSource.Factory()
+            .setUserAgent("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36")
+            .setAllowCrossProtocolRedirects(true)
+            .setConnectTimeoutMs(10000)
+            .setReadTimeoutMs(15000)
+
+        ExoPlayer.Builder(context)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(context).setDataSourceFactory(httpDataSourceFactory))
+            .build()
+            .apply {
+                playWhenReady = true
+                repeatMode = Player.REPEAT_MODE_OFF
+            }
     }
 
     val currentStreamUrl = uiState.currentSource?.streamUrl.orEmpty()
@@ -165,6 +177,25 @@ fun VideoPlayerScreen(
             currentStreamUrl.contains("youtube.com/watch", ignoreCase = true) ||
             currentStreamUrl.contains("youtu.be/", ignoreCase = true) ||
             currentStreamUrl.contains("/embed/", ignoreCase = true)
+    }
+
+    // Automatic Multi-Server Failover if a stream URL fails or codec is unsupported on device
+    DisposableEffect(exoPlayer) {
+        val listener = object : Player.Listener {
+            override fun onPlayerError(error: PlaybackException) {
+                val failedUrl = uiState.currentSource?.streamUrl.orEmpty()
+                val nextSource = viewModel.fallbackToNextWorkingSource(failedUrl)
+                if (nextSource != null) {
+                    scope.launch {
+                        snackbarHostState.showSnackbar("Switched to active server: ${nextSource.cdnNode}")
+                    }
+                }
+            }
+        }
+        exoPlayer.addListener(listener)
+        onDispose {
+            exoPlayer.removeListener(listener)
+        }
     }
 
     // Set Media Item when currentSource changes

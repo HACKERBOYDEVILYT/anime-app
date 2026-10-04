@@ -1,6 +1,11 @@
 package com.example.ui.components
 
+import android.net.Uri
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import androidx.annotation.OptIn
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,38 +20,64 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 import com.example.data.model.Anime
 import com.example.ui.theme.BackgroundDark
 import com.example.ui.theme.CrimsonNeon
 import com.example.ui.theme.StarAmber
+import com.example.ui.theme.SurfaceDark
 import com.example.ui.theme.SurfaceVariantDark
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 
-@OptIn(ExperimentalLayoutApi::class)
+@kotlin.OptIn(ExperimentalLayoutApi::class)
+@androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 fun HeroCarousel(
     anime: Anime,
@@ -56,6 +87,73 @@ fun HeroCarousel(
     isInWatchlist: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    var isVideoPreviewEnabled by remember { mutableStateOf(true) }
+    var isMuted by remember { mutableStateOf(true) }
+    var isVideoRendered by remember { mutableStateOf(false) }
+    var currentServerIdx by remember { mutableIntStateOf(0) }
+
+    val liveServerStreams = remember(anime.id) {
+        listOf(
+            "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8" to "HD-1 • VidStreaming (1080p HLS)",
+            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4" to "HD-2 • MegaCloud (1080p MP4)",
+            "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" to "VidCloud • Multi-Bitrate HLS",
+            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4" to "StreamTape • Direct Cloud MP4"
+        )
+    }
+
+    val activeStreamPair = liveServerStreams[currentServerIdx % liveServerStreams.size]
+
+    val heroPlayer = remember {
+        val httpDataSourceFactory = DefaultHttpDataSource.Factory()
+            .setUserAgent("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124.0.0.0 Mobile Safari/537.36")
+            .setAllowCrossProtocolRedirects(true)
+            .setConnectTimeoutMs(8000)
+            .setReadTimeoutMs(12000)
+
+        ExoPlayer.Builder(context)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(context).setDataSourceFactory(httpDataSourceFactory))
+            .build()
+            .apply {
+                volume = 0f
+                repeatMode = Player.REPEAT_MODE_ONE
+                playWhenReady = true
+            }
+    }
+
+    DisposableEffect(heroPlayer) {
+        val listener = object : Player.Listener {
+            override fun onRenderedFirstFrame() {
+                isVideoRendered = true
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+                if (currentServerIdx < liveServerStreams.size - 1) {
+                    currentServerIdx++
+                }
+            }
+        }
+        heroPlayer.addListener(listener)
+        onDispose {
+            heroPlayer.removeListener(listener)
+            heroPlayer.release()
+        }
+    }
+
+    LaunchedEffect(activeStreamPair.first, isVideoPreviewEnabled) {
+        if (isVideoPreviewEnabled) {
+            heroPlayer.setMediaItem(MediaItem.fromUri(Uri.parse(activeStreamPair.first)))
+            heroPlayer.prepare()
+            heroPlayer.play()
+        } else {
+            heroPlayer.pause()
+        }
+    }
+
+    LaunchedEffect(isMuted) {
+        heroPlayer.volume = if (isMuted) 0f else 1f
+    }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -63,13 +161,31 @@ fun HeroCarousel(
             .clickable(onClick = onDetailsClick)
             .testTag("hero_banner")
     ) {
-        // Hero Background Image
+        // Fallback / Backdrop Hero Image
         AsyncImage(
             model = anime.bannerUrl.ifBlank { anime.posterUrl },
             contentDescription = anime.titleEnglish,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
         )
+
+        // Live 1080p Video Stream Player right on Home Screen
+        if (isVideoPreviewEnabled) {
+            AndroidView(
+                factory = { ctx ->
+                    PlayerView(ctx).apply {
+                        player = heroPlayer
+                        useController = false
+                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                        layoutParams = FrameLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
 
         // Triple Gradient Overlay: Top subtle, bottom full blend to BackgroundDark
         Box(
@@ -78,9 +194,9 @@ fun HeroCarousel(
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            Color.Black.copy(alpha = 0.5f),
+                            Color.Black.copy(alpha = 0.55f),
                             Color.Transparent,
-                            BackgroundDark.copy(alpha = 0.6f),
+                            BackgroundDark.copy(alpha = 0.65f),
                             BackgroundDark
                         ),
                         startY = 0f,
@@ -88,6 +204,77 @@ fun HeroCarousel(
                     )
                 )
         )
+
+        // Top Live Video Server Controls Row on Home Hero Banner
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = SurfaceDark.copy(alpha = 0.85f),
+                modifier = Modifier
+                    .border(1.dp, Color(0xFF00E676).copy(alpha = 0.6f), RoundedCornerShape(20.dp))
+                    .clickable {
+                        currentServerIdx = (currentServerIdx + 1) % liveServerStreams.size
+                    }
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .background(Color(0xFF00E676), CircleShape)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "LIVE • ${activeStreamPair.second}",
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = { isMuted = !isMuted },
+                    modifier = Modifier
+                        .size(34.dp)
+                        .background(SurfaceDark.copy(alpha = 0.8f), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
+                        contentDescription = if (isMuted) "Unmute Live Video" else "Mute Live Video",
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = { isVideoPreviewEnabled = !isVideoPreviewEnabled },
+                    modifier = Modifier
+                        .size(34.dp)
+                        .background(SurfaceDark.copy(alpha = 0.8f), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = if (isVideoPreviewEnabled) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = if (isVideoPreviewEnabled) "Pause Video Preview" else "Play Video Preview",
+                        tint = CrimsonNeon,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
 
         // Content
         Column(
@@ -166,7 +353,7 @@ fun HeroCarousel(
                     fontSize = 12.sp
                 )
 
-                QualityBadge("4K HDR")
+                QualityBadge("1080p HLS")
             }
 
             Spacer(modifier = Modifier.height(8.dp))

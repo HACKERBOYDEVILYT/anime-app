@@ -29,4 +29,7 @@ interface CommentsDao {
 
     @Query("UPDATE episode_comments SET loveReactions = loveReactions + :delta, userReaction = :userReaction WHERE id = :commentId")
     suspend fun updateLove(commentId: String, delta: Int, userReaction: String?)
+
+    @Query("DELETE FROM episode_comments WHERE userName IN ('KuroFan99', 'OtakuSenpai', 'SakuraBlossom')")
+    suspend fun deleteFakeDemoComments()
 }

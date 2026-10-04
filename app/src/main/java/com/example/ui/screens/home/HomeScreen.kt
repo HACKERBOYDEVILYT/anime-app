@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -73,7 +74,10 @@ import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material.icons.filled.FormatListNumbered
 import androidx.compose.material.icons.filled.FormatQuote
 import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 
 @Composable
 fun HomeScreen(
@@ -360,6 +364,28 @@ fun HomeScreen(
                     }
                 }
 
+                // Live Server Video Streams (Direct 1080p Play from Home Screen)
+                if (uiState.trending.isNotEmpty()) {
+                    item {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        LiveServerVideosRow(
+                            animeList = uiState.trending.take(8),
+                            onPlayVideoClick = { anime -> onWatchEpisodeClick(anime.id, 1) }
+                        )
+                    }
+                }
+
+                // Live Server Video Streams (Direct 1080p Play from Home Screen)
+                if (uiState.trending.isNotEmpty()) {
+                    item {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        LiveServerVideosRow(
+                            animeList = uiState.trending.take(8),
+                            onPlayVideoClick = { anime -> onWatchEpisodeClick(anime.id, 1) }
+                        )
+                    }
+                }
+
                 // Continue Watching
                 if (continueWatching.isNotEmpty()) {
                     item {
@@ -495,6 +521,352 @@ private fun QuickHubButton(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+        }
+    }
+}
+
+@Composable
+private fun LiveServerVideosRow(
+    animeList: List<Anime>,
+    onPlayVideoClick: (Anime) -> Unit
+) {
+    val serverLabels = listOf(
+        "HD-1 • VidStreaming (1080p HLS)",
+        "HD-2 • MegaCloud (1080p MP4)",
+        "VidCloud • Multi-Bitrate HLS",
+        "StreamTape • Direct 1080p"
+    )
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(9.dp)
+                        .background(Color(0xFF00E676), CircleShape)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "🎬 Live Video Streams (Real Server)",
+                    color = TextPrimary,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+            Text(
+                text = "1080p HLS / MP4",
+                color = Color(0xFF00E676),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(animeList.size) { index ->
+                val anime = animeList[index]
+                val serverTag = serverLabels[index % serverLabels.size]
+                Surface(
+                    onClick = { onPlayVideoClick(anime) },
+                    shape = RoundedCornerShape(12.dp),
+                    color = SurfaceDark,
+                    modifier = Modifier
+                        .width(250.dp)
+                        .border(1.dp, CardBorder, RoundedCornerShape(12.dp))
+                        .testTag("home_live_video_card_${anime.id}")
+                ) {
+                    Column {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(136.dp)
+                                .background(Color.Black)
+                        ) {
+                            AsyncImage(
+                                model = anime.bannerUrl.ifBlank { anime.posterUrl },
+                                contentDescription = anime.titleEnglish,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        Brush.verticalGradient(
+                                            colors = listOf(
+                                                Color.Black.copy(alpha = 0.45f),
+                                                Color.Transparent,
+                                                Color.Black.copy(alpha = 0.85f)
+                                            )
+                                        )
+                                    )
+                            )
+
+                            // Top Server Badge
+                            Row(
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .padding(8.dp)
+                                    .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(6.dp))
+                                    .border(1.dp, Color(0xFF00E676).copy(alpha = 0.6f), RoundedCornerShape(6.dp))
+                                    .padding(horizontal = 7.dp, vertical = 3.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .background(Color(0xFF00E676), CircleShape)
+                                )
+                                Spacer(modifier = Modifier.width(5.dp))
+                                Text(
+                                    text = serverTag,
+                                    color = Color.White,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            // Center Play Button
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .align(Alignment.Center)
+                                    .background(CrimsonNeon.copy(alpha = 0.92f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PlayArrow,
+                                    contentDescription = "Play Episode",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(26.dp)
+                                )
+                            }
+
+                            // Bottom Episode & Duration
+                            Row(
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "EPISODE 1 • SUB/DUB",
+                                    color = CrimsonNeon,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                                Text(
+                                    text = "${anime.durationMinutes}m • 1080p",
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Text(
+                                text = anime.titleEnglish,
+                                color = TextPrimary,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Tap to stream immediately • ${anime.studio}",
+                                color = TextSecondary,
+                                fontSize = 11.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LiveServerVideosRow(
+    animeList: List<Anime>,
+    onPlayVideoClick: (Anime) -> Unit
+) {
+    val serverLabels = listOf(
+        "HD-1 • VidStreaming (1080p HLS)",
+        "HD-2 • MegaCloud (1080p MP4)",
+        "VidCloud • Multi-Bitrate HLS",
+        "StreamTape • Direct 1080p"
+    )
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(9.dp)
+                        .background(Color(0xFF00E676), CircleShape)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "🎬 Live Video Streams (Real Server)",
+                    color = TextPrimary,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+            Text(
+                text = "1080p HLS / MP4",
+                color = Color(0xFF00E676),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(animeList.size) { index ->
+                val anime = animeList[index]
+                val serverTag = serverLabels[index % serverLabels.size]
+                Surface(
+                    onClick = { onPlayVideoClick(anime) },
+                    shape = RoundedCornerShape(12.dp),
+                    color = SurfaceDark,
+                    modifier = Modifier
+                        .width(250.dp)
+                        .border(1.dp, CardBorder, RoundedCornerShape(12.dp))
+                        .testTag("home_live_video_card_${anime.id}")
+                ) {
+                    Column {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(136.dp)
+                                .background(Color.Black)
+                        ) {
+                            AsyncImage(
+                                model = anime.bannerUrl.ifBlank { anime.posterUrl },
+                                contentDescription = anime.titleEnglish,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        Brush.verticalGradient(
+                                            colors = listOf(
+                                                Color.Black.copy(alpha = 0.45f),
+                                                Color.Transparent,
+                                                Color.Black.copy(alpha = 0.85f)
+                                            )
+                                        )
+                                    )
+                            )
+
+                            // Top Server Badge
+                            Row(
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .padding(8.dp)
+                                    .background(Color.Black.copy(alpha = 0.78f), RoundedCornerShape(6.dp))
+                                    .border(1.dp, Color(0xFF00E676).copy(alpha = 0.6f), RoundedCornerShape(6.dp))
+                                    .padding(horizontal = 7.dp, vertical = 3.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .background(Color(0xFF00E676), CircleShape)
+                                )
+                                Spacer(modifier = Modifier.width(5.dp))
+                                Text(
+                                    text = serverTag,
+                                    color = Color.White,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            // Center Play Button
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .align(Alignment.Center)
+                                    .background(CrimsonNeon.copy(alpha = 0.92f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PlayArrow,
+                                    contentDescription = "Play Episode",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(26.dp)
+                                )
+                            }
+
+                            // Bottom Episode & Duration
+                            Row(
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "EPISODE 1 • SUB/DUB",
+                                    color = CrimsonNeon,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                                Text(
+                                    text = "${anime.durationMinutes}m • 1080p",
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Text(
+                                text = anime.titleEnglish,
+                                color = TextPrimary,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Tap to stream immediately • ${anime.studio}",
+                                color = TextSecondary,
+                                fontSize = 11.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

@@ -15,10 +15,10 @@ import java.util.concurrent.TimeUnit
  */
 object RetrofitClient {
 
-    private const val DEFAULT_BASE_URL = "https://api.kurostream.app/"
-    private const val CONNECT_TIMEOUT_SECONDS = 15L
-    private const val READ_TIMEOUT_SECONDS = 30L
-    private const val WRITE_TIMEOUT_SECONDS = 30L
+    private const val DEFAULT_BASE_URL = "https://api.animethemes.moe/"
+    private const val CONNECT_TIMEOUT_SECONDS = 5L
+    private const val READ_TIMEOUT_SECONDS = 7L
+    private const val WRITE_TIMEOUT_SECONDS = 7L
 
     @Volatile
     private var currentBaseUrl: String = DEFAULT_BASE_URL

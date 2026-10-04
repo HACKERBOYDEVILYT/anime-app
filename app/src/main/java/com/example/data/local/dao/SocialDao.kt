@@ -30,4 +30,7 @@ interface SocialDao {
 
     @Query("UPDATE notifications SET isRead = 1")
     suspend fun markAllNotificationsAsRead()
+
+    @Query("DELETE FROM notifications WHERE id IN ('notif_1', 'notif_2', 'notif_3')")
+    suspend fun deleteFakeSeededNotifications()
 }

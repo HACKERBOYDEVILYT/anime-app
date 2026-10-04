@@ -13,55 +13,55 @@ data class RadioStation(
     val artist: String,
     val streamUrl: String,
     val coverUrl: String,
-    val listenersCount: Int,
+    val serverProtocol: String,
     val moodTag: String
 )
 
 class RadioRepository {
     private val stations = listOf(
         RadioStation(
-            id = "station_lofi",
-            title = "Tokyo Midnight Lo-Fi ☕",
-            genre = "Chillhop / Lo-Fi Beats",
-            nowPlayingTrack = "Spirited Coffee in Shibuya",
-            artist = "Kuro Chill Records",
-            streamUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-            coverUrl = "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400",
-            listenersCount = 2840,
-            moodTag = "Relax & Study"
+            id = "station_listen_moe_jpop",
+            title = "LISTEN.moe Official Anime & J-Pop Radio 🎌",
+            genre = "24/7 Live Anime OP/ED & J-Pop",
+            nowPlayingTrack = "Live 24/7 Direct Stream (listen.moe)",
+            artist = "LISTEN.moe Official Server",
+            streamUrl = "https://listen.moe/stream",
+            coverUrl = "https://cdn.myanimelist.net/images/anime/1015/138006l.jpg",
+            serverProtocol = "Icecast / Ogg / MP3 Live",
+            moodTag = "24/7 Live Anime Radio"
         ),
         RadioStation(
-            id = "station_battle",
-            title = "Shonen Battle OST Hype 🔥",
-            genre = "Epic Orchestral / Rock",
-            nowPlayingTrack = "Domain Expansion Climax",
-            artist = "Symphonic Sorcerers",
-            streamUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
-            coverUrl = "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=400",
-            listenersCount = 4910,
-            moodTag = "Energy & Workout"
+            id = "station_plaza_one",
+            title = "Nightwave Plaza Anime Synth & Future Funk 🌆",
+            genre = "24/7 Live Vaporwave / Anime Citypop",
+            nowPlayingTrack = "Live 24/7 Direct Stream (plaza.one)",
+            artist = "Nightwave Plaza Official Server",
+            streamUrl = "https://radio.plaza.one/mp3",
+            coverUrl = "https://cdn.myanimelist.net/images/anime/1818/126431l.jpg",
+            serverProtocol = "128kbps MP3 Live Server",
+            moodTag = "Night Drive & Chill"
         ),
         RadioStation(
-            id = "station_piano",
-            title = "Melancholic Anime Piano 🎹",
-            genre = "Emotional Acoustic Piano",
-            nowPlayingTrack = "A Journey Under Starlit Skies",
-            artist = "Madhouse Chamber Trio",
-            streamUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4",
-            coverUrl = "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=400",
-            listenersCount = 1750,
-            moodTag = "Nostalgic & Tears"
+            id = "station_hls_ost",
+            title = "Kuro 1080p Orchestral & Action Stream 🔥",
+            genre = "1080p HLS Master Stream",
+            nowPlayingTrack = "Direct Multi-Bitrate HLS Stream",
+            artist = "Unified Streaming HLS CDN",
+            streamUrl = "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8",
+            coverUrl = "https://cdn.myanimelist.net/images/anime/1792/138022l.jpg",
+            serverProtocol = "HLS .m3u8 Adaptive",
+            moodTag = "Action & Hype"
         ),
         RadioStation(
-            id = "station_synth",
-            title = "Cyber Citypop & Synth 🌆",
-            genre = "Neo-Retro 80s / Synthwave",
-            nowPlayingTrack = "Akira Neon Highway 1988",
-            artist = "Kuro Synthwave Collective",
-            streamUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-            coverUrl = "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=400",
-            listenersCount = 3120,
-            moodTag = "Night Drive"
+            id = "station_listen_moe_fallback",
+            title = "LISTEN.moe Secondary Anime Stream 🎹",
+            genre = "24/7 Anime & Game OST",
+            nowPlayingTrack = "Live Direct Fallback Stream",
+            artist = "LISTEN.moe CDN Node 2",
+            streamUrl = "https://listen.moe/fallback",
+            coverUrl = "https://cdn.myanimelist.net/images/anime/1801/142390l.jpg",
+            serverProtocol = "Direct Audio Stream",
+            moodTag = "Relax & Focus"
         )
     )
 

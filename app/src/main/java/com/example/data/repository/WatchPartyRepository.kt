@@ -1,6 +1,5 @@
 package com.example.data.repository
 
-import com.example.data.model.Anime
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -50,7 +49,7 @@ class WatchPartyRepository(
         val hostMember = PartyMember(
             id = UUID.randomUUID().toString(),
             name = hostName,
-            avatarUrl = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120",
+            avatarUrl = "https://api.dicebear.com/7.x/bottts/png?seed=$hostName",
             isHost = true
         )
 
@@ -62,24 +61,14 @@ class WatchPartyRepository(
             posterUrl = anime.posterUrl,
             episodeNumber = episodeNumber,
             hostName = hostName,
-            members = listOf(
-                hostMember,
-                PartyMember(UUID.randomUUID().toString(), "TanjiroFan", "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=120"),
-                PartyMember(UUID.randomUUID().toString(), "FrierenMage", "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120")
-            ),
+            members = listOf(hostMember),
             messages = listOf(
                 PartyChatMessage(
                     id = UUID.randomUUID().toString(),
                     senderName = "System",
                     senderAvatar = "",
-                    message = "🎉 Watch Party room $code created! Share this code with your friends to watch together in sync.",
+                    message = "Watch Party room $code created. Share this room code to watch together.",
                     isSystem = true
-                ),
-                PartyChatMessage(
-                    id = UUID.randomUUID().toString(),
-                    senderName = "TanjiroFan",
-                    senderAvatar = "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=120",
-                    message = "Let's gooo! Ready for this episode 🔥"
                 )
             )
         )
@@ -93,7 +82,7 @@ class WatchPartyRepository(
             val newMember = PartyMember(
                 id = UUID.randomUUID().toString(),
                 name = userName,
-                avatarUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120"
+                avatarUrl = "https://api.dicebear.com/7.x/bottts/png?seed=$userName"
             )
             _currentRoom.update { current ->
                 current?.copy(
@@ -102,7 +91,7 @@ class WatchPartyRepository(
                         id = UUID.randomUUID().toString(),
                         senderName = "System",
                         senderAvatar = "",
-                        message = "👋 $userName joined the Watch Party!",
+                        message = "$userName joined the Watch Party.",
                         isSystem = true
                     )
                 )
@@ -110,7 +99,6 @@ class WatchPartyRepository(
             return true
         }
 
-        // If joining via a code not yet created, generate a room on the fly
         val trending = animeRepository.getTrending().firstOrNull() ?: return false
         val room = WatchPartyRoom(
             roomCode = roomCode.uppercase().trim(),
@@ -119,17 +107,21 @@ class WatchPartyRepository(
             animeTitle = trending.titleEnglish,
             posterUrl = trending.posterUrl,
             episodeNumber = 1,
-            hostName = "Senpai",
+            hostName = userName,
             members = listOf(
-                PartyMember(UUID.randomUUID().toString(), "Senpai", "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=120", isHost = true),
-                PartyMember(UUID.randomUUID().toString(), userName, "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120")
+                PartyMember(
+                    id = UUID.randomUUID().toString(),
+                    name = userName,
+                    avatarUrl = "https://api.dicebear.com/7.x/bottts/png?seed=$userName",
+                    isHost = true
+                )
             ),
             messages = listOf(
                 PartyChatMessage(
                     id = UUID.randomUUID().toString(),
                     senderName = "System",
                     senderAvatar = "",
-                    message = "Connected to room ${roomCode.uppercase().trim()}! Syncing video stream...",
+                    message = "Connected to room ${roomCode.uppercase().trim()}.",
                     isSystem = true
                 )
             )
@@ -142,7 +134,7 @@ class WatchPartyRepository(
         val msg = PartyChatMessage(
             id = UUID.randomUUID().toString(),
             senderName = senderName,
-            senderAvatar = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120",
+            senderAvatar = "https://api.dicebear.com/7.x/bottts/png?seed=$senderName",
             message = text
         )
         _currentRoom.update { current ->

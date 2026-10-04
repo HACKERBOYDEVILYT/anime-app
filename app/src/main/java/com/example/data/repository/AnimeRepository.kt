@@ -6,6 +6,7 @@ import com.example.data.model.Episode
 class AnimeRepository(
     private val metadataProvider: MetadataProvider
 ) {
+    fun getInitialSnapshot(): List<Anime> = metadataProvider.getInitialCatalogSnapshot()
     suspend fun getTrending(): List<Anime> = metadataProvider.getTrendingAnime()
     suspend fun getPopular(): List<Anime> = metadataProvider.getPopularAnime()
     suspend fun getTopRated(): List<Anime> = metadataProvider.getTopRatedAnime()

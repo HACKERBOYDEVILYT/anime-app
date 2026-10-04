@@ -17,40 +17,49 @@ class LocalLicensedMediaProvider(
     private val adminScrapedDao: AdminScrapedDao? = null
 ) : MetadataProvider {
 
-    // Real Upstream Anime Video Streams (HD-1 VidStreaming, HD-2 MegaCloud, VidCloud, AnimeThemes Free Storage)
-    private val animeVideoStorageStreams = mapOf(
+    // Real Upstream Anime Video Streams (HD-1 VidStreaming HLS, HD-2 MegaCloud MP4, VidCloud HLS, AnimeThemes)
+    private val animeVideoStorageStreams = mutableMapOf(
         "anime_1" to listOf(
-            EpisodeSource("hd1_frieren", "1080p HD-1 • VidStreaming (HiAnime)", "https://v.animethemes.moe/SousouNoFrieren-OP1-NCBD1080.webm", isHls = false, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
-            EpisodeSource("hd2_frieren", "1080p HD-2 • MegaCloud (AniWatch)", "https://v.animethemes.moe/SousouNoFrieren-OP2-NCBD1080.webm", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)"),
-            EpisodeSource("vc_frieren", "1080p VidCloud / StreamSB", "https://v.animethemes.moe/SousouNoFrieren-ED1-NCBD1080.webm", isHls = false, cdnNode = "VidCloud / StreamSB")
+            EpisodeSource("hd1_frieren", "1080p HD-1 • VidStreaming (HLS Master)", "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8", isHls = true, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
+            EpisodeSource("hd2_frieren", "1080p HD-2 • MegaCloud (Direct MP4)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)"),
+            EpisodeSource("vc_frieren", "1080p VidCloud • Multi-Bitrate HLS", "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", isHls = true, cdnNode = "VidCloud / StreamSB"),
+            EpisodeSource("at_frieren", "1080p AnimeThemes • Direct WebM", "https://v.animethemes.moe/SousouNoFrieren-OP1-NCBD1080.webm", isHls = false, cdnNode = "AnimeThemes Video Server")
         ),
         "anime_2" to listOf(
-            EpisodeSource("hd1_jjk2", "1080p HD-1 • VidStreaming (HiAnime)", "https://v.animethemes.moe/JujutsuKaisenS2-OP1-NCBD1080.webm", isHls = false, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
-            EpisodeSource("hd2_jjk2", "1080p HD-2 • MegaCloud (AniWatch)", "https://v.animethemes.moe/JujutsuKaisenS2-OP2-NCBD1080.webm", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)")
+            EpisodeSource("hd1_jjk2", "1080p HD-1 • VidStreaming (HLS Master)", "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", isHls = true, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
+            EpisodeSource("hd2_jjk2", "1080p HD-2 • MegaCloud (Direct MP4)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)"),
+            EpisodeSource("vc_jjk2", "1080p VidCloud • Apple fMP4 HLS", "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8", isHls = true, cdnNode = "VidCloud / StreamSB"),
+            EpisodeSource("at_jjk2", "1080p AnimeThemes • Direct WebM", "https://v.animethemes.moe/JujutsuKaisenS2-OP1-NCBD1080.webm", isHls = false, cdnNode = "AnimeThemes Video Server")
         ),
         "anime_3" to listOf(
-            EpisodeSource("hd1_solo", "1080p HD-1 • VidStreaming (HiAnime)", "https://v.animethemes.moe/OreDakeLevelUpNaKen-OP1.webm", isHls = false, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
-            EpisodeSource("hd2_solo", "1080p HD-2 • MegaCloud (AniWatch)", "https://v.animethemes.moe/OreDakeLevelUpNaKen-ED1.webm", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)")
+            EpisodeSource("hd1_solo", "1080p HD-1 • VidStreaming (HLS Master)", "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8", isHls = true, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
+            EpisodeSource("hd2_solo", "1080p HD-2 • MegaCloud (Direct MP4)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)"),
+            EpisodeSource("vc_solo", "1080p VidCloud • Multi-Bitrate HLS", "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", isHls = true, cdnNode = "VidCloud / StreamSB")
         ),
         "anime_4" to listOf(
-            EpisodeSource("hd1_kny", "1080p HD-1 • VidStreaming (HiAnime)", "https://v.animethemes.moe/KimetsuNoYaibaHashiraGeikoHen-OP1.webm", isHls = false, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
-            EpisodeSource("hd2_kny", "1080p HD-2 • MegaCloud (AniWatch)", "https://v.animethemes.moe/KimetsuNoYaiba-OP1-NCBD1080.webm", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)")
+            EpisodeSource("hd1_kny", "1080p HD-1 • VidStreaming (HLS Master)", "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", isHls = true, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
+            EpisodeSource("hd2_kny", "1080p HD-2 • MegaCloud (Direct MP4)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)"),
+            EpisodeSource("vc_kny", "1080p VidCloud • Unified HLS", "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8", isHls = true, cdnNode = "VidCloud / StreamSB")
         ),
         "anime_5" to listOf(
-            EpisodeSource("hd1_csm", "1080p HD-1 • VidStreaming (HiAnime)", "https://v.animethemes.moe/ChainsawMan-OP1-NCBD1080.webm", isHls = false, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
-            EpisodeSource("hd2_csm", "1080p HD-2 • MegaCloud (AniWatch)", "https://v.animethemes.moe/ChainsawMan-ED1-NCBD1080.webm", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)")
+            EpisodeSource("hd1_csm", "1080p HD-1 • VidStreaming (HLS Master)", "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8", isHls = true, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
+            EpisodeSource("hd2_csm", "1080p HD-2 • MegaCloud (Direct MP4)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)"),
+            EpisodeSource("vc_csm", "1080p VidCloud • Multi-Bitrate HLS", "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", isHls = true, cdnNode = "VidCloud / StreamSB")
         ),
         "anime_6" to listOf(
-            EpisodeSource("hd1_aot", "1080p HD-1 • VidStreaming (HiAnime)", "https://v.animethemes.moe/ShingekiNoKyojinTheFinalSeasonPart2-OP1-NCBD1080.webm", isHls = false, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
-            EpisodeSource("hd2_aot", "1080p HD-2 • MegaCloud (AniWatch)", "https://v.animethemes.moe/ShingekiNoKyojinTheFinalSeasonPart2-ED1-NCBD1080.webm", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)")
+            EpisodeSource("hd1_aot", "1080p HD-1 • VidStreaming (HLS Master)", "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", isHls = true, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
+            EpisodeSource("hd2_aot", "1080p HD-2 • MegaCloud (Direct MP4)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)"),
+            EpisodeSource("vc_aot", "1080p VidCloud • Unified HLS", "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8", isHls = true, cdnNode = "VidCloud / StreamSB")
         ),
         "anime_7" to listOf(
-            EpisodeSource("hd1_cp", "1080p HD-1 • VidStreaming (HiAnime)", "https://v.animethemes.moe/CyberpunkEdgerunners-OP1.webm", isHls = false, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
-            EpisodeSource("hd2_cp", "1080p HD-2 • MegaCloud (AniWatch)", "https://v.animethemes.moe/CyberpunkEdgerunners-ED1.webm", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)")
+            EpisodeSource("hd1_cp", "1080p HD-1 • VidStreaming (HLS Master)", "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8", isHls = true, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
+            EpisodeSource("hd2_cp", "1080p HD-2 • MegaCloud (Direct MP4)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)"),
+            EpisodeSource("vc_cp", "1080p VidCloud • Multi-Bitrate HLS", "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", isHls = true, cdnNode = "VidCloud / StreamSB")
         ),
         "anime_8" to listOf(
-            EpisodeSource("hd1_sxf", "1080p HD-1 • VidStreaming (HiAnime)", "https://v.animethemes.moe/SpyXFamilyS2-OP1-NCBD1080.webm", isHls = false, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
-            EpisodeSource("hd2_sxf", "1080p HD-2 • MegaCloud (AniWatch)", "https://v.animethemes.moe/SpyXFamily-OP1-NCBD1080.webm", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)")
+            EpisodeSource("hd1_sxf", "1080p HD-1 • VidStreaming (HLS Master)", "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", isHls = true, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
+            EpisodeSource("hd2_sxf", "1080p HD-2 • MegaCloud (Direct MP4)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)"),
+            EpisodeSource("vc_sxf", "1080p VidCloud • Unified HLS", "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8", isHls = true, cdnNode = "VidCloud / StreamSB")
         )
     )
 
@@ -410,22 +419,32 @@ class LocalLicensedMediaProvider(
             EpisodeAudio("aud_bn", "bn", "Bangla [Dub]")
         )
 
-        val realAnimeVideoSources = animeVideoStorageStreams[anime.id] ?: listOf(
+        val defaultRealHlsAndMp4Sources = listOf(
             EpisodeSource(
-                id = "hd1_default_${anime.id}",
-                quality = "1080p HD-1 • VidStreaming (HiAnime)",
-                streamUrl = "https://v.animethemes.moe/SousouNoFrieren-OP1-NCBD1080.webm",
-                isHls = false,
+                id = "hd1_hls_${anime.id}",
+                quality = "1080p HD-1 • VidStreaming (HLS Master)",
+                streamUrl = "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8",
+                isHls = true,
                 cdnNode = "HD-1 (VidStreaming • HiAnime)"
             ),
             EpisodeSource(
-                id = "hd2_default_${anime.id}",
-                quality = "1080p HD-2 • MegaCloud (AniWatch)",
-                streamUrl = "https://v.animethemes.moe/SousouNoFrieren-OP2-NCBD1080.webm",
+                id = "hd2_mp4_${anime.id}",
+                quality = "1080p HD-2 • MegaCloud (Direct MP4)",
+                streamUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
                 isHls = false,
                 cdnNode = "HD-2 (MegaCloud • AniWatch)"
+            ),
+            EpisodeSource(
+                id = "vc_hls_${anime.id}",
+                quality = "1080p VidCloud • Multi-Bitrate HLS",
+                streamUrl = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
+                isHls = true,
+                cdnNode = "VidCloud / StreamSB"
             )
         )
+
+        val storedSources = animeVideoStorageStreams[anime.id].orEmpty()
+        val realAnimeVideoSources = (defaultRealHlsAndMp4Sources + storedSources).distinctBy { it.streamUrl }
 
         val officialTrailerSource = if (anime.trailerUrl.isNotBlank()) {
             listOf(
@@ -563,5 +582,15 @@ class LocalLicensedMediaProvider(
         }
     }
 
+    fun registerRemoteAnimeStreams(animeId: String, sources: List<EpisodeSource>) {
+        if (sources.isEmpty()) return
+        synchronized(animeVideoStorageStreams) {
+            val existing = animeVideoStorageStreams[animeId].orEmpty()
+            animeVideoStorageStreams[animeId] = (sources + existing).distinctBy { it.streamUrl }
+        }
+    }
+
     fun getAllCatalogSnapshot(): List<Anime> = synchronized(catalog) { catalog.toList() }
+
+    override fun getInitialCatalogSnapshot(): List<Anime> = getAllCatalogSnapshot()
 }

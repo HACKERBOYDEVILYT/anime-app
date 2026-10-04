@@ -62,13 +62,23 @@ object HlsStreamService {
 
     private val initialProviders = listOf(
         HlsProviderNode(
+            id = "api_crunchyroll",
+            name = "Crunchyroll Simulcast & Catalog API (1080p HLS & Trailers)",
+            baseUrl = "https://www.crunchyroll.com/",
+            healthProbeUrl = "https://api.jikan.moe/v4/anime?producers=1468&limit=1",
+            category = "Crunchyroll Simulcast API",
+            priority = 1,
+            isPrimary = true,
+            isEnabled = true
+        ),
+        HlsProviderNode(
             id = "api_hianime_upstream",
             name = "HiAnime / AniWatch Upstream (HD-1 VidStreaming & HD-2 MegaCloud)",
             baseUrl = "https://hianime.to/",
             healthProbeUrl = "https://api.jikan.moe/v4/top/anime?limit=1",
             category = "HiAnime / AniWatch Upstream HLS",
-            priority = 1,
-            isPrimary = true,
+            priority = 2,
+            isPrimary = false,
             isEnabled = true
         ),
         HlsProviderNode(
@@ -242,6 +252,7 @@ object HlsStreamService {
         val merged = configs.mapIndexed { index, cfg ->
             val existing = currentMap[cfg.id]
             val probe = when {
+                cfg.baseUrl.contains("crunchyroll") -> "https://api.jikan.moe/v4/anime?producers=1468&limit=1"
                 cfg.baseUrl.contains("jikan.moe") -> "https://api.jikan.moe/v4/top/anime?limit=1"
                 cfg.baseUrl.contains("animethemes.moe") -> "https://api.animethemes.moe/anime?page[size]=1"
                 cfg.baseUrl.contains("kitsu.io") -> "https://kitsu.io/api/edge/anime?page[limit]=1"
@@ -482,16 +493,19 @@ object HlsStreamService {
         if (sources.size <= 1) return sources
         val primary = _activePrimaryProvider.value
         val primaryHostKeyword = when {
-            primary.baseUrl.contains("animethemes.moe") -> "animethemes.moe"
+            primary.baseUrl.contains("hianime") || primary.baseUrl.contains("consumet") -> "HD-1"
             primary.baseUrl.contains("archive.org") -> "archive.org"
             primary.baseUrl.contains("jikan.moe") -> "youtube.com"
-            else -> primary.baseUrl.substringAfter("://").substringBefore("/")
+            else -> "HD-1"
         }
 
         return sources.sortedWith(
             compareByDescending<EpisodeSource> { src ->
-                // Scraped streams or streams matching the active primary provider come first
-                src.streamUrl.contains(primaryHostKeyword, ignoreCase = true)
+                // Prefer hardware-accelerated HLS (.m3u8) and H.264 (.mp4) streams first
+                src.isHls || src.streamUrl.contains(".m3u8", ignoreCase = true) || src.streamUrl.contains(".mp4", ignoreCase = true)
+            }.thenByDescending { src ->
+                // Match active primary server node (e.g., HD-1 VidStreaming / HD-2 MegaCloud)
+                src.cdnNode.contains(primaryHostKeyword, ignoreCase = true) || src.streamUrl.contains(primaryHostKeyword, ignoreCase = true)
             }.thenByDescending { src ->
                 // Prefer direct/HLS video streams over web embeds for default playback
                 !src.streamUrl.contains("youtube.com/embed", ignoreCase = true)

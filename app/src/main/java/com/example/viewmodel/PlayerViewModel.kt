@@ -65,9 +65,27 @@ class PlayerViewModel(
 
     private var progressSaveJob: Job? = null
     private var lastSavedPositionMs = 0L
+    private val failedStreamUrls = mutableSetOf<String>()
 
     init {
         loadPlaybackSession(initialEpisodeNumber)
+    }
+
+    fun fallbackToNextWorkingSource(failedUrl: String): EpisodeSource? {
+        if (failedUrl.isNotBlank()) {
+            failedStreamUrls.add(failedUrl)
+        }
+        val sources = _uiState.value.currentEpisode?.sources.orEmpty()
+        val nextWorking = sources.firstOrNull { it.streamUrl.isNotBlank() && it.streamUrl !in failedStreamUrls }
+        if (nextWorking != null) {
+            _uiState.update {
+                it.copy(
+                    currentSource = nextWorking,
+                    selectedQuality = nextWorking.quality
+                )
+            }
+        }
+        return nextWorking
     }
 
     fun loadPlaybackSession(episodeNumber: Int) {

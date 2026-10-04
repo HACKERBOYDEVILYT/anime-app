@@ -85,6 +85,8 @@ fun MalSyncScreen(
 
     var showConnectDialogFor by remember { mutableStateOf<String?>(null) }
     var inputUsername by remember { mutableStateOf("") }
+    var isVerifyingAccount by remember { mutableStateOf(false) }
+    var errorBanner by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         topBar = {
@@ -139,12 +141,13 @@ fun MalSyncScreen(
 
             // MyAnimeList Card
             TrackerCard(
-                serviceName = "MyAnimeList",
+                serviceName = "MyAnimeList (Official Jikan v4 API)",
                 serviceKey = "MAL",
                 brandColor = Color(0xFF2E51A2),
                 config = malConfig,
                 onConnectClick = {
                     inputUsername = ""
+                    errorBanner = null
                     showConnectDialogFor = "MAL"
                 },
                 onDisconnectClick = {
@@ -159,18 +162,33 @@ fun MalSyncScreen(
                     }
                 },
                 onSyncNow = {
-                    scope.launch { snackbarHostState.showSnackbar("Watch progress successfully synced with MyAnimeList!") }
+                    if (malConfig != null) {
+                        scope.launch {
+                            val res = malSyncRepository.syncNow("MAL", malConfig)
+                            res.fold(
+                                onSuccess = { updated ->
+                                    snackbarHostState.showSnackbar(
+                                        "Synced live from MyAnimeList (@${updated.username}): ${updated.totalAnimeTracked} Anime • ${updated.totalEpisodesWatched} Episodes"
+                                    )
+                                },
+                                onFailure = { err ->
+                                    snackbarHostState.showSnackbar(err.message ?: "Failed to sync with MyAnimeList API")
+                                }
+                            )
+                        }
+                    }
                 }
             )
 
             // AniList Card
             TrackerCard(
-                serviceName = "AniList",
+                serviceName = "AniList (Official GraphQL API)",
                 serviceKey = "ANILIST",
                 brandColor = Color(0xFF02A9FF),
                 config = anilistConfig,
                 onConnectClick = {
                     inputUsername = ""
+                    errorBanner = null
                     showConnectDialogFor = "ANILIST"
                 },
                 onDisconnectClick = {
@@ -185,7 +203,21 @@ fun MalSyncScreen(
                     }
                 },
                 onSyncNow = {
-                    scope.launch { snackbarHostState.showSnackbar("Watch progress successfully synced with AniList!") }
+                    if (anilistConfig != null) {
+                        scope.launch {
+                            val res = malSyncRepository.syncNow("ANILIST", anilistConfig)
+                            res.fold(
+                                onSuccess = { updated ->
+                                    snackbarHostState.showSnackbar(
+                                        "Synced live from AniList (@${updated.username}): ${updated.totalAnimeTracked} Anime • ${updated.totalEpisodesWatched} Episodes"
+                                    )
+                                },
+                                onFailure = { err ->
+                                    snackbarHostState.showSnackbar(err.message ?: "Failed to sync with AniList GraphQL API")
+                                }
+                            )
+                        }
+                    }
                 }
             )
         }
@@ -196,20 +228,23 @@ fun MalSyncScreen(
         val displayName = if (service == "MAL") "MyAnimeList" else "AniList"
 
         AlertDialog(
-            onDismissRequest = { showConnectDialogFor = null },
-            title = { Text("Connect $displayName", color = TextPrimary) },
+            onDismissRequest = { if (!isVerifyingAccount) showConnectDialogFor = null },
+            title = { Text("Connect Real $displayName Account", color = TextPrimary) },
             text = {
                 Column {
                     Text(
-                        "Enter your $displayName username to link your watch progress and history.",
+                        "Enter your real $displayName username. Your live anime count, episodes watched, and mean score will be verified directly from the $displayName API (no fake demo stats).",
                         color = TextSecondary,
                         fontSize = 13.sp
                     )
                     Spacer(modifier = Modifier.height(14.dp))
                     OutlinedTextField(
                         value = inputUsername,
-                        onValueChange = { inputUsername = it },
-                        label = { Text("Username") },
+                        onValueChange = {
+                            inputUsername = it
+                            errorBanner = null
+                        },
+                        label = { Text("$displayName Username") },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = CrimsonNeon,
@@ -219,26 +254,50 @@ fun MalSyncScreen(
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
+                    if (errorBanner != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = errorBanner!!,
+                            color = CrimsonNeon,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        if (inputUsername.isNotBlank()) {
+                        if (inputUsername.isNotBlank() && !isVerifyingAccount) {
+                            isVerifyingAccount = true
+                            errorBanner = null
                             scope.launch {
-                                malSyncRepository.connectService(service, inputUsername.trim())
-                                snackbarHostState.showSnackbar("Connected to $displayName as ${inputUsername.trim()}!")
+                                val res = malSyncRepository.connectService(service, inputUsername.trim())
+                                isVerifyingAccount = false
+                                res.fold(
+                                    onSuccess = { entity ->
+                                        showConnectDialogFor = null
+                                        snackbarHostState.showSnackbar(
+                                            "Verified @$displayName (${entity.username}): ${entity.totalAnimeTracked} Anime, ${entity.totalEpisodesWatched} Episodes"
+                                        )
+                                    },
+                                    onFailure = { err ->
+                                        errorBanner = err.message ?: "Account not found on $displayName."
+                                    }
+                                )
                             }
-                            showConnectDialogFor = null
                         }
                     },
+                    enabled = !isVerifyingAccount && inputUsername.isNotBlank(),
                     colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon)
                 ) {
-                    Text("Connect Account", fontWeight = FontWeight.Bold)
+                    Text(if (isVerifyingAccount) "Verifying Live API..." else "Verify & Connect", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showConnectDialogFor = null }) {
+                TextButton(
+                    onClick = { if (!isVerifyingAccount) showConnectDialogFor = null }
+                ) {
                     Text("Cancel", color = TextMuted)
                 }
             },
