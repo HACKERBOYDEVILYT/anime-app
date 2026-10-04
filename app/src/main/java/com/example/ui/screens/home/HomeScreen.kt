@@ -53,6 +53,7 @@ import com.example.data.repository.AdminRepository
 import com.example.ui.components.AnimeRow
 import com.example.ui.components.ContinueWatchingRow
 import com.example.ui.components.HeroCarousel
+import com.example.ui.components.HomeShimmerScreen
 import com.example.ui.components.SecretAdminDialog
 import com.example.ui.theme.BackgroundDark
 import com.example.ui.theme.CardBorder
@@ -119,9 +120,21 @@ fun HomeScreen(
             .background(BackgroundDark)
     ) {
         if (uiState.isLoading && uiState.featuredAnime == null) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = CrimsonNeon)
-            }
+            HomeShimmerScreen(
+                onLogoTap = {
+                    val now = System.currentTimeMillis()
+                    if (now - lastLogoTapTime < 1500) {
+                        logoTapCount++
+                        if (logoTapCount >= 5) {
+                            logoTapCount = 0
+                            showAdminAuthDialog = true
+                        }
+                    } else {
+                        logoTapCount = 1
+                    }
+                    lastLogoTapTime = now
+                }
+            )
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
@@ -400,6 +413,7 @@ fun HomeScreen(
                     AnimeRow(
                         title = "🔥 Trending Now",
                         animeList = uiState.trending,
+                        isLoading = uiState.isLoading,
                         onAnimeClick = onAnimeClick
                     )
                 }
@@ -410,6 +424,7 @@ fun HomeScreen(
                     AnimeRow(
                         title = "❄️ Seasonal Anime - Winter 2026",
                         animeList = uiState.seasonal,
+                        isLoading = uiState.isLoading,
                         onAnimeClick = onAnimeClick
                     )
                 }
@@ -420,6 +435,7 @@ fun HomeScreen(
                     AnimeRow(
                         title = "⭐ Top Rated Anime",
                         animeList = uiState.topRated,
+                        isLoading = uiState.isLoading,
                         onAnimeClick = onAnimeClick
                     )
                 }
@@ -430,6 +446,7 @@ fun HomeScreen(
                     AnimeRow(
                         title = "👑 Most Popular",
                         animeList = uiState.popular,
+                        isLoading = uiState.isLoading,
                         onAnimeClick = onAnimeClick
                     )
                 }
@@ -440,6 +457,7 @@ fun HomeScreen(
                     AnimeRow(
                         title = "✨ Recently Updated",
                         animeList = uiState.recentlyAdded,
+                        isLoading = uiState.isLoading,
                         onAnimeClick = onAnimeClick
                     )
                 }

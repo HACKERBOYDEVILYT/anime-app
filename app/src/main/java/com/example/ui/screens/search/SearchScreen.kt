@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.Anime
 import com.example.ui.components.AnimeCard
+import com.example.ui.components.SearchGridSkeleton
 import com.example.ui.theme.BackgroundDark
 import com.example.ui.theme.CardBorder
 import com.example.ui.theme.CrimsonNeon
@@ -275,9 +276,7 @@ fun SearchScreen(
         ) {
             when {
                 uiState.isSearching -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = CrimsonNeon)
-                    }
+                    SearchGridSkeleton(itemCount = 8)
                 }
 
                 uiState.results.isEmpty() && uiState.hasSearched -> {

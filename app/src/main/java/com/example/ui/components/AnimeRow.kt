@@ -27,10 +27,11 @@ fun AnimeRow(
     title: String,
     animeList: List<Anime>,
     onAnimeClick: (Anime) -> Unit,
+    isLoading: Boolean = false,
     onSeeAllClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    if (animeList.isEmpty()) return
+    if (!isLoading && animeList.isEmpty()) return
 
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
@@ -59,15 +60,27 @@ fun AnimeRow(
 
         Spacer(modifier = Modifier.height(6.dp))
 
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            items(animeList, key = { it.id }) { anime ->
-                AnimeCard(
-                    anime = anime,
-                    onClick = { onAnimeClick(anime) }
-                )
+        if (isLoading && animeList.isEmpty()) {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                userScrollEnabled = false
+            ) {
+                items(5) {
+                    AnimeCardSkeleton()
+                }
+            }
+        } else {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(animeList, key = { it.id }) { anime ->
+                    AnimeCard(
+                        anime = anime,
+                        onClick = { onAnimeClick(anime) }
+                    )
+                }
             }
         }
     }

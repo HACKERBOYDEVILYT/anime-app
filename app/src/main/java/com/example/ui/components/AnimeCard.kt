@@ -25,6 +25,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
 import com.example.data.model.Anime
 import com.example.ui.theme.CrimsonNeon
 import com.example.ui.theme.SurfaceDark
@@ -53,6 +58,9 @@ fun AnimeCard(
     cardWidth: Int = 150,
     cardHeight: Int = 220
 ) {
+    var isPosterLoading by remember(anime.posterUrl) { mutableStateOf(true) }
+    val shimmerBrush = rememberShimmerBrush()
+
     Column(
         modifier = modifier
             .width(cardWidth.dp)
@@ -68,10 +76,21 @@ fun AnimeCard(
                 .height(cardHeight.dp)
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
+                if (isPosterLoading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(shimmerBrush)
+                    )
+                }
+
                 AsyncImage(
                     model = anime.posterUrl,
                     contentDescription = anime.titleEnglish,
                     contentScale = ContentScale.Crop,
+                    onState = { state ->
+                        isPosterLoading = state is AsyncImagePainter.State.Loading
+                    },
                     modifier = Modifier.fillMaxSize()
                 )
 

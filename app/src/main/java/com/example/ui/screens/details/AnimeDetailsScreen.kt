@@ -84,6 +84,7 @@ import com.example.data.model.Review
 import com.example.data.model.WatchStatus
 import com.example.data.repository.DownloadsRepository
 import com.example.ui.components.AnimeCard
+import com.example.ui.components.AnimeDetailsSkeleton
 import com.example.ui.components.CharacterDetailDialog
 import com.example.ui.components.QualityBadge
 import com.example.ui.components.RatingBadge
@@ -130,14 +131,7 @@ fun AnimeDetailsScreen(
     val anime = uiState.anime
 
     if (anime == null) {
-        Box(
-            modifier = modifier
-                .fillMaxSize()
-                .background(BackgroundDark),
-            contentAlignment = Alignment.Center
-        ) {
-            CircularProgressIndicator(color = CrimsonNeon)
-        }
+        AnimeDetailsSkeleton(modifier = modifier)
         return
     }
 
