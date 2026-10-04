@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KuroStream • Unified Anime Streaming Web & App</title>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <style>
+    :root {
+      --bg-dark: #0B0C10;
+      --surface-dark: #14161D;
+      --surface-variant: #1E212B;
+      --crimson-neon: #FF2A5F;
+      --cyan-glow: #00F0FF;
+      --violet-accent: #8A2BE2;
+      --star-amber: #FFB800;
+      --emerald: #00E676;
+      --text-primary: #F8F9FA;
+      --text-secondary: #A0AAB8;
+      --text-muted: #6C7585;
+      --border-color: rgba(255, 255, 255, 0.08);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif; }
+    body { background: var(--bg-dark); color: var(--text-primary); overflow-x: hidden; padding-bottom: 84px; }
+    header {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(11, 12, 16, 0.92); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+    }
+    .brand { display: flex; align-items: center; gap: 8px; }
+    .brand-logo {
+      width: 32px; height: 32px; border-radius: 8px; background: var(--crimson-neon);
+      display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 16px; color: #fff;
+    }
+    .brand-title { font-size: 17px; font-weight: 900; letter-spacing: 1.5px; }
+    .brand-title span { color: var(--crimson-neon); }
+    .sync-badge {
+      background: rgba(0, 230, 118, 0.14); border: 1px solid rgba(0, 230, 118, 0.45);
+      color: var(--emerald); font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 16px;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .dot-live { width: 7px; height: 7px; border-radius: 50%; background: var(--emerald); display: inline-block; }
+    .btn {
+      border: none; border-radius: 8px; padding: 7px 12px; font-size: 11px; font-weight: 700;
+      cursor: pointer; display: inline-flex; align-items: center; gap: 5px; text-decoration: none;
+    }
+    .btn-primary { background: var(--crimson-neon); color: #fff; }
+    .btn-outline { background: var(--surface-dark); color: var(--cyan-glow); border: 1px solid rgba(0, 240, 255, 0.4); }
+    .hero { position: relative; width: 100%; height: 320px; overflow: hidden; background: #000; }
+    .hero video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.72; }
+    .hero-overlay {
+      position: absolute; inset: 0;
+      background: linear-gradient(180deg, rgba(11,12,16,0.5) 0%, rgba(11,12,16,0.2) 45%, rgba(11,12,16,0.92) 85%, var(--bg-dark) 100%);
+    }
+    .hero-content { position: absolute; bottom: 18px; left: 16px; right: 16px; z-index: 5; }
+    .container { max-width: 1180px; margin: 0 auto; padding: 14px 16px; }
+    .section-title { font-size: 16px; font-weight: 800; margin: 16px 0 10px; display: flex; align-items: center; gap: 8px; }
+    .anime-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); gap: 12px; }
+    .anime-card {
+      background: var(--surface-dark); border: 1px solid var(--border-color); border-radius: 10px;
+      overflow: hidden; cursor: pointer;
+    }
+    .anime-poster { position: relative; aspect-ratio: 2/3; background: #101218; }
+    .anime-poster img { width: 100%; height: 100%; object-fit: cover; }
+    .anime-score {
+      position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,0.82);
+      color: var(--star-amber); font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 5px;
+    }
+    .anime-info { padding: 8px; }
+    .anime-info h4 { font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .anime-info p { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="brand-logo">黒</div>
+      <div>
+        <div class="brand-title">KURO<span>STREAM</span></div>
+        <div style="font-size:9px;color:var(--cyan-glow);font-weight:700;">UNIFIED WEB & ANDROID APP</div>
+      </div>
+      <div class="sync-badge"><span class="dot-live"></span> <span id="syncLabel">Synced with App</span></div>
+    </div>
+    <div style="display:flex;gap:6px;">
+      <button class="btn btn-outline" onclick="switchServer()">⇄ Switch 1080p Server</button>
+    </div>
+  </header>
+
+  <section class="hero">
+    <video id="heroVideo" muted autoplay loop playsinline src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4"></video>
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <div style="font-size:10px;color:var(--emerald);font-weight:800;margin-bottom:4px;" id="serverNameLabel">● LIVE • Crunchyroll Simulcast & HD-1 Server (1080p)</div>
+      <h2 style="font-size:22px;font-weight:900;margin-bottom:6px;">Frieren: Beyond Journey's End</h2>
+      <p style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">Unified Live Website & Android App running from the exact same repository & catalog.</p>
+      <button class="btn btn-primary" onclick="playInNativeOrWeb('anime_1')">▶ Watch Episode 1 (1080p)</button>
+    </div>
+  </section>
+
+  <div class="container">
+    <div class="section-title"><span class="dot-live"></span> 🔥 Live Synchronized Anime Catalog (App & Website)</div>
+    <div class="anime-grid" id="animeGrid"></div>
+  </div>
+
+  <script>
+    const SERVERS = [
+      { name: "Crunchyroll Simulcast (1080p HLS)", url: "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8" },
+      { name: "HD-1 • VidStreaming (1080p MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4" },
+      { name: "HD-2 • MegaCloud (1080p HLS)", url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" }
+    ];
+    let srvIdx = 0;
+
+    function switchServer() {
+      srvIdx = (srvIdx + 1) % SERVERS.length;
+      const srv = SERVERS[srvIdx];
+      document.getElementById("serverNameLabel").textContent = "● LIVE • " + srv.name;
+      const v = document.getElementById("heroVideo");
+      v.src = srv.url;
+      v.play().catch(() => {});
+    }
+
+    function playInNativeOrWeb(animeId) {
+      if (window.KuroStreamBridge && typeof window.KuroStreamBridge.openNativePlayer === "function") {
+        window.KuroStreamBridge.openNativePlayer(animeId, 1);
+      } else {
+        const v = document.getElementById("heroVideo");
+        v.muted = false;
+        if (v.requestFullscreen) v.requestFullscreen();
+      }
+    }
+
+    function renderList(items) {
+      document.getElementById("animeGrid").innerHTML = items.map(item => `
+        <div class="anime-card" onclick="playInNativeOrWeb('${item.id}')">
+          <div class="anime-poster">
+            <img src="${item.poster}" alt="${item.title}" />
+            <div class="anime-score">★ ${item.score || '9.0'}</div>
+          </div>
+          <div class="anime-info">
+            <h4>${item.title}</h4>
+            <p>${item.episodes || 12} Eps • ${item.studio || '1080p'}</p>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    async function init() {
+      if (window.KuroStreamBridge && typeof window.KuroStreamBridge.getAppCatalogJson === "function") {
+        try {
+          const data = JSON.parse(window.KuroStreamBridge.getAppCatalogJson());
+          if (data.anime && data.anime.length > 0) {
+            renderList(data.anime);
+            document.getElementById("syncLabel").textContent = "Live Bridge • v" + (data.versionName || "1.1.0");
+            return;
+          }
+        } catch (e) {}
+      }
+      try {
+        const r = await fetch("/api/catalog");
+        if (r.ok) {
+          const data = await r.json();
+          if (data.anime) { renderList(data.anime); return; }
+        }
+      } catch (e) {}
+    }
+    init();
+  </script>
+</body>
+</html>

@@ -32,6 +32,7 @@ data class PlayerUiState(
     val isPlaying: Boolean = true,
     val currentPositionMs: Long = 0L,
     val totalDurationMs: Long = 1440000L,
+    val bufferedPositionMs: Long = 0L,
     val showControls: Boolean = true,
     val isLocked: Boolean = false,
     val showQualitySheet: Boolean = false,
@@ -151,26 +152,29 @@ class PlayerViewModel(
         }
     }
 
-    fun updatePosition(posMs: Long, durationMs: Long) {
+    fun updatePosition(posMs: Long, durationMs: Long, bufferedMs: Long = 0L) {
         val currentEp = _uiState.value.currentEpisode ?: return
-        val currentSec = posMs / 1000L
+        val safePos = posMs.coerceAtLeast(0L)
+        val currentSec = safePos / 1000L
 
         val inIntro = currentSec in currentEp.introStartSec..currentEp.introEndSec
         val inOutro = currentSec in currentEp.outroStartSec..currentEp.outroEndSec
 
         _uiState.update {
+            val validDuration = if (durationMs > 1000L) durationMs else it.totalDurationMs.coerceAtLeast(1000L)
             it.copy(
-                currentPositionMs = posMs,
-                totalDurationMs = if (durationMs > 0) durationMs else it.totalDurationMs,
+                currentPositionMs = safePos.coerceAtMost(validDuration),
+                totalDurationMs = validDuration,
+                bufferedPositionMs = bufferedMs.coerceIn(0L, validDuration),
                 isInIntro = inIntro,
                 isInOutro = inOutro
             )
         }
 
         // Debounced save watch progress to Room database (save at most once every 5 seconds)
-        if (kotlin.math.abs(posMs - lastSavedPositionMs) > 5000L) {
-            lastSavedPositionMs = posMs
-            saveProgressToDatabase(posMs, durationMs)
+        if (kotlin.math.abs(safePos - lastSavedPositionMs) > 5000L) {
+            lastSavedPositionMs = safePos
+            saveProgressToDatabase(safePos, _uiState.value.totalDurationMs)
         }
     }
 

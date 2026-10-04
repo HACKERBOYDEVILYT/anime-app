@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "name": "kurostream-web",
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/version.json", "destination": "/docs/version.json" },
+    { "source": "/(.*)", "destination": "/docs/index.html" }
+  ]
+}

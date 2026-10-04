@@ -349,6 +349,14 @@ fun AdminDashboardScreen(
                                 FilterChip(
                                     selected = false,
                                     onClick = {
+                                        viewModel.syncCrunchyrollCatalog()
+                                    },
+                                    label = { Text("⚡ Sync Crunchyroll Simulcast API", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                                    colors = FilterChipDefaults.filterChipColors(containerColor = StarAmber.copy(alpha = 0.2f), labelColor = StarAmber)
+                                )
+                                FilterChip(
+                                    selected = false,
+                                    onClick = {
                                         viewModel.updateWebPageScrapeUrl("https://api.animethemes.moe/anime?include=animethemes.animethemeentries.videos&page[size]=3")
                                         viewModel.extractVideoLinksFromWeb()
                                     },
@@ -660,12 +668,20 @@ fun AdminDashboardScreen(
                                     }
                                 }
 
-                                // Quick Upstream Site Bookmarks (HiAnime, AniWatch, AnimeThemes)
+                                // Quick Upstream Site Bookmarks (Crunchyroll, HiAnime, AniWatch, AnimeThemes)
                                 FlowRow(
                                     modifier = Modifier.padding(top = 6.dp),
                                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                                     verticalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
+                                    FilterChip(
+                                        selected = false,
+                                        onClick = {
+                                            snifferBrowserUrl = "https://www.crunchyroll.com/videos/popular"
+                                            activeWebViewUrl = "https://www.crunchyroll.com/videos/popular"
+                                        },
+                                        label = { Text("Crunchyroll Simulcast", fontSize = 10.sp) }
+                                    )
                                     FilterChip(
                                         selected = false,
                                         onClick = {

@@ -1,4 +1,4 @@
-name: Build & Package Android APK
+name: Build APK, Auto-Update Version & Deploy Live Website
 
 on:
   push:
@@ -11,17 +11,55 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "kurostream-ci-cd"
+  cancel-in-progress: false
 
 jobs:
-  build:
-    name: Build KuroStream APK
+  build-and-publish:
+    name: Build KuroStream APK & Sync Website Version
     runs-on: ubuntu-latest
+    outputs:
+      version_name: ${{ steps.meta.outputs.version_name }}
+      version_code: ${{ steps.meta.outputs.version_code }}
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Compute Version & Repository Metadata
+        id: meta
+        run: |
+          VERSION_CODE=$((100 + ${{ github.run_number }}))
+          VERSION_NAME="1.1.${{ github.run_number }}"
+          REPO_OWNER="${{ github.repository_owner }}"
+          REPO_NAME="${{ github.event.repository.name }}"
+          COMMIT_MSG=$(git log -1 --pretty=%B | tr '\n' ' ' | sed 's/"/\\"/g')
+          APK_URL="https://github.com/${{ github.repository }}/releases/latest/download/KuroStream-Release.apk"
+          WEB_URL="https://${REPO_OWNER}.github.io/${REPO_NAME}/"
+
+          cat > docs/version.json <<EOF
+          {
+            "appName": "KuroStream",
+            "versionCode": ${VERSION_CODE},
+            "versionName": "${VERSION_NAME}",
+            "commitSha": "${{ github.sha }}",
+            "publishedAt": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "forceUpdate": false,
+            "repositorySlug": "${{ github.repository }}",
+            "apkDownloadUrl": "${APK_URL}",
+            "webPortalUrl": "${WEB_URL}",
+            "changelog": "Repository Update (${VERSION_NAME}): ${COMMIT_MSG}"
+          }
+          EOF
+          cp docs/version.json version.json
+          echo "version_name=${VERSION_NAME}" >> $GITHUB_OUTPUT
+          echo "version_code=${VERSION_CODE}" >> $GITHUB_OUTPUT
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -43,17 +81,16 @@ jobs:
             keytool -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
           fi
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+      - name: Build Debug & Release APKs
+        run: |
+          ./gradlew assembleDebug assembleRelease --stacktrace
 
-      - name: Build Release APK
-        run: ./gradlew assembleRelease --stacktrace
-
-      - name: Prepare APK Artifacts
+      - name: Prepare APK & Web Artifacts
         run: |
           mkdir -p artifacts
           cp app/build/outputs/apk/release/app-release.apk artifacts/KuroStream-Release.apk
           cp app/build/outputs/apk/debug/app-debug.apk artifacts/KuroStream-Debug.apk
+          cp docs/version.json artifacts/version.json
 
       - name: Upload Release APK Artifact
         uses: actions/upload-artifact@v4
@@ -62,38 +99,41 @@ jobs:
           path: artifacts/KuroStream-Release.apk
           retention-days: 30
 
-      - name: Upload Debug APK Artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload Live Website Artifact for GitHub Pages
+        uses: actions/upload-pages-artifact@v3
         with:
-          name: KuroStream-Debug-APK
-          path: artifacts/KuroStream-Debug.apk
-          retention-days: 30
+          path: ./docs
 
-      - name: Publish to GitHub Releases
+      - name: Publish to GitHub Releases (Triggers In-App Auto-Update)
         if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v1.0.{0}', github.run_number) }}
-          name: ${{ format('KuroStream v1.0.{0} - Latest Android Release', github.run_number) }}
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}', steps.meta.outputs.version_name) }}
+          name: ${{ format('KuroStream v{0} - Unified App & Web Release', steps.meta.outputs.version_name) }}
           draft: false
           prerelease: false
           body: |
-            ### KuroStream Anime Streaming App 🎬
+            ### KuroStream Unified Anime Streaming App & Live Website 🎬🌐
             
-            Download the latest Android APK directly:
-            * **`KuroStream-Release.apk`**: Optimized production release APK.
-            * **`KuroStream-Debug.apk`**: Debug testing build.
-            
-            #### Features included:
-            - 🎬 **Advanced Gestures**: Left swipe brightness, right swipe volume, double-tap 10s skip.
-            - 📺 **Picture-in-Picture (PiP)** & Background Audio mode.
-            - 📥 **Offline Download Manager** with local file playback & device storage tracker.
-            - 📅 **Weekly Airing Calendar** with live real-time countdown timer.
-            - 🔄 **AniList & MyAnimeList Account Sync**.
-            - 💬 **Episode Discussion & Reactions** with spoiler protection.
-            - 🇧🇩 **Bangla & Multi-language subtitles** support.
+            * **Version**: `v${{ steps.meta.outputs.version_name }}` (Build `${{ steps.meta.outputs.version_code }}`)
+            * **Auto-Update**: Installed Android apps automatically detect this release and prompt users to update!
+            * **Live Website**: Deployed from `/docs` via GitHub Pages.
           files: |
             artifacts/KuroStream-Release.apk
             artifacts/KuroStream-Debug.apk
+            artifacts/version.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy-website:
+    name: Deploy Unified KuroStream Website to GitHub Pages
+    needs: build-and-publish
+    if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

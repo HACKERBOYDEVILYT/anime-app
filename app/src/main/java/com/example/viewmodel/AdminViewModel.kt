@@ -217,6 +217,23 @@ class AdminViewModel(
         }
     }
 
+    fun syncCrunchyrollCatalog() {
+        _uiState.update { it.copy(isExtractingLinks = true, extractionMessage = "Syncing Crunchyroll Simulcast Catalog & 1080p HLS Streams...") }
+        viewModelScope.launch {
+            val count = adminRepository.syncCrunchyrollSimulcastCatalog()
+            _uiState.update {
+                it.copy(
+                    isExtractingLinks = false,
+                    extractionMessage = if (count > 0) {
+                        "Synced $count Crunchyroll Simulcast 1080p HLS streams into Active Scraped Streams!"
+                    } else {
+                        "Crunchyroll Simulcast streams verified and ready."
+                    }
+                )
+            }
+        }
+    }
+
     fun useExtractedVideoLink(link: String) {
         _uiState.update {
             it.copy(

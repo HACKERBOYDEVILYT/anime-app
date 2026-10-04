@@ -7,6 +7,7 @@ import com.example.data.network.NetworkClient
 import com.example.data.network.RetrofitClient
 import com.example.data.repository.AdminRepository
 import com.example.data.repository.AnimeRepository
+import com.example.data.repository.AppUpdateRepository
 import com.example.data.repository.CommentsRepository
 import com.example.data.repository.DownloadsRepository
 import com.example.data.repository.LocalLicensedMediaProvider
@@ -43,6 +44,7 @@ class KuroAppContainer(context: Context) {
     val radioRepository = RadioRepository()
     val quotesRepository = QuotesRepository()
     val tierListRepository = TierListRepository(animeRepository)
+    val appUpdateRepository = AppUpdateRepository(context, localMediaProvider)
 
     companion object {
         @Volatile

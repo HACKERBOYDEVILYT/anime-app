@@ -104,6 +104,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
@@ -115,6 +116,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import com.example.data.repository.CommentsRepository
 import com.example.data.repository.DownloadsRepository
+import com.example.ui.components.CustomVideoProgressBar
 import com.example.ui.components.EpisodeCommentsSheet
 import com.example.ui.theme.CrimsonNeon
 import com.example.ui.theme.SurfaceDark
@@ -218,12 +220,18 @@ fun VideoPlayerScreen(
         exoPlayer.playbackParameters = PlaybackParameters(uiState.playbackSpeed)
     }
 
-    // Sync ExoPlayer Position with ViewModel
+    // Sync ExoPlayer Position with ViewModel safely (handling C.TIME_UNSET)
     LaunchedEffect(exoPlayer) {
         while (true) {
-            val currentPos = exoPlayer.currentPosition
-            val totalDur = exoPlayer.duration.coerceAtLeast(1L)
-            viewModel.updatePosition(currentPos, totalDur)
+            val currentPos = exoPlayer.currentPosition.coerceAtLeast(0L)
+            val playerDur = exoPlayer.duration
+            val totalDur = if (playerDur != C.TIME_UNSET && playerDur > 0L) {
+                playerDur
+            } else {
+                uiState.totalDurationMs.coerceAtLeast(1000L)
+            }
+            val bufferedPos = exoPlayer.bufferedPosition.coerceIn(0L, totalDur)
+            viewModel.updatePosition(currentPos, totalDur, bufferedPos)
             viewModel.setPlaying(exoPlayer.isPlaying)
             delay(500)
         }
@@ -271,7 +279,12 @@ fun VideoPlayerScreen(
                                     viewModel.showSeekGestureIndicator(isForward = false, deltaSec = 10)
                                 } else if (offset.x > width * 0.65f) {
                                     // Double Tap Right: Forward 10s
-                                    val newPos = (exoPlayer.currentPosition + 10000L).coerceAtMost(exoPlayer.duration)
+                                    val maxDur = if (exoPlayer.duration != C.TIME_UNSET && exoPlayer.duration > 0L) {
+                                        exoPlayer.duration
+                                    } else {
+                                        uiState.totalDurationMs.coerceAtLeast(exoPlayer.currentPosition + 10000L)
+                                    }
+                                    val newPos = (exoPlayer.currentPosition + 10000L).coerceIn(0L, maxDur)
                                     exoPlayer.seekTo(newPos)
                                     viewModel.showSeekGestureIndicator(isForward = true, deltaSec = 10)
                                 } else {
@@ -288,16 +301,19 @@ fun VideoPlayerScreen(
             .pointerInput(uiState.isLocked) {
                 if (!uiState.isLocked) {
                     var dragStartX = 0f
+                    var dragStartY = 0f
                     detectDragGestures(
                         onDragStart = { offset ->
                             dragStartX = offset.x
+                            dragStartY = offset.y
                         },
                         onDrag = { change, dragAmount ->
-                            change.consume()
                             val width = containerSize.width.toFloat()
                             val height = containerSize.height.toFloat()
 
-                            if (width > 0 && height > 0) {
+                            // Ignore vertical brightness/volume drag if user started dragging in top bar or bottom progress bar area
+                            if (width > 0 && height > 0 && dragStartY in (height * 0.16f)..(height * 0.72f)) {
+                                change.consume()
                                 val deltaRatio = -dragAmount.y / height // up is positive
 
                                 if (dragStartX < width * 0.5f) {
@@ -442,18 +458,22 @@ fun VideoPlayerScreen(
             }
         }
 
-        // Skip Intro Button Prompt
-        if (uiState.isInIntro && !uiState.isLocked) {
+        // Skip Intro / Outro Button Prompt
+        if ((uiState.isInIntro || uiState.isInOutro) && !uiState.isLocked) {
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(bottom = 90.dp, end = 20.dp)
+                    .padding(bottom = 110.dp, end = 20.dp)
             ) {
                 Button(
                     onClick = {
-                        val targetMs = ((uiState.currentEpisode?.introEndSec ?: 180L) + 1) * 1000L
-                        exoPlayer.seekTo(targetMs)
-                        viewModel.skipIntro()
+                        if (uiState.isInIntro) {
+                            val targetMs = ((uiState.currentEpisode?.introEndSec ?: 180L) + 1) * 1000L
+                            exoPlayer.seekTo(targetMs)
+                            viewModel.skipIntro()
+                        } else {
+                            viewModel.skipOutro()
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color.Black.copy(alpha = 0.85f),
@@ -462,7 +482,11 @@ fun VideoPlayerScreen(
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.testTag("skip_intro_btn")
                 ) {
-                    Text(text = "Skip Intro ⏩", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text(
+                        text = if (uiState.isInIntro) "Skip Intro ⏩" else "Next Episode ⏭",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
                 }
             }
         }
@@ -704,7 +728,12 @@ fun VideoPlayerScreen(
 
                     IconButton(
                         onClick = {
-                            val newPos = (exoPlayer.currentPosition + 10000L).coerceAtMost(exoPlayer.duration)
+                            val maxDur = if (exoPlayer.duration != C.TIME_UNSET && exoPlayer.duration > 0L) {
+                                exoPlayer.duration
+                            } else {
+                                uiState.totalDurationMs.coerceAtLeast(exoPlayer.currentPosition + 10000L)
+                            }
+                            val newPos = (exoPlayer.currentPosition + 10000L).coerceIn(0L, maxDur)
                             exoPlayer.seekTo(newPos)
                             viewModel.showSeekGestureIndicator(isForward = true, deltaSec = 10)
                         },
@@ -733,49 +762,31 @@ fun VideoPlayerScreen(
                     }
                 }
 
-                // Bottom Timeline & Settings Bar
+                // Bottom Timeline (Custom Media3 Progress Bar) & Settings Bar
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
                         .navigationBarsPadding()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = formatTime(uiState.currentPositionMs),
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-
-                        Slider(
-                            value = if (uiState.totalDurationMs > 0) uiState.currentPositionMs.toFloat() / uiState.totalDurationMs.toFloat() else 0f,
-                            onValueChange = { ratio ->
-                                val target = (ratio * uiState.totalDurationMs).toLong()
-                                exoPlayer.seekTo(target)
-                            },
-                            colors = SliderDefaults.colors(
-                                thumbColor = CrimsonNeon,
-                                activeTrackColor = CrimsonNeon,
-                                inactiveTrackColor = Color.DarkGray
-                            ),
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 10.dp)
-                        )
-
-                        Text(
-                            text = formatTime(uiState.totalDurationMs),
-                            color = TextSecondary,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
+                    CustomVideoProgressBar(
+                        exoPlayer = exoPlayer,
+                        currentPositionMs = uiState.currentPositionMs,
+                        totalDurationMs = uiState.totalDurationMs,
+                        bufferedPositionMs = uiState.bufferedPositionMs,
+                        introStartSec = uiState.currentEpisode?.introStartSec ?: 0L,
+                        introEndSec = uiState.currentEpisode?.introEndSec ?: 0L,
+                        outroStartSec = uiState.currentEpisode?.outroStartSec ?: 0L,
+                        outroEndSec = uiState.currentEpisode?.outroEndSec ?: 0L,
+                        onPositionChanged = { currentMs, durationMs, bufferedMs ->
+                            viewModel.updatePosition(currentMs, durationMs, bufferedMs)
+                        },
+                        onSeekCommitted = { targetPositionMs ->
+                            viewModel.updatePosition(targetPositionMs, uiState.totalDurationMs, uiState.bufferedPositionMs)
+                        },
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
 
                     // Settings & Selectors Row
                     Row(

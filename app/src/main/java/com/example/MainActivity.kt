@@ -23,6 +23,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.security.AdminSecurityManager
+import com.example.ui.components.AppUpdatePromptDialog
 import com.example.ui.components.BottomNavBar
 import com.example.ui.components.SecretAdminDialog
 import com.example.ui.navigation.Screen
@@ -43,6 +44,7 @@ import com.example.ui.screens.schedule.ScheduleScreen
 import com.example.ui.screens.search.SearchScreen
 import com.example.ui.screens.tier.TierListScreen
 import com.example.ui.screens.watchlist.WatchlistScreen
+import com.example.ui.screens.web.WebPortalScreen
 import com.example.ui.theme.BackgroundDark
 import com.example.ui.theme.KuroStreamTheme
 import com.example.viewmodel.AdminViewModel
@@ -73,8 +75,26 @@ fun KuroStreamApp(container: KuroAppContainer) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: Screen.Home.route
+    val updateState by container.appUpdateRepository.updateState.collectAsStateWithLifecycle()
 
     val isPlayerScreen = currentRoute.startsWith("player")
+
+    // Automatic In-App Repository Update Prompt Dialog when repository has a new update
+    if (updateState.showUpdateDialog) {
+        AppUpdatePromptDialog(
+            updateState = updateState,
+            onUpdateNowClick = {
+                container.appUpdateRepository.markUpdateInstalled()
+            },
+            onOpenWebPortalClick = {
+                container.appUpdateRepository.dismissUpdateDialog()
+                navController.navigate(Screen.WebPortal.route)
+            },
+            onDismiss = {
+                container.appUpdateRepository.dismissUpdateDialog()
+            }
+        )
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -159,6 +179,9 @@ fun KuroStreamApp(container: KuroAppContainer) {
                         },
                         onQuotesClick = {
                             navController.navigate(Screen.Quotes.route)
+                        },
+                        onWebPortalClick = {
+                            navController.navigate(Screen.WebPortal.route)
                         }
                     )
                 }
@@ -269,6 +292,52 @@ fun KuroStreamApp(container: KuroAppContainer) {
                 composable(Screen.MalSync.route) {
                     MalSyncScreen(
                         malSyncRepository = container.malSyncRepository,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+
+                // Unified Live Website Portal & Repository Auto-Update Screen
+                composable(Screen.WebPortal.route) {
+                    WebPortalScreen(
+                        appUpdateRepository = container.appUpdateRepository,
+                        onWatchEpisode = { animeId, epNum ->
+                            navController.navigate(Screen.Player.createRoute(animeId, epNum))
+                        },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+
+                // Watch Party Screen
+                composable(Screen.WatchParty.route) {
+                    WatchPartyScreen(
+                        watchPartyRepository = container.watchPartyRepository,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+
+                // 24/7 Anime Radio Screen
+                composable(Screen.AnimeRadio.route) {
+                    AnimeRadioScreen(
+                        radioRepository = container.radioRepository,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+
+                // Anime Tier List Screen
+                composable(Screen.TierList.route) {
+                    TierListScreen(
+                        tierListRepository = container.tierListRepository,
+                        onBack = { navController.popBackStack() },
+                        onAnimeClick = { animeId ->
+                            navController.navigate(Screen.Details.createRoute(animeId))
+                        }
+                    )
+                }
+
+                // Anime Quotes Screen
+                composable(Screen.Quotes.route) {
+                    AnimeQuotesScreen(
+                        quotesRepository = container.quotesRepository,
                         onBack = { navController.popBackStack() }
                     )
                 }
