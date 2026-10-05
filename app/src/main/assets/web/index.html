@@ -250,8 +250,8 @@
     <div class="header-actions">
       <input type="text" id="searchInput" class="search-box" placeholder="Search anime (Jikan / Crunchyroll)..." onkeydown="if(event.key==='Enter') searchAnime()" />
       <button class="btn btn-outline" onclick="syncCrunchyrollWeb()">⚡ Crunchyroll Simulcast</button>
-      <a id="apkDownloadBtn" href="https://github.com/kurostream/kurostream/releases/latest/download/KuroStream-Release.apk" class="btn btn-primary" target="_blank">
-        📲 Download Android APK
+      <a id="apkDownloadBtn" href="./download/Robiul-Release.apk" onclick="if(window.KuroStreamBridge && window.KuroStreamBridge.releaseApkFromWeb){window.KuroStreamBridge.releaseApkFromWeb(); return false;}" class="btn btn-primary">
+        📲 Download Robiul-Release.apk
       </a>
     </div>
   </header>
@@ -292,14 +292,14 @@
     <div class="update-banner">
       <div>
         <div style="font-size:13px;font-weight:800;color:#fff;">
-          🚀 Unified GitHub Repository • Live Website & App Auto-Update Active
+          🚀 Robiul [RS] • Official APK Release (<code style="color:#00FF66;">Robiul-Release.apk</code>) & Live Website Active
         </div>
         <div style="font-size:11px;color:var(--text-secondary);margin-top:3px;" id="versionChangelogText">
-          Pushing any update to the repository automatically deploys this website and triggers an Auto-Update prompt inside the KuroStream Android App.
+          Single official APK package: <b>Robiul-Release.apk</b> • Live Website Link: <b style="color:#00F0FF;">https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app</b>
         </div>
       </div>
       <div style="display:flex;gap:8px;">
-        <a id="bannerApkLink" href="https://github.com/kurostream/kurostream/releases/latest/download/KuroStream-Release.apk" class="btn btn-primary" target="_blank">⬇️ Latest APK (<span id="versionLabel">v1.1.0</span>)</a>
+        <a id="bannerApkLink" href="./download/Robiul-Release.apk" onclick="if(window.KuroStreamBridge && window.KuroStreamBridge.releaseApkFromWeb){window.KuroStreamBridge.releaseApkFromWeb(); return false;}" class="btn btn-primary">⬇️ Robiul-Release.apk (<span id="versionLabel">v1.1.0</span>)</a>
       </div>
     </div>
 

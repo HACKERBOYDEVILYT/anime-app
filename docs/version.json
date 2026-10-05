@@ -3,10 +3,10 @@
   "versionCode": 2,
   "versionName": "1.1.0",
   "commitSha": "main-latest",
-  "publishedAt": "2026-10-04T00:15:00Z",
+  "publishedAt": "2026-10-05T00:00:00Z",
   "forceUpdate": false,
-  "repositorySlug": "kurostream/kurostream",
-  "apkDownloadUrl": "https://github.com/kurostream/kurostream/releases/latest/download/KuroStream-Release.apk",
-  "webPortalUrl": "https://kurostream.github.io/kurostream/",
-  "changelog": "• Unified KuroStream Android App & Live Web Streaming Portal from the same repository\n• Custom Media3 ExoPlayer Progress Bar with live buffer, OP/ED chapters & time telemetry\n• Real-time Crunchyroll Simulcast (1080p HLS), HiAnime HD-1/HD-2 & AnimeThemes servers\n• Automatic Repository Update Checker & In-App Update Prompt"
+  "repositorySlug": "robiul/robiul-rs",
+  "apkDownloadUrl": "./download/Robiul-Release.apk",
+  "webPortalUrl": "https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app",
+  "changelog": "• Robiul [RS] Hacker Edition Android App & Live Web Streaming Portal from the same repository\n• Custom Media3 ExoPlayer Progress Bar with live buffer, OP/ED chapters & keyboard shortcuts (Space, Arrow Keys, F)\n• Real-time Crunchyroll Simulcast (1080p HLS), HiAnime HD-1/HD-2 & AnimeThemes servers\n• Automatic Repository Update Checker & In-App Update Prompt"
 }

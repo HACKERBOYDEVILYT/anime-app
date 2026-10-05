@@ -62,8 +62,6 @@ jobs:
             cp .build-outputs/app-debug.apk artifacts/Robiul-Release.apk
           fi
 
-          cp artifacts/Robiul-Release.apk artifacts/KuroStream-Release.apk
-
           cat > artifacts/version.json <<EOF
           {
             "appName": "Robiul",
@@ -141,7 +139,6 @@ jobs:
           make_latest: "true"
           files: |
             artifacts/Robiul-Release.apk
-            artifacts/KuroStream-Release.apk
             artifacts/version.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
