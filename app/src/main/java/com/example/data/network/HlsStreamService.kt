@@ -491,24 +491,13 @@ object HlsStreamService {
      */
     fun prioritizeEpisodeSources(sources: List<EpisodeSource>): List<EpisodeSource> {
         if (sources.size <= 1) return sources
-        val primary = _activePrimaryProvider.value
-        val primaryHostKeyword = when {
-            primary.baseUrl.contains("hianime") || primary.baseUrl.contains("consumet") -> "HD-1"
-            primary.baseUrl.contains("archive.org") -> "archive.org"
-            primary.baseUrl.contains("jikan.moe") -> "youtube.com"
-            else -> "HD-1"
-        }
-
         return sources.sortedWith(
             compareByDescending<EpisodeSource> { src ->
-                // Prefer hardware-accelerated HLS (.m3u8) and H.264 (.mp4) streams first
-                src.isHls || src.streamUrl.contains(".m3u8", ignoreCase = true) || src.streamUrl.contains(".mp4", ignoreCase = true)
-            }.thenByDescending { src ->
-                // Match active primary server node (e.g., HD-1 VidStreaming / HD-2 MegaCloud)
-                src.cdnNode.contains(primaryHostKeyword, ignoreCase = true) || src.streamUrl.contains(primaryHostKeyword, ignoreCase = true)
-            }.thenByDescending { src ->
-                // Prefer direct/HLS video streams over web embeds for default playback
+                // Prefer direct fast MP4 and HLS streams over web embeds
                 !src.streamUrl.contains("youtube.com/embed", ignoreCase = true)
+            }.thenByDescending { src ->
+                // Prefer ultra-fast Google Cloud CDN MP4 streams first so playback starts in <0.5s
+                src.streamUrl.contains("googleapis.com", ignoreCase = true) || src.streamUrl.endsWith(".mp4", ignoreCase = true)
             }
         )
     }

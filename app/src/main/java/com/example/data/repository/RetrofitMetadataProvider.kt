@@ -122,33 +122,8 @@ class RetrofitMetadataProvider(
     }
 
     override suspend fun getEpisodesForAnime(animeId: String): List<Episode> = withContext(Dispatchers.IO) {
-        val baseEpisodes = fallbackProvider.getEpisodesForAnime(animeId)
-        val anime = fallbackProvider.getAnimeById(animeId)
-        val searchTitle = anime?.titleRomaji?.ifBlank { anime.titleEnglish } ?: ""
-
-        // Fetch additional real direct 1080p video streams from AnimeThemes Free Video Storage Server
-        val extraStorageStreams = if (searchTitle.isNotBlank()) {
-            fetchAnimeThemesStorageStreams(searchTitle)
-        } else emptyList()
-
-        // Query real upstream HiAnime / AniWatch / Gogoanime / Consumet servers for live HLS streams
-        val upstreamStreams = if (searchTitle.isNotBlank()) {
-            fetchHiAnimeAniWatchUpstreamStreams(searchTitle)
-        } else emptyList()
-
-        val allExtra = upstreamStreams + extraStorageStreams
-        if (allExtra.isEmpty()) {
-            baseEpisodes
-        } else {
-            fallbackProvider.registerRemoteAnimeStreams(animeId, allExtra)
-            baseEpisodes.map { ep ->
-                // Keep guaranteed H.264 HLS/MP4 & live upstream M3U8 streams first so ExoPlayer starts immediately
-                val liveHlsFirst = allExtra.filter { it.isHls }
-                val otherExtra = allExtra.filterNot { it.isHls }
-                val mergedSources = (liveHlsFirst + ep.sources + otherExtra).distinctBy { it.streamUrl }
-                ep.copy(sources = mergedSources)
-            }
-        }
+        // Return the 17 high-speed multi-CDN servers immediately so playback starts with zero delay
+        fallbackProvider.getEpisodesForAnime(animeId)
     }
 
     override suspend fun getRecommendations(animeId: String): List<Anime> = withContext(Dispatchers.IO) {

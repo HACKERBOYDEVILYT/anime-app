@@ -77,14 +77,22 @@ class PlayerViewModel(
             failedStreamUrls.add(failedUrl)
         }
         val sources = _uiState.value.currentEpisode?.sources.orEmpty()
-        val nextWorking = sources.firstOrNull { it.streamUrl.isNotBlank() && it.streamUrl !in failedStreamUrls }
-        if (nextWorking != null) {
-            _uiState.update {
-                it.copy(
-                    currentSource = nextWorking,
-                    selectedQuality = nextWorking.quality
-                )
-            }
+            .filter { !it.streamUrl.contains("youtube.com/embed", ignoreCase = true) }
+        if (sources.isEmpty()) return null
+
+        var nextWorking = sources.firstOrNull { it.streamUrl.isNotBlank() && it.streamUrl !in failedStreamUrls }
+        if (nextWorking == null) {
+            // If all 17 servers were tried, reset failed set and cycle to next server after current
+            failedStreamUrls.clear()
+            val curIdx = sources.indexOfFirst { it.streamUrl == failedUrl }
+            nextWorking = sources.getOrNull((curIdx + 1) % sources.size) ?: sources.first()
+        }
+        _uiState.update {
+            it.copy(
+                isLoading = false,
+                currentSource = nextWorking,
+                selectedQuality = nextWorking.quality
+            )
         }
         return nextWorking
     }
@@ -124,6 +132,8 @@ class PlayerViewModel(
                             totalDurationMs = episode.durationSeconds * 1000L
                         )
                     }
+                } else {
+                    _uiState.update { it.copy(isLoading = false) }
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.localizedMessage) }

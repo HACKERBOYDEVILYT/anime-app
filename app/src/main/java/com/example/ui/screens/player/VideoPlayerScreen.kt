@@ -241,22 +241,41 @@ fun VideoPlayerScreen(
             currentStreamUrl.contains("/embed/", ignoreCase = true)
     }
 
-    // Automatic Multi-Server Failover if a stream URL fails or codec is unsupported on device
+    // Automatic Multi-Server Failover (17 Servers) if a stream URL fails or codec is unsupported
     DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
                 val failedUrl = uiState.currentSource?.streamUrl.orEmpty()
                 val nextSource = viewModel.fallbackToNextWorkingSource(failedUrl)
                 if (nextSource != null) {
-                    scope.launch {
-                        snackbarHostState.showSnackbar("Switched to active server: ${nextSource.cdnNode}")
-                    }
+                    kbdShortcutToast = "⚡ Auto-Switched → ${nextSource.cdnNode}"
+                }
+            }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_READY) {
+                    exoPlayer.play()
+                    viewModel.setPlaying(true)
                 }
             }
         }
         exoPlayer.addListener(listener)
         onDispose {
             exoPlayer.removeListener(listener)
+        }
+    }
+
+    // Watchdog Timer: If any server stays stuck buffering/loading for > 5 seconds without playing,
+    // automatically switch to the next server in the 17-server pool!
+    LaunchedEffect(currentStreamUrl) {
+        if (currentStreamUrl.isNotBlank() && !isWebEmbedOrTrailer) {
+            delay(5000)
+            if (!exoPlayer.isPlaying && exoPlayer.playbackState != Player.STATE_READY) {
+                val nextSource = viewModel.fallbackToNextWorkingSource(currentStreamUrl)
+                if (nextSource != null) {
+                    kbdShortcutToast = "⚡ Server Timeout → Auto-Switched to ${nextSource.cdnNode}"
+                }
+            }
         }
     }
 

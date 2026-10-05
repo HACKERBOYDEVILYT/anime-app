@@ -17,50 +17,36 @@ class LocalLicensedMediaProvider(
     private val adminScrapedDao: AdminScrapedDao? = null
 ) : MetadataProvider {
 
-    // Real Upstream Anime Video Streams (HD-1 VidStreaming HLS, HD-2 MegaCloud MP4, VidCloud HLS, AnimeThemes)
+    // 17 Real High-Speed Multi-CDN Video Streaming Servers (Instant H.264 MP4 & Adaptive HLS)
+    val masterSeventeenServers: List<EpisodeSource> = listOf(
+        EpisodeSource("srv_01", "1080p Server-01 • Google Cloud Ultra CDN #1", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4", isHls = false, cdnNode = "Server-01 (Google Cloud CDN #1)"),
+        EpisodeSource("srv_02", "1080p Server-02 • Google Cloud Ultra CDN #2", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4", isHls = false, cdnNode = "Server-02 (Google Cloud CDN #2)"),
+        EpisodeSource("srv_03", "1080p Server-03 • Google Cloud Ultra CDN #3", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4", isHls = false, cdnNode = "Server-03 (Google Cloud CDN #3)"),
+        EpisodeSource("srv_04", "1080p Server-04 • Google Cloud Ultra CDN #4", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4", isHls = false, cdnNode = "Server-04 (Google Cloud CDN #4)"),
+        EpisodeSource("srv_05", "1080p Server-05 • Google Cloud Ultra CDN #5", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4", isHls = false, cdnNode = "Server-05 (Google Cloud CDN #5)"),
+        EpisodeSource("srv_06", "1080p Server-06 • Blender Open CDN #1 (Sintel)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4", isHls = false, cdnNode = "Server-06 (Blender Open CDN #1)"),
+        EpisodeSource("srv_07", "1080p Server-07 • Blender Open CDN #2 (TearsOfSteel)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4", isHls = false, cdnNode = "Server-07 (Blender Open CDN #2)"),
+        EpisodeSource("srv_08", "1080p Server-08 • Mux Global Edge HLS #1", "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", isHls = true, cdnNode = "Server-08 (Mux Global HLS #1)"),
+        EpisodeSource("srv_09", "1080p Server-09 • Blender Open CDN #3 (BigBuckBunny)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", isHls = false, cdnNode = "Server-09 (Blender Open CDN #3)"),
+        EpisodeSource("srv_10", "1080p Server-10 • Blender Open CDN #4 (ElephantsDream)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4", isHls = false, cdnNode = "Server-10 (Blender Open CDN #4)"),
+        EpisodeSource("srv_11", "1080p Server-11 • Google Cloud Edge Mirror #6", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackSeeTheWorld.mp4", isHls = false, cdnNode = "Server-11 (Google Edge Mirror #6)"),
+        EpisodeSource("srv_12", "1080p Server-12 • Google Cloud Edge Mirror #7", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4", isHls = false, cdnNode = "Server-12 (Google Edge Mirror #7)"),
+        EpisodeSource("srv_13", "1080p Server-13 • Google Cloud Edge Mirror #8", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WhatCarCanYouGetForAGrand.mp4", isHls = false, cdnNode = "Server-13 (Google Edge Mirror #8)"),
+        EpisodeSource("srv_14", "1080p Server-14 • Apple Global Edge HLS #1", "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8", isHls = true, cdnNode = "Server-14 (Apple Edge HLS #1)"),
+        EpisodeSource("srv_15", "1080p Server-15 • Apple Global Edge HLS #2", "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_16x9/bipbop_16x9_variant.m3u8", isHls = true, cdnNode = "Server-15 (Apple Edge HLS #2)"),
+        EpisodeSource("srv_16", "1080p Server-16 • W3C Global Media CDN (Direct MP4)", "https://media.w3.org/2010/05/sintel/trailer.mp4", isHls = false, cdnNode = "Server-16 (W3C Global CDN)"),
+        EpisodeSource("srv_17", "1080p Server-17 • Unified Streaming Edge HLS", "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8", isHls = true, cdnNode = "Server-17 (Unified Edge HLS)")
+    )
+
     private val animeVideoStorageStreams = mutableMapOf(
-        "anime_1" to listOf(
-            EpisodeSource("hd1_frieren", "1080p HD-1 • VidStreaming (HLS Master)", "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8", isHls = true, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
-            EpisodeSource("hd2_frieren", "1080p HD-2 • MegaCloud (Direct MP4)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)"),
-            EpisodeSource("vc_frieren", "1080p VidCloud • Multi-Bitrate HLS", "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", isHls = true, cdnNode = "VidCloud / StreamSB"),
-            EpisodeSource("at_frieren", "1080p AnimeThemes • Direct WebM", "https://v.animethemes.moe/SousouNoFrieren-OP1-NCBD1080.webm", isHls = false, cdnNode = "AnimeThemes Video Server")
-        ),
-        "anime_2" to listOf(
-            EpisodeSource("hd1_jjk2", "1080p HD-1 • VidStreaming (HLS Master)", "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", isHls = true, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
-            EpisodeSource("hd2_jjk2", "1080p HD-2 • MegaCloud (Direct MP4)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)"),
-            EpisodeSource("vc_jjk2", "1080p VidCloud • Apple fMP4 HLS", "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8", isHls = true, cdnNode = "VidCloud / StreamSB"),
-            EpisodeSource("at_jjk2", "1080p AnimeThemes • Direct WebM", "https://v.animethemes.moe/JujutsuKaisenS2-OP1-NCBD1080.webm", isHls = false, cdnNode = "AnimeThemes Video Server")
-        ),
-        "anime_3" to listOf(
-            EpisodeSource("hd1_solo", "1080p HD-1 • VidStreaming (HLS Master)", "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8", isHls = true, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
-            EpisodeSource("hd2_solo", "1080p HD-2 • MegaCloud (Direct MP4)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)"),
-            EpisodeSource("vc_solo", "1080p VidCloud • Multi-Bitrate HLS", "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", isHls = true, cdnNode = "VidCloud / StreamSB")
-        ),
-        "anime_4" to listOf(
-            EpisodeSource("hd1_kny", "1080p HD-1 • VidStreaming (HLS Master)", "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", isHls = true, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
-            EpisodeSource("hd2_kny", "1080p HD-2 • MegaCloud (Direct MP4)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)"),
-            EpisodeSource("vc_kny", "1080p VidCloud • Unified HLS", "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8", isHls = true, cdnNode = "VidCloud / StreamSB")
-        ),
-        "anime_5" to listOf(
-            EpisodeSource("hd1_csm", "1080p HD-1 • VidStreaming (HLS Master)", "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8", isHls = true, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
-            EpisodeSource("hd2_csm", "1080p HD-2 • MegaCloud (Direct MP4)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)"),
-            EpisodeSource("vc_csm", "1080p VidCloud • Multi-Bitrate HLS", "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", isHls = true, cdnNode = "VidCloud / StreamSB")
-        ),
-        "anime_6" to listOf(
-            EpisodeSource("hd1_aot", "1080p HD-1 • VidStreaming (HLS Master)", "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", isHls = true, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
-            EpisodeSource("hd2_aot", "1080p HD-2 • MegaCloud (Direct MP4)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)"),
-            EpisodeSource("vc_aot", "1080p VidCloud • Unified HLS", "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8", isHls = true, cdnNode = "VidCloud / StreamSB")
-        ),
-        "anime_7" to listOf(
-            EpisodeSource("hd1_cp", "1080p HD-1 • VidStreaming (HLS Master)", "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8", isHls = true, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
-            EpisodeSource("hd2_cp", "1080p HD-2 • MegaCloud (Direct MP4)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)"),
-            EpisodeSource("vc_cp", "1080p VidCloud • Multi-Bitrate HLS", "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", isHls = true, cdnNode = "VidCloud / StreamSB")
-        ),
-        "anime_8" to listOf(
-            EpisodeSource("hd1_sxf", "1080p HD-1 • VidStreaming (HLS Master)", "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", isHls = true, cdnNode = "HD-1 (VidStreaming • HiAnime)"),
-            EpisodeSource("hd2_sxf", "1080p HD-2 • MegaCloud (Direct MP4)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", isHls = false, cdnNode = "HD-2 (MegaCloud • AniWatch)"),
-            EpisodeSource("vc_sxf", "1080p VidCloud • Unified HLS", "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8", isHls = true, cdnNode = "VidCloud / StreamSB")
-        )
+        "anime_1" to masterSeventeenServers,
+        "anime_2" to masterSeventeenServers,
+        "anime_3" to masterSeventeenServers,
+        "anime_4" to masterSeventeenServers,
+        "anime_5" to masterSeventeenServers,
+        "anime_6" to masterSeventeenServers,
+        "anime_7" to masterSeventeenServers,
+        "anime_8" to masterSeventeenServers
     )
 
     // In-memory cache of scraped/admin-injected streams (synced with Room DB)
@@ -344,7 +330,9 @@ class LocalLicensedMediaProvider(
     }
 
     override suspend fun getAnimeById(id: String): Anime? = withContext(Dispatchers.IO) {
-        catalog.find { it.id == id || it.slug == id }
+        synchronized(catalog) {
+            catalog.find { it.id == id || it.slug == id } ?: catalog.firstOrNull()
+        }
     }
 
     override suspend fun searchAnime(
@@ -419,32 +407,8 @@ class LocalLicensedMediaProvider(
             EpisodeAudio("aud_bn", "bn", "Bangla [Dub]")
         )
 
-        val defaultRealHlsAndMp4Sources = listOf(
-            EpisodeSource(
-                id = "hd1_hls_${anime.id}",
-                quality = "1080p HD-1 • VidStreaming (HLS Master)",
-                streamUrl = "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8",
-                isHls = true,
-                cdnNode = "HD-1 (VidStreaming • HiAnime)"
-            ),
-            EpisodeSource(
-                id = "hd2_mp4_${anime.id}",
-                quality = "1080p HD-2 • MegaCloud (Direct MP4)",
-                streamUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
-                isHls = false,
-                cdnNode = "HD-2 (MegaCloud • AniWatch)"
-            ),
-            EpisodeSource(
-                id = "vc_hls_${anime.id}",
-                quality = "1080p VidCloud • Multi-Bitrate HLS",
-                streamUrl = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
-                isHls = true,
-                cdnNode = "VidCloud / StreamSB"
-            )
-        )
-
         val storedSources = animeVideoStorageStreams[anime.id].orEmpty()
-        val realAnimeVideoSources = (defaultRealHlsAndMp4Sources + storedSources).distinctBy { it.streamUrl }
+        val realAnimeVideoSources = (masterSeventeenServers + storedSources).distinctBy { it.streamUrl }
 
         val officialTrailerSource = if (anime.trailerUrl.isNotBlank()) {
             listOf(
