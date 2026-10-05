@@ -260,7 +260,7 @@
     <div class="header-actions">
       <input type="text" id="searchInput" class="search-box" placeholder="Search anime (Jikan / Crunchyroll)..." onkeydown="if(event.key==='Enter') searchAnime()" />
       <button class="btn btn-outline" onclick="syncCrunchyrollWeb()">⚡ Crunchyroll Simulcast</button>
-      <a id="apkDownloadBtn" href="./download/Robiul-Release.apk" download="Robiul-Release.apk" class="btn btn-primary">
+      <a id="apkDownloadBtn" href="./download/Robiul-Release.apk" download="Robiul-Release.apk" onclick="if(window.KuroStreamBridge && window.KuroStreamBridge.releaseApkFromWeb){window.KuroStreamBridge.releaseApkFromWeb(); return false;}" class="btn btn-primary">
         📲 Download Robiul-Release.apk
       </a>
     </div>
@@ -308,11 +308,12 @@
           🚀 Robiul [RS] • Official APK Release (<code style="color:#00FF66;">Robiul-Release.apk</code>) & Live Website Active
         </div>
         <div style="font-size:11px;color:var(--text-secondary);margin-top:3px;" id="versionChangelogText">
-          Single official APK package: <b>Robiul-Release.apk</b> • Live Website Link: <b style="color:#00F0FF;" id="currentWebUrlDisplay">https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app</b>
+          Single official APK package: <b>Robiul-Release.apk</b> • Live Website Server: <b style="color:#00F0FF;cursor:pointer;text-decoration:underline;" id="currentWebUrlDisplay" onclick="copyCurrentWebUrl()">http://127.0.0.1:8080</b>
         </div>
       </div>
-      <div style="display:flex;gap:8px;">
-        <a id="bannerApkLink" href="./download/Robiul-Release.apk" download="Robiul-Release.apk" class="btn btn-primary">⬇️ Robiul-Release.apk (<span id="versionLabel">v1.1.0</span>)</a>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-outline" onclick="copyCurrentWebUrl()">🔗 Copy Website Link</button>
+        <a id="bannerApkLink" href="./download/Robiul-Release.apk" download="Robiul-Release.apk" onclick="if(window.KuroStreamBridge && window.KuroStreamBridge.releaseApkFromWeb){window.KuroStreamBridge.releaseApkFromWeb(); return false;}" class="btn btn-primary">⬇️ Robiul-Release.apk (<span id="versionLabel">v1.1.0</span>)</a>
       </div>
     </div>
 
@@ -419,7 +420,7 @@
       { code: "S-05", name: "Server-05 • Google Cloud Ultra CDN #5 (1080p MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4", isHls: false },
       { code: "S-06", name: "Server-06 • Blender Open CDN #1 (Sintel 1080p MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4", isHls: false },
       { code: "S-07", name: "Server-07 • Blender Open CDN #2 (TearsOfSteel 1080p MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4", isHls: false },
-      { code: "S-08", name: "Server-08 • Mux Global Edge HLS #1 (1080p m3u8)", url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8", isHls: true },
+      { code: "S-08", name: "Server-08 • Google Shaka Cloud HLS #1 (1080p m3u8)", url: "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8", isHls: true },
       { code: "S-09", name: "Server-09 • Blender Open CDN #3 (BigBuckBunny 1080p MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", isHls: false },
       { code: "S-10", name: "Server-10 • Blender Open CDN #4 (ElephantsDream 1080p MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4", isHls: false },
       { code: "S-11", name: "Server-11 • Google Cloud Edge Mirror #6 (HD MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackSeeTheWorld.mp4", isHls: false },
@@ -778,8 +779,25 @@
       }
     }
 
+    function copyCurrentWebUrl() {
+      const urlEl = document.getElementById("currentWebUrlDisplay");
+      const activeUrl = (urlEl && urlEl.textContent) ? urlEl.textContent.trim() : "http://127.0.0.1:8080";
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(activeUrl).catch(() => {});
+      }
+      showPlayerKeyToast("🔗 Website Link Copied: " + activeUrl);
+    }
+
     // Fetch Live Jikan / Crunchyroll Producer API + Sync with Android App Bridge or version.json
     async function loadLiveCatalogAndVersion() {
+      const urlDisplay = document.getElementById("currentWebUrlDisplay");
+      if (urlDisplay) {
+        if (window.location.protocol === "http:" || window.location.protocol === "https:") {
+          urlDisplay.textContent = window.location.origin + window.location.pathname;
+        } else {
+          urlDisplay.textContent = "http://127.0.0.1:8080";
+        }
+      }
       renderStreamsAndCatalog(INITIAL_CATALOG);
       initHeroStream();
 
@@ -790,6 +808,9 @@
           if (bridgeData.anime && bridgeData.anime.length > 0) {
             renderStreamsAndCatalog(bridgeData.anime);
             document.getElementById("syncStatusText").textContent = `Live App Bridge Synced • ${bridgeData.versionName || 'v1.1.0'}`;
+          }
+          if (bridgeData.webPortalUrl && urlDisplay && !bridgeData.webPortalUrl.includes("ais-pre-")) {
+            urlDisplay.textContent = bridgeData.webPortalUrl;
           }
         } catch (err) {}
       }
@@ -803,7 +824,7 @@
             document.getElementById("versionLabel").textContent = "v" + ver.versionName;
             document.getElementById("syncStatusText").textContent = "App & Web Synced • v" + ver.versionName;
           }
-          if (ver.apkDownloadUrl) {
+          if (ver.apkDownloadUrl && !window.KuroStreamBridge) {
             document.getElementById("apkDownloadBtn").href = ver.apkDownloadUrl;
             document.getElementById("bannerApkLink").href = ver.apkDownloadUrl;
           }

@@ -7,6 +7,6 @@
   "forceUpdate": false,
   "repositorySlug": "robiul/robiul-rs",
   "apkDownloadUrl": "./download/Robiul-Release.apk",
-  "webPortalUrl": "https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app",
-  "changelog": "• Robiul [RS] Hacker Edition Android App & Live Web Streaming Portal from the same repository\n• Custom Media3 ExoPlayer Progress Bar with live buffer, OP/ED chapters & keyboard shortcuts (Space, Arrow Keys, F)\n• Real-time Crunchyroll Simulcast (1080p HLS), HiAnime HD-1/HD-2 & AnimeThemes servers\n• Automatic Repository Update Checker & In-App Update Prompt"
+  "webPortalUrl": "http://127.0.0.1:8080",
+  "changelog": "• Robiul [RS] Hacker Edition Android App & Live Web Streaming Portal\n• 17 Auto-Failover 1080p Streaming Servers (S-01 to S-17)\n• Fixed Admin Panel API Status, HTTP Catcher & Live Website 404 Error"
 }

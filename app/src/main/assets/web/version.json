@@ -6,7 +6,7 @@
   "publishedAt": "2026-10-05T00:00:00Z",
   "forceUpdate": false,
   "repositorySlug": "robiul/robiul-rs",
-  "apkDownloadUrl": "./download/Robiul-Release.apk",
+  "apkDownloadUrl": "/download/Robiul-Release.apk",
   "webPortalUrl": "http://127.0.0.1:8080",
   "changelog": "• Robiul [RS] Hacker Edition Android App & Live Web Streaming Portal\n• 17 Auto-Failover 1080p Streaming Servers (S-01 to S-17)\n• Fixed Admin Panel API Status, HTTP Catcher & Live Website 404 Error"
 }

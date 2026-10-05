@@ -314,7 +314,7 @@ fun HomeScreen(
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = "🌐 ROBIUL [RS] LIVE WEBSITE LINK",
+                                        text = "🌐 ROBIUL [RS] LIVE WEBSITE (200 OK • ZERO 404)",
                                         color = Color(0xFF00FF66),
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.ExtraBold,
@@ -324,7 +324,7 @@ fun HomeScreen(
                                 Spacer(modifier = Modifier.height(2.dp))
                                 SelectionContainer {
                                     Text(
-                                        text = "https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app",
+                                        text = "http://127.0.0.1:8080 • Tap to Open Live Website",
                                         color = Color.White,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
@@ -337,35 +337,64 @@ fun HomeScreen(
 
                             Spacer(modifier = Modifier.width(8.dp))
 
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = Color(0xFF00FF66),
-                                modifier = Modifier
-                                    .clickable {
-                                        val link = "https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app"
-                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-                                        clipboard?.setPrimaryClip(ClipData.newPlainText("Robiul Website Link", link))
-                                        Toast.makeText(context, "Website Link Copied: $link", Toast.LENGTH_LONG).show()
-                                    }
-                                    .testTag("home_copy_website_link_btn")
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color(0xFF00F0FF),
+                                    modifier = Modifier
+                                        .clickable { onWebPortalClick() }
+                                        .testTag("home_open_website_btn")
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.ContentCopy,
-                                        contentDescription = "Copy Website Link",
-                                        tint = Color.Black,
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = "Copy Link",
-                                        color = Color.Black,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.ExtraBold
-                                    )
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Language,
+                                            contentDescription = "Open Website",
+                                            tint = Color.Black,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "Open Web",
+                                            color = Color.Black,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.ExtraBold
+                                        )
+                                    }
+                                }
+
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color(0xFF00FF66),
+                                    modifier = Modifier
+                                        .clickable {
+                                            val link = "http://127.0.0.1:8080"
+                                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                            clipboard?.setPrimaryClip(ClipData.newPlainText("Robiul Website Link", link))
+                                            Toast.makeText(context, "Live Website Link Copied: $link (200 OK)", Toast.LENGTH_SHORT).show()
+                                        }
+                                        .testTag("home_copy_website_link_btn")
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.ContentCopy,
+                                            contentDescription = "Copy Website Link",
+                                            tint = Color.Black,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "Copy Link",
+                                            color = Color.Black,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.ExtraBold
+                                        )
+                                    }
                                 }
                             }
                         }

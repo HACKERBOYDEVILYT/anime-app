@@ -86,7 +86,6 @@ jobs:
           echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
           echo "| **🌐 GitHub Pages Live Website** | **${WEB_URL}** |" >> $GITHUB_STEP_SUMMARY
           echo "| **📥 Direct Release APK Download** | **${APK_URL}** |" >> $GITHUB_STEP_SUMMARY
-          echo "| **🚀 AI Studio Live App Preview** | **https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app** |" >> $GITHUB_STEP_SUMMARY
 
       - name: Deploy Live Website & APK to gh-pages Branch
         continue-on-error: true
@@ -107,12 +106,6 @@ jobs:
           git commit -m "Deploy Robiul [RS] Website & APK (${{ steps.meta.outputs.version_name }})"
           git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages
 
-          curl -s -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/pages" \
-            -d '{"source":{"branch":"gh-pages","path":"/"}}' || true
-
       - name: Upload Release APK Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -128,9 +121,8 @@ jobs:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}', steps.meta.outputs.version_name) }}
           name: ${{ format('Robiul [RS] v{0} - Release APK & Live Website', steps.meta.outputs.version_name) }}
           body: |
-            ## 🌐 Live Website Links
+            ## 🌐 Live Website Link
             - **GitHub Pages Website:** ${{ steps.meta.outputs.web_url }}
-            - **AI Studio Shared Preview:** https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app
 
             ## 📥 Direct Release APK Download
             - **Download Robiul-Release.apk:** ${{ steps.meta.outputs.apk_url }}

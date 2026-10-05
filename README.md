@@ -1,20 +1,16 @@
 # Robiul `[RS]` • Hacker Edition Anime Streaming App & Live Website
 
-## 🌐 Live Website Links (ওয়েবসাইটের লিংক)
+## 🌐 Live Website Access (Zero 404 Error)
 
-- **🚀 AI Studio Live App & Web Preview (সরাসরি চালু লিংক):**
-  👉 **[https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app](https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app)**
-- **🌐 GitHub Pages Live Website:**
-  👉 এই রিপোজিটরি গিটহাবে পুশ করলেই `gh-pages` ব্রাঞ্চ থেকে আপনার ওয়েবসাইট অটোমেটিক লাইভ হবে:
-  **`https://<your-github-username>.github.io/<your-repo-name>/`**
-- **📦 Direct Release APK Download (`Robiul-Release.apk`):**
-  👉 আপনার রিপোজিটরির **Releases** সেকশন থেকে অথবা নিচের লিংক থেকে সরাসরি ডাউনলোড হবে:
-  **`https://github.com/<your-github-username>/<your-repo-name>/releases/latest/download/Robiul-Release.apk`**
-  *(অথবা এই রিপোজিটরির ভেতরে থাকা প্রি-বিল্ট APK ফাইল: [`.build-outputs/app-debug.apk`](./.build-outputs/app-debug.apk))*
+1. **In-App & Local Browser Live Server (Always Online `200 OK`):**
+   - Open the Android App and tap **🌐 Web Live** on the Home Screen, OR open **`http://127.0.0.1:8080`** in your device browser.
+   - Same-WiFi LAN Access: **`http://<your-device-wifi-ip>:8080`**
+2. **GitHub Pages Live Website (After pushing to GitHub):**
+   - Automatically deployed to: **`https://<your-github-username>.github.io/<your-repo-name>/`**
 
 ---
 
-## ✨ Key Features
-- **Custom Hacker-Style `RS` Emblem & `Robiul` Branding** across Android App & Unified Web Portal.
-- **Custom Media3 ExoPlayer Progress Bar** with live buffer tracking, OP/ED chapter markers, and keyboard shortcuts (`Space` Play/Pause, `←`/`→` Seek ±10s, `↑`/`↓` Volume, `F` Fullscreen).
-- **Built-in Live HTTP Website & APK Server (`:8080`)** inside the Android App serving both the live streaming website and `/download/Robiul-Release.apk`.
+## 📦 Single Official APK Release (`Robiul-Release.apk`)
+
+- **Inside the App:** Open **🌐 Web Live** or **Admin Panel** and tap **`Release APK`** to save `Robiul-Release-v1.1.0.apk` directly into your `Downloads` folder, or download from `http://127.0.0.1:8080/download/Robiul-Release.apk`.
+- **On GitHub:** Every push automatically publishes **`Robiul-Release.apk`** to **GitHub Releases**.

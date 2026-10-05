@@ -16,13 +16,22 @@ concurrency:
 
 jobs:
   deploy-pages:
-    name: Deploy Robiul [RS] Live Website & Output Link
+    name: Deploy Robiul [RS] Live Website (Zero 404)
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Configure GitHub Pages Automatically
+        uses: actions/configure-pages@v5
+        continue-on-error: true
+        with:
+          enablement: true
 
       - name: Prepare Static Website & Live version.json
         id: meta
@@ -62,9 +71,19 @@ jobs:
           echo "## 🌐 Your Live Website Link is Ready!" >> $GITHUB_STEP_SUMMARY
           echo "### 👉 Live Website URL: [${WEB_URL}](${WEB_URL})" >> $GITHUB_STEP_SUMMARY
           echo "### 👉 Direct APK Download on Website: [${WEB_URL}download/Robiul-Release.apk](${WEB_URL}download/Robiul-Release.apk)" >> $GITHUB_STEP_SUMMARY
-          echo "### 👉 AI Studio Live Preview URL: [https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app](https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app)" >> $GITHUB_STEP_SUMMARY
 
-      - name: Publish Website to gh-pages Branch & Auto-Enable GitHub Pages
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        continue-on-error: true
+        with:
+          path: '_site'
+
+      - name: Deploy to GitHub Pages Official Environment
+        id: deployment
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+
+      - name: Also Publish Website to gh-pages Branch
         continue-on-error: true
         run: |
           cd _site
@@ -75,9 +94,3 @@ jobs:
           git add -A
           git commit -m "Deploy Robiul [RS] Live Website (${{ github.sha }})"
           git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages
-
-          curl -s -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/pages" \
-            -d '{"source":{"branch":"gh-pages","path":"/"}}' || true

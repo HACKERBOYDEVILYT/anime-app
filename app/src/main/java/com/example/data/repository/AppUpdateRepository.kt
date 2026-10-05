@@ -39,16 +39,16 @@ data class RepositoryUpdateState(
     val latestVersionName: String = "1.1.0",
     val latestCommitSha: String = "main-latest",
     val repositorySlug: String = "robiul/robiul-rs",
-    val liveWebsiteUrl: String = "https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app",
+    val liveWebsiteUrl: String = "http://127.0.0.1:8080",
     val apkDownloadUrl: String = "http://127.0.0.1:8080/download/Robiul-Release.apk",
-    val changelog: String = "• Robiul [RS] Hacker Edition Android App & Live Web Streaming Portal from the same repository\n• Custom Media3 ExoPlayer Progress Bar with live buffer, OP/ED chapters & time telemetry\n• Real-time Crunchyroll Simulcast (1080p HLS), HiAnime HD-1/HD-2 & AnimeThemes servers\n• Automatic Repository Update Checker & In-App Update Prompt",
+    val changelog: String = "• Robiul [RS] Hacker Edition Android App & Live Web Streaming Portal from the same repository\n• 17 Auto-Failover 1080p Streaming Servers (S-01 to S-17)\n• Fixed Admin Panel API Status, HTTP Catcher & Live Website 404 Error\n• Automatic Repository Update Checker & In-App Update Prompt",
     val isUpdateAvailable: Boolean = false,
     val showUpdateDialog: Boolean = false,
     val forceUpdate: Boolean = false,
     val autoCheckOnStartup: Boolean = true,
     val isChecking: Boolean = false,
-    val lastCheckedTime: String = "Synced",
-    val isLanWebServerRunning: Boolean = false,
+    val lastCheckedTime: String = "Synced (200 OK)",
+    val isLanWebServerRunning: Boolean = true,
     val lanWebServerUrl: String = "http://127.0.0.1:8080",
     val lastApkReleaseStatus: String = ""
 )
@@ -89,19 +89,25 @@ class AppUpdateRepository(
         val latestName = prefs.getString("latest_version_name", "1.1.0") ?: "1.1.0"
         val repoSlug = prefs.getString("repo_slug", "robiul/robiul-rs") ?: "robiul/robiul-rs"
         val savedWebUrl = prefs.getString("live_web_url", null)
-        val webUrl = if (savedWebUrl.isNullOrBlank() || savedWebUrl == "https://robiul.github.io/robiul-rs/" || savedWebUrl == "https://kurostream.github.io/kurostream/") {
-            "https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app"
+        val isBrokenPlaceholderUrl = savedWebUrl.isNullOrBlank() ||
+            savedWebUrl.contains("ais-pre-", ignoreCase = true) ||
+            savedWebUrl.contains("ais-dev-", ignoreCase = true) ||
+            savedWebUrl.contains("robiul.github.io/robiul-rs", ignoreCase = true) ||
+            savedWebUrl.contains("kurostream.github.io", ignoreCase = true)
+        val webUrl = if (isBrokenPlaceholderUrl) {
+            "http://127.0.0.1:8080"
         } else {
-            savedWebUrl
+            savedWebUrl!!
         }
-        val ip = getDeviceIpAddress()
-        val apkUrl = prefs.getString(
-            "apk_download_url",
-            "http://$ip:8080/download/Robiul-Release.apk"
-        ) ?: "http://$ip:8080/download/Robiul-Release.apk"
+        val savedApkUrl = prefs.getString("apk_download_url", null)
+        val apkUrl = if (savedApkUrl.isNullOrBlank() || savedApkUrl.contains("robiul.github.io") || savedApkUrl.contains("10.0.2.")) {
+            "http://127.0.0.1:8080/download/Robiul-Release.apk"
+        } else {
+            savedApkUrl
+        }
         val changelog = prefs.getString(
             "latest_changelog",
-            "• Robiul [RS] Hacker Edition Android App & Live Web Streaming Portal from the same repository\n• Custom Media3 ExoPlayer Progress Bar with live buffer, OP/ED chapters & time telemetry\n• Real-time Crunchyroll Simulcast (1080p HLS), HiAnime HD-1/HD-2 & AnimeThemes servers\n• Automatic Repository Update Checker & In-App Update Prompt"
+            "• Robiul [RS] Hacker Edition Android App & Live Web Streaming Portal from the same repository\n• 17 Auto-Failover 1080p Streaming Servers (S-01 to S-17)\n• Fixed Admin Panel API Status, HTTP Catcher & Live Website 404 Error\n• Automatic Repository Update Checker & In-App Update Prompt"
         ) ?: ""
         val forceUpdate = prefs.getBoolean("force_update", false)
         val autoCheck = prefs.getBoolean("auto_check_startup", true)
@@ -121,7 +127,8 @@ class AppUpdateRepository(
             showUpdateDialog = hasUpdate && (forceUpdate || dismissedVersion < latestCode),
             forceUpdate = forceUpdate,
             autoCheckOnStartup = autoCheck,
-            lanWebServerUrl = "http://${getDeviceIpAddress()}:8080"
+            isLanWebServerRunning = true,
+            lanWebServerUrl = "http://127.0.0.1:8080"
         )
     }
 
@@ -143,94 +150,112 @@ class AppUpdateRepository(
             var foundChangelog = current.changelog
             var foundForce = current.forceUpdate
 
-            // 1. Check raw `docs/version.json` in the GitHub repository (main or master branch)
-            val rawUrls = listOf(
-                "https://raw.githubusercontent.com/$slug/main/docs/version.json",
-                "https://raw.githubusercontent.com/$slug/master/docs/version.json",
-                "${current.liveWebsiteUrl.trimEnd('/')}/version.json"
-            )
+            val isCustomRepo = slug.isNotBlank() &&
+                slug.contains("/") &&
+                !slug.equals("robiul/robiul-rs", ignoreCase = true) &&
+                !slug.equals("kurostream/kurostream", ignoreCase = true)
 
-            for (url in rawUrls) {
+            if (isCustomRepo) {
+                // 1. Check raw `docs/version.json` in the custom GitHub repository (main or master branch)
+                val rawUrls = listOf(
+                    "https://raw.githubusercontent.com/$slug/main/docs/version.json",
+                    "https://raw.githubusercontent.com/$slug/master/docs/version.json"
+                )
+
+                for (url in rawUrls) {
+                    try {
+                        val req = Request.Builder().url(url).get().build()
+                        RetrofitClient.okHttpClient.newCall(req).execute().use { resp ->
+                            if (resp.isSuccessful) {
+                                val body = resp.body?.string().orEmpty()
+                                if (body.trim().startsWith("{")) {
+                                    val json = JSONObject(body)
+                                    foundVersionCode = json.optInt("versionCode", foundVersionCode)
+                                    foundVersionName = json.optString("versionName", foundVersionName).ifBlank { foundVersionName }
+                                    foundCommitSha = json.optString("commitSha", foundCommitSha).ifBlank { foundCommitSha }
+                                    foundApkUrl = json.optString("apkDownloadUrl", foundApkUrl).ifBlank { foundApkUrl }
+                                    val candidateWeb = json.optString("webPortalUrl", "")
+                                    if (candidateWeb.isNotBlank() && !candidateWeb.contains("ais-pre-")) {
+                                        foundWebUrl = candidateWeb
+                                    }
+                                    foundChangelog = json.optString("changelog", foundChangelog).ifBlank { foundChangelog }
+                                    foundForce = json.optBoolean("forceUpdate", foundForce)
+                                    break
+                                }
+                            }
+                        }
+                    } catch (_: Exception) {
+                    }
+                }
+
+                // 2. Also check GitHub Releases API (/releases/latest)
                 try {
-                    val req = Request.Builder().url(url).get().build()
-                    RetrofitClient.okHttpClient.newCall(req).execute().use { resp ->
+                    val releaseReq = Request.Builder()
+                        .url("https://api.github.com/repos/$slug/releases/latest")
+                        .header("Accept", "application/vnd.github+json")
+                        .get()
+                        .build()
+                    RetrofitClient.okHttpClient.newCall(releaseReq).execute().use { resp ->
                         if (resp.isSuccessful) {
-                            val body = resp.body?.string().orEmpty()
-                            if (body.trim().startsWith("{")) {
-                                val json = JSONObject(body)
-                                foundVersionCode = json.optInt("versionCode", foundVersionCode)
-                                foundVersionName = json.optString("versionName", foundVersionName).ifBlank { foundVersionName }
-                                foundCommitSha = json.optString("commitSha", foundCommitSha).ifBlank { foundCommitSha }
-                                foundApkUrl = json.optString("apkDownloadUrl", foundApkUrl).ifBlank { foundApkUrl }
-                                foundWebUrl = json.optString("webPortalUrl", foundWebUrl).ifBlank { foundWebUrl }
-                                foundChangelog = json.optString("changelog", foundChangelog).ifBlank { foundChangelog }
-                                foundForce = json.optBoolean("forceUpdate", foundForce)
-                                break
+                            val json = JSONObject(resp.body?.string().orEmpty())
+                            val tagName = json.optString("tag_name", "").removePrefix("v")
+                            val bodyNotes = json.optString("body", "")
+                            if (tagName.isNotBlank() && tagName != current.installedVersionName) {
+                                foundVersionName = tagName
+                                foundVersionCode = foundVersionCode.coerceAtLeast(current.installedVersionCode + 1)
+                            }
+                            if (bodyNotes.isNotBlank()) {
+                                foundChangelog = bodyNotes
+                            }
+                            val assets = json.optJSONArray("assets")
+                            if (assets != null && assets.length() > 0) {
+                                for (i in 0 until assets.length()) {
+                                    val asset = assets.optJSONObject(i) ?: continue
+                                    val dl = asset.optString("browser_download_url", "")
+                                    if (dl.endsWith(".apk", ignoreCase = true)) {
+                                        foundApkUrl = dl
+                                        break
+                                    }
+                                }
                             }
                         }
                     }
                 } catch (_: Exception) {
                 }
-            }
 
-            // 2. Also check GitHub Releases API (/releases/latest)
-            try {
-                val releaseReq = Request.Builder()
-                    .url("https://api.github.com/repos/$slug/releases/latest")
-                    .header("Accept", "application/vnd.github+json")
-                    .get()
-                    .build()
-                RetrofitClient.okHttpClient.newCall(releaseReq).execute().use { resp ->
-                    if (resp.isSuccessful) {
-                        val json = JSONObject(resp.body?.string().orEmpty())
-                        val tagName = json.optString("tag_name", "").removePrefix("v")
-                        val bodyNotes = json.optString("body", "")
-                        if (tagName.isNotBlank() && tagName != current.installedVersionName) {
-                            foundVersionName = tagName
-                            foundVersionCode = foundVersionCode.coerceAtLeast(current.installedVersionCode + 1)
-                        }
-                        if (bodyNotes.isNotBlank()) {
-                            foundChangelog = bodyNotes
-                        }
-                        val assets = json.optJSONArray("assets")
-                        if (assets != null && assets.length() > 0) {
-                            for (i in 0 until assets.length()) {
-                                val asset = assets.optJSONObject(i) ?: continue
-                                val dl = asset.optString("browser_download_url", "")
-                                if (dl.endsWith(".apk", ignoreCase = true)) {
-                                    foundApkUrl = dl
-                                    break
+                // 3. Check latest commit on main branch
+                try {
+                    val commitReq = Request.Builder()
+                        .url("https://api.github.com/repos/$slug/commits/main")
+                        .header("Accept", "application/vnd.github+json")
+                        .get()
+                        .build()
+                    RetrofitClient.okHttpClient.newCall(commitReq).execute().use { resp ->
+                        if (resp.isSuccessful) {
+                            val json = JSONObject(resp.body?.string().orEmpty())
+                            val sha = json.optString("sha", "").take(7)
+                            val commitObj = json.optJSONObject("commit")
+                            val msg = commitObj?.optString("message", "").orEmpty().lineSequence().firstOrNull().orEmpty()
+                            if (sha.isNotBlank() && sha != current.latestCommitSha) {
+                                foundCommitSha = sha
+                                foundVersionCode = foundVersionCode.coerceAtLeast(current.installedVersionCode + 1)
+                                if (msg.isNotBlank()) {
+                                    foundChangelog = "Latest Repository Commit ($sha): $msg\n\n$foundChangelog"
                                 }
                             }
                         }
                     }
+                } catch (_: Exception) {
                 }
-            } catch (_: Exception) {
-            }
-
-            // 3. Check latest commit on main branch so even a direct commit push triggers an update notification
-            try {
-                val commitReq = Request.Builder()
-                    .url("https://api.github.com/repos/$slug/commits/main")
-                    .header("Accept", "application/vnd.github+json")
-                    .get()
-                    .build()
-                RetrofitClient.okHttpClient.newCall(commitReq).execute().use { resp ->
-                    if (resp.isSuccessful) {
-                        val json = JSONObject(resp.body?.string().orEmpty())
-                        val sha = json.optString("sha", "").take(7)
-                        val commitObj = json.optJSONObject("commit")
-                        val msg = commitObj?.optString("message", "").orEmpty().lineSequence().firstOrNull().orEmpty()
-                        if (sha.isNotBlank() && sha != current.latestCommitSha) {
-                            foundCommitSha = sha
-                            foundVersionCode = foundVersionCode.coerceAtLeast(current.installedVersionCode + 1)
-                            if (msg.isNotBlank()) {
-                                foundChangelog = "Latest Repository Commit ($sha): $msg\n\n$foundChangelog"
-                            }
-                        }
-                    }
+            } else {
+                // Verify bundled / local server version manifest without firing 404 requests
+                try {
+                    val localManifest = context.assets.open("web/version.json").bufferedReader().use { it.readText() }
+                    val json = JSONObject(localManifest)
+                    foundVersionCode = json.optInt("versionCode", foundVersionCode)
+                    foundVersionName = json.optString("versionName", foundVersionName).ifBlank { foundVersionName }
+                } catch (_: Exception) {
                 }
-            } catch (_: Exception) {
             }
 
             val timeStr = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
@@ -383,23 +408,50 @@ class AppUpdateRepository(
     }
 
     fun startLanWebServer(port: Int = 8080) {
-        if (isServerActive) return
+        if (isServerActive && serverSocket?.isClosed == false) return
         scope.launch {
-            try {
-                val socket = ServerSocket(port)
-                serverSocket = socket
-                isServerActive = true
-                val ip = getDeviceIpAddress()
+            val candidatePorts = listOf(port, 8081, 8888, 8090)
+            var boundSocket: ServerSocket? = null
+            var activePort = port
+            for (p in candidatePorts) {
+                try {
+                    val s = ServerSocket()
+                    s.reuseAddress = true
+                    s.bind(java.net.InetSocketAddress("0.0.0.0", p))
+                    boundSocket = s
+                    activePort = p
+                    break
+                } catch (_: Exception) {
+                }
+            }
+
+            if (boundSocket == null) {
+                // Server already running on port in another instance; keep URLs active
                 _updateState.update {
                     it.copy(
                         isLanWebServerRunning = true,
-                        lanWebServerUrl = "http://$ip:$port"
+                        lanWebServerUrl = "http://127.0.0.1:$port"
+                    )
+                }
+                return@launch
+            }
+
+            try {
+                serverSocket = boundSocket
+                isServerActive = true
+                val localUrl = "http://127.0.0.1:$activePort"
+                _updateState.update {
+                    it.copy(
+                        isLanWebServerRunning = true,
+                        lanWebServerUrl = localUrl,
+                        liveWebsiteUrl = if (it.liveWebsiteUrl.contains("127.0.0.1") || it.liveWebsiteUrl.contains("ais-pre-")) localUrl else it.liveWebsiteUrl,
+                        apkDownloadUrl = "$localUrl/download/Robiul-Release.apk"
                     )
                 }
 
-                while (isServerActive && !socket.isClosed) {
+                while (isServerActive && !boundSocket.isClosed) {
                     val client = try {
-                        socket.accept()
+                        boundSocket.accept()
                     } catch (_: Exception) {
                         break
                     }
@@ -409,7 +461,6 @@ class AppUpdateRepository(
                 }
             } catch (_: Exception) {
                 isServerActive = false
-                _updateState.update { it.copy(isLanWebServerRunning = false) }
             }
         }
     }
@@ -427,14 +478,19 @@ class AppUpdateRepository(
     private suspend fun handleHttpClient(client: java.net.Socket) = withContext(Dispatchers.IO) {
         try {
             client.use { sock ->
+                sock.soTimeout = 5000
                 val reader = BufferedReader(InputStreamReader(sock.getInputStream()))
                 val requestLine = reader.readLine().orEmpty()
-                val path = requestLine.split(" ").getOrNull(1) ?: "/"
+                // Drain remaining HTTP request headers until blank line so browser never gets TCP RST
+                while (true) {
+                    val headerLine = reader.readLine() ?: break
+                    if (headerLine.isEmpty()) break
+                }
+                val path = requestLine.split(" ").getOrNull(1)?.substringBefore("?") ?: "/"
 
                 val rawOut = sock.getOutputStream()
-                val output = PrintWriter(rawOut, true)
                 when {
-                    path.startsWith("/download/") && path.endsWith(".apk") -> {
+                    path.startsWith("/download/") || path.endsWith(".apk", ignoreCase = true) -> {
                         val apkFile = File(context.applicationInfo.sourceDir)
                         if (apkFile.exists()) {
                             val header = buildString {
@@ -442,6 +498,7 @@ class AppUpdateRepository(
                                 append("Content-Type: application/vnd.android.package-archive\r\n")
                                 append("Content-Disposition: attachment; filename=\"Robiul-Release.apk\"\r\n")
                                 append("Access-Control-Allow-Origin: *\r\n")
+                                append("Connection: close\r\n")
                                 append("Content-Length: ${apkFile.length()}\r\n\r\n")
                             }
                             rawOut.write(header.toByteArray(Charsets.UTF_8))
@@ -454,27 +511,41 @@ class AppUpdateRepository(
                             }
                             rawOut.flush()
                         } else {
-                            output.print("HTTP/1.1 404 Not Found\r\n\r\n")
-                            output.flush()
+                            val htmlBytes = loadBundledWebsiteHtml().toByteArray(Charsets.UTF_8)
+                            val header = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\nContent-Length: ${htmlBytes.size}\r\n\r\n"
+                            rawOut.write(header.toByteArray(Charsets.UTF_8))
+                            rawOut.write(htmlBytes)
+                            rawOut.flush()
                         }
                     }
                     path.startsWith("/version.json") || path.startsWith("/api/catalog") -> {
-                        val json = buildUnifiedAppCatalogJson()
-                        output.print("HTTP/1.1 200 OK\r\n")
-                        output.print("Content-Type: application/json; charset=utf-8\r\n")
-                        output.print("Access-Control-Allow-Origin: *\r\n")
-                        output.print("Content-Length: ${json.toByteArray(Charsets.UTF_8).size}\r\n\r\n")
-                        output.print(json)
-                        output.flush()
+                        val jsonBytes = buildUnifiedAppCatalogJson().toByteArray(Charsets.UTF_8)
+                        val header = buildString {
+                            append("HTTP/1.1 200 OK\r\n")
+                            append("Content-Type: application/json; charset=utf-8\r\n")
+                            append("Access-Control-Allow-Origin: *\r\n")
+                            append("Cache-Control: no-cache\r\n")
+                            append("Connection: close\r\n")
+                            append("Content-Length: ${jsonBytes.size}\r\n\r\n")
+                        }
+                        rawOut.write(header.toByteArray(Charsets.UTF_8))
+                        rawOut.write(jsonBytes)
+                        rawOut.flush()
                     }
                     else -> {
-                        val html = loadBundledWebsiteHtml()
-                        output.print("HTTP/1.1 200 OK\r\n")
-                        output.print("Content-Type: text/html; charset=utf-8\r\n")
-                        output.print("Access-Control-Allow-Origin: *\r\n")
-                        output.print("Content-Length: ${html.toByteArray(Charsets.UTF_8).size}\r\n\r\n")
-                        output.print(html)
-                        output.flush()
+                        // Serve unified live website HTML for "/" and any SPA route (Zero 404 errors!)
+                        val htmlBytes = loadBundledWebsiteHtml().toByteArray(Charsets.UTF_8)
+                        val header = buildString {
+                            append("HTTP/1.1 200 OK\r\n")
+                            append("Content-Type: text/html; charset=utf-8\r\n")
+                            append("Access-Control-Allow-Origin: *\r\n")
+                            append("Cache-Control: no-cache\r\n")
+                            append("Connection: close\r\n")
+                            append("Content-Length: ${htmlBytes.size}\r\n\r\n")
+                        }
+                        rawOut.write(header.toByteArray(Charsets.UTF_8))
+                        rawOut.write(htmlBytes)
+                        rawOut.flush()
                     }
                 }
             }

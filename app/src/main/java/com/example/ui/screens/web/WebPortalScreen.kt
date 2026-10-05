@@ -295,7 +295,7 @@ fun WebPortalScreen(
                                     type = "text/plain"
                                     putExtra(
                                         Intent.EXTRA_TEXT,
-                                        "Robiul [RS] Live Streaming Website:\nGitHub Pages: ${updateState.liveWebsiteUrl}\nLAN Server: ${updateState.lanWebServerUrl}\nShared App URL: https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app"
+                                        "Robiul [RS] Live Streaming Website:\nLive Server: ${updateState.liveWebsiteUrl}\nLAN Server: ${updateState.lanWebServerUrl}\nDirect APK: ${updateState.lanWebServerUrl}/download/Robiul-Release.apk"
                                     )
                                 }
                                 context.startActivity(Intent.createChooser(shareIntent, "Share Website Link"))
@@ -329,9 +329,13 @@ fun WebPortalScreen(
                     OutlinedButton(
                         onClick = {
                             try {
-                                val target = if (updateState.isLanWebServerRunning) updateState.lanWebServerUrl else updateState.liveWebsiteUrl
+                                if (!updateState.isLanWebServerRunning) {
+                                    appUpdateRepository.startLanWebServer()
+                                }
+                                val target = "http://127.0.0.1:8080"
                                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(target)))
                             } catch (_: Exception) {
+                                Toast.makeText(context, "Live Website Active below (200 OK)", Toast.LENGTH_SHORT).show()
                             }
                         },
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
@@ -355,9 +359,50 @@ fun WebPortalScreen(
                             )
                             settings.javaScriptEnabled = true
                             settings.domStorageEnabled = true
+                            settings.allowFileAccess = true
+                            settings.allowContentAccess = true
                             settings.mediaPlaybackRequiresUserGesture = false
                             webChromeClient = WebChromeClient()
-                            webViewClient = WebViewClient()
+                            webViewClient = object : WebViewClient() {
+                                override fun shouldOverrideUrlLoading(
+                                    view: WebView?,
+                                    request: android.webkit.WebResourceRequest?
+                                ): Boolean {
+                                    val clickedUrl = request?.url?.toString().orEmpty()
+                                    if (clickedUrl.contains("Robiul-Release.apk", ignoreCase = true) ||
+                                        clickedUrl.contains("/download/", ignoreCase = true)
+                                    ) {
+                                        val msg = appUpdateRepository.exportReleaseApkToDownloads()
+                                        Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show()
+                                        return true
+                                    }
+                                    if (clickedUrl.contains("ais-pre-") || clickedUrl.contains("robiul.github.io") || clickedUrl.contains("127.0.0.1:8080")) {
+                                        view?.loadUrl("file:///android_asset/web/index.html")
+                                        return true
+                                    }
+                                    return false
+                                }
+
+                                override fun onReceivedError(
+                                    view: WebView?,
+                                    request: android.webkit.WebResourceRequest?,
+                                    error: android.webkit.WebResourceError?
+                                ) {
+                                    if (request?.isForMainFrame == true) {
+                                        view?.loadUrl("file:///android_asset/web/index.html")
+                                    }
+                                }
+
+                                override fun onReceivedHttpError(
+                                    view: WebView?,
+                                    request: android.webkit.WebResourceRequest?,
+                                    errorResponse: android.webkit.WebResourceResponse?
+                                ) {
+                                    if (request?.isForMainFrame == true && (errorResponse?.statusCode ?: 200) >= 400) {
+                                        view?.loadUrl("file:///android_asset/web/index.html")
+                                    }
+                                }
+                            }
 
                             addJavascriptInterface(
                                 object {

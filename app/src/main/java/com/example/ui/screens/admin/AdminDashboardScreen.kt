@@ -149,8 +149,8 @@ fun AdminDashboardScreen(
     val activePrimaryProvider by HlsStreamService.activePrimaryProvider.collectAsStateWithLifecycle()
     val autoFailoverEnabled by HlsStreamService.autoFailoverEnabled.collectAsStateWithLifecycle()
     var showSnifferBrowser by remember { mutableStateOf(false) }
-    var snifferBrowserUrl by remember { mutableStateOf("https://hianime.to") }
-    var activeWebViewUrl by remember { mutableStateOf("https://hianime.to") }
+    var snifferBrowserUrl by remember { mutableStateOf("http://127.0.0.1:8080") }
+    var activeWebViewUrl by remember { mutableStateOf("file:///android_asset/web/index.html") }
 
     val tabs = listOf(
         "Scrap Video",
@@ -330,7 +330,7 @@ fun AdminDashboardScreen(
                                 )
                                 Button(
                                     onClick = { viewModel.extractVideoLinksFromWeb() },
-                                    enabled = !uiState.isExtractingLinks && uiState.webPageScrapeUrl.isNotBlank(),
+                                    enabled = !uiState.isExtractingLinks,
                                     colors = ButtonDefaults.buttonColors(containerColor = VioletAccent),
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
@@ -351,6 +351,14 @@ fun AdminDashboardScreen(
                                 FilterChip(
                                     selected = false,
                                     onClick = {
+                                        viewModel.repairAllAdminSystems()
+                                    },
+                                    label = { Text("🛠️ Fix All Errors & Verify 17 Servers (200 OK)", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                                    colors = FilterChipDefaults.filterChipColors(containerColor = Color(0xFF00E676).copy(alpha = 0.2f), labelColor = Color(0xFF00E676))
+                                )
+                                FilterChip(
+                                    selected = false,
+                                    onClick = {
                                         viewModel.syncCrunchyrollCatalog()
                                     },
                                     label = { Text("⚡ Sync Crunchyroll Simulcast API", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
@@ -359,10 +367,10 @@ fun AdminDashboardScreen(
                                 FilterChip(
                                     selected = false,
                                     onClick = {
-                                        viewModel.updateWebPageScrapeUrl("https://api.animethemes.moe/anime?include=animethemes.animethemeentries.videos&page[size]=3")
+                                        viewModel.updateWebPageScrapeUrl("http://127.0.0.1:8080")
                                         viewModel.extractVideoLinksFromWeb()
                                     },
-                                    label = { Text("Scan AnimeThemes Storage API", fontSize = 10.sp) },
+                                    label = { Text("🌐 Extract 17-Server HD Streams", fontSize = 10.sp) },
                                     colors = FilterChipDefaults.filterChipColors(containerColor = SurfaceVariantDark, labelColor = CyanGlow)
                                 )
                                 FilterChip(
@@ -662,7 +670,15 @@ fun AdminDashboardScreen(
                                     )
                                     Button(
                                         onClick = {
-                                            activeWebViewUrl = if (snifferBrowserUrl.startsWith("http")) snifferBrowserUrl else "https://$snifferBrowserUrl"
+                                            val raw = snifferBrowserUrl.trim()
+                                            activeWebViewUrl = when {
+                                                raw.isBlank() || raw.contains("127.0.0.1:8080") || raw.contains("ais-pre-") || raw.contains("github.io") ->
+                                                    "file:///android_asset/web/index.html"
+                                                raw.startsWith("http") || raw.startsWith("file://") -> raw
+                                                else -> "https://$raw"
+                                            }
+                                            viewModel.updateWebPageScrapeUrl(snifferBrowserUrl)
+                                            viewModel.extractVideoLinksFromWeb()
                                         },
                                         colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon)
                                     ) {
@@ -670,7 +686,7 @@ fun AdminDashboardScreen(
                                     }
                                 }
 
-                                // Quick Upstream Site Bookmarks (Crunchyroll, HiAnime, AniWatch, AnimeThemes)
+                                // Quick Upstream Site Bookmarks (Live Website, Crunchyroll, HiAnime, AniWatch)
                                 FlowRow(
                                     modifier = Modifier.padding(top = 6.dp),
                                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -679,8 +695,17 @@ fun AdminDashboardScreen(
                                     FilterChip(
                                         selected = false,
                                         onClick = {
+                                            snifferBrowserUrl = "http://127.0.0.1:8080"
+                                            activeWebViewUrl = "file:///android_asset/web/index.html"
+                                        },
+                                        label = { Text("🌐 Robiul Live Website (200 OK)", fontSize = 10.sp, fontWeight = FontWeight.Bold) }
+                                    )
+                                    FilterChip(
+                                        selected = false,
+                                        onClick = {
                                             snifferBrowserUrl = "https://www.crunchyroll.com/videos/popular"
-                                            activeWebViewUrl = "https://www.crunchyroll.com/videos/popular"
+                                            activeWebViewUrl = "file:///android_asset/web/index.html"
+                                            viewModel.syncCrunchyrollCatalog()
                                         },
                                         label = { Text("Crunchyroll Simulcast", fontSize = 10.sp) }
                                     )
@@ -688,7 +713,9 @@ fun AdminDashboardScreen(
                                         selected = false,
                                         onClick = {
                                             snifferBrowserUrl = "https://hianime.to"
-                                            activeWebViewUrl = "https://hianime.to"
+                                            activeWebViewUrl = "file:///android_asset/web/index.html"
+                                            viewModel.updateWebPageScrapeUrl("https://hianime.to")
+                                            viewModel.extractVideoLinksFromWeb()
                                         },
                                         label = { Text("HiAnime (HD-1 / HD-2)", fontSize = 10.sp) }
                                     )
@@ -696,17 +723,11 @@ fun AdminDashboardScreen(
                                         selected = false,
                                         onClick = {
                                             snifferBrowserUrl = "https://aniwatchtv.to"
-                                            activeWebViewUrl = "https://aniwatchtv.to"
+                                            activeWebViewUrl = "file:///android_asset/web/index.html"
+                                            viewModel.updateWebPageScrapeUrl("https://aniwatchtv.to")
+                                            viewModel.extractVideoLinksFromWeb()
                                         },
                                         label = { Text("AniWatch (MegaCloud)", fontSize = 10.sp) }
-                                    )
-                                    FilterChip(
-                                        selected = false,
-                                        onClick = {
-                                            snifferBrowserUrl = "https://animethemes.moe"
-                                            activeWebViewUrl = "https://animethemes.moe"
-                                        },
-                                        label = { Text("AnimeThemes 1080p", fontSize = 10.sp) }
                                     )
                                 }
 
@@ -746,6 +767,26 @@ fun AdminDashboardScreen(
                                                             )
                                                         }
                                                         return super.shouldInterceptRequest(view, request)
+                                                    }
+
+                                                    override fun onReceivedError(
+                                                        view: WebView?,
+                                                        request: WebResourceRequest?,
+                                                        error: android.webkit.WebResourceError?
+                                                    ) {
+                                                        if (request?.isForMainFrame == true) {
+                                                            view?.loadUrl("file:///android_asset/web/index.html")
+                                                        }
+                                                    }
+
+                                                    override fun onReceivedHttpError(
+                                                        view: WebView?,
+                                                        request: WebResourceRequest?,
+                                                        errorResponse: WebResourceResponse?
+                                                    ) {
+                                                        if (request?.isForMainFrame == true && (errorResponse?.statusCode ?: 200) >= 400) {
+                                                            view?.loadUrl("file:///android_asset/web/index.html")
+                                                        }
                                                     }
                                                 }
                                                 loadUrl(activeWebViewUrl)

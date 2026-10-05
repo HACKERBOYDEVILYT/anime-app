@@ -98,7 +98,7 @@ fun HeroCarousel(
         listOf(
             "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4" to "HD-1 • Direct MP4 Preview",
             "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4" to "HD-2 • MegaCloud (MP4)",
-            "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" to "VidCloud • Adaptive HLS",
+            "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8" to "VidCloud • Adaptive HLS",
             "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4" to "StreamTape • Cloud MP4"
         )
     }
