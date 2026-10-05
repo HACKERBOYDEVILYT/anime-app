@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CloudDownload
@@ -221,19 +222,33 @@ fun WebPortalScreen(
                             )
                         }
                         Spacer(modifier = Modifier.height(3.dp))
-                        Text(
-                            text = updateState.liveWebsiteUrl,
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace
-                        )
-                        Text(
-                            text = "Local Server Link: ${updateState.lanWebServerUrl} • Preview: https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app",
-                            color = CyanGlow,
-                            fontSize = 10.sp,
-                            fontFamily = FontFamily.Monospace
-                        )
+                        SelectionContainer {
+                            Column {
+                                Text(
+                                    text = updateState.liveWebsiteUrl,
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                                Text(
+                                    text = "Local Server: ${updateState.lanWebServerUrl} • APK: ${updateState.lanWebServerUrl}/download/Robiul-Release.apk",
+                                    color = CyanGlow,
+                                    fontSize = 10.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                        if (updateState.lastApkReleaseStatus.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = updateState.lastApkReleaseStatus,
+                                color = Color(0xFF00FF66),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
                     }
                 }
 
@@ -295,26 +310,20 @@ fun WebPortalScreen(
                         Text("Share", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
 
-                    OutlinedButton(
+                    Button(
                         onClick = {
-                            try {
-                                val target = if (updateState.isLanWebServerRunning) {
-                                    "${updateState.lanWebServerUrl}/download/Robiul-Release.apk"
-                                } else {
-                                    updateState.apkDownloadUrl
-                                }
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(target)))
-                            } catch (_: Exception) {
-                            }
+                            val resultMsg = appUpdateRepository.exportReleaseApkToDownloads()
+                            Toast.makeText(context, resultMsg, Toast.LENGTH_LONG).show()
                         },
+                        colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon),
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                         modifier = Modifier
                             .height(32.dp)
                             .testTag("download_release_apk_btn")
                     ) {
-                        Icon(Icons.Default.CloudDownload, contentDescription = "Download APK", tint = CrimsonNeon, modifier = Modifier.size(14.dp))
+                        Icon(Icons.Default.CloudDownload, contentDescription = "Release APK", tint = Color.White, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Release APK", color = CrimsonNeon, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("Release APK", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
                     }
 
                     OutlinedButton(
@@ -362,6 +371,15 @@ fun WebPortalScreen(
                                         post {
                                             onWatchEpisode(animeId.ifBlank { "anime_1" }, episodeNum.coerceAtLeast(1))
                                         }
+                                    }
+
+                                    @JavascriptInterface
+                                    fun releaseApkFromWeb(): String {
+                                        val msg = appUpdateRepository.exportReleaseApkToDownloads()
+                                        post {
+                                            Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show()
+                                        }
+                                        return msg
                                     }
                                 },
                                 "KuroStreamBridge"

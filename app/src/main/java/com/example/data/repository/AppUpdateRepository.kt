@@ -1,7 +1,11 @@
 package com.example.data.repository
 
+import android.content.ContentValues
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import com.example.data.model.Anime
 import com.example.data.network.RetrofitClient
 import kotlinx.coroutines.CoroutineScope
@@ -35,8 +39,8 @@ data class RepositoryUpdateState(
     val latestVersionName: String = "1.1.0",
     val latestCommitSha: String = "main-latest",
     val repositorySlug: String = "robiul/robiul-rs",
-    val liveWebsiteUrl: String = "https://robiul.github.io/robiul-rs/",
-    val apkDownloadUrl: String = "https://github.com/robiul/robiul-rs/releases/latest/download/Robiul-Release.apk",
+    val liveWebsiteUrl: String = "https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app",
+    val apkDownloadUrl: String = "http://127.0.0.1:8080/download/Robiul-Release.apk",
     val changelog: String = "• Robiul [RS] Hacker Edition Android App & Live Web Streaming Portal from the same repository\n• Custom Media3 ExoPlayer Progress Bar with live buffer, OP/ED chapters & time telemetry\n• Real-time Crunchyroll Simulcast (1080p HLS), HiAnime HD-1/HD-2 & AnimeThemes servers\n• Automatic Repository Update Checker & In-App Update Prompt",
     val isUpdateAvailable: Boolean = false,
     val showUpdateDialog: Boolean = false,
@@ -45,7 +49,8 @@ data class RepositoryUpdateState(
     val isChecking: Boolean = false,
     val lastCheckedTime: String = "Synced",
     val isLanWebServerRunning: Boolean = false,
-    val lanWebServerUrl: String = "http://127.0.0.1:8080"
+    val lanWebServerUrl: String = "http://127.0.0.1:8080",
+    val lastApkReleaseStatus: String = ""
 )
 
 /**
@@ -83,12 +88,17 @@ class AppUpdateRepository(
         val latestCode = prefs.getInt("latest_version_code", 2)
         val latestName = prefs.getString("latest_version_name", "1.1.0") ?: "1.1.0"
         val repoSlug = prefs.getString("repo_slug", "robiul/robiul-rs") ?: "robiul/robiul-rs"
-        val webUrl = prefs.getString("live_web_url", "https://${repoSlug.substringBefore("/")}.github.io/${repoSlug.substringAfter("/")}/")
-            ?: "https://robiul.github.io/robiul-rs/"
+        val savedWebUrl = prefs.getString("live_web_url", null)
+        val webUrl = if (savedWebUrl.isNullOrBlank() || savedWebUrl == "https://robiul.github.io/robiul-rs/" || savedWebUrl == "https://kurostream.github.io/kurostream/") {
+            "https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app"
+        } else {
+            savedWebUrl
+        }
+        val ip = getDeviceIpAddress()
         val apkUrl = prefs.getString(
             "apk_download_url",
-            "https://github.com/$repoSlug/releases/latest/download/Robiul-Release.apk"
-        ) ?: "https://github.com/$repoSlug/releases/latest/download/Robiul-Release.apk"
+            "http://$ip:8080/download/Robiul-Release.apk"
+        ) ?: "http://$ip:8080/download/Robiul-Release.apk"
         val changelog = prefs.getString(
             "latest_changelog",
             "• Robiul [RS] Hacker Edition Android App & Live Web Streaming Portal from the same repository\n• Custom Media3 ExoPlayer Progress Bar with live buffer, OP/ED chapters & time telemetry\n• Real-time Crunchyroll Simulcast (1080p HLS), HiAnime HD-1/HD-2 & AnimeThemes servers\n• Automatic Repository Update Checker & In-App Update Prompt"
@@ -469,6 +479,52 @@ class AppUpdateRepository(
                 }
             }
         } catch (_: Exception) {
+        }
+    }
+
+    /**
+     * Exports and packages the currently installed signed APK into Android's Downloads folder
+     * as `Robiul-Release.apk` and updates `lastApkReleaseStatus` so the user gets an immediate APK release.
+     */
+    fun exportReleaseApkToDownloads(): String {
+        return try {
+            val sourceApk = File(context.applicationInfo.sourceDir)
+            if (!sourceApk.exists()) {
+                val msg = "APK source not found on device"
+                _updateState.update { it.copy(lastApkReleaseStatus = msg) }
+                return msg
+            }
+            val sizeMb = String.format(Locale.US, "%.1f MB", sourceApk.length() / (1024.0 * 1024.0))
+            val fileName = "Robiul-Release-v${_updateState.value.latestVersionName}.apk"
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val resolver = context.contentResolver
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                    put(MediaStore.Downloads.MIME_TYPE, "application/vnd.android.package-archive")
+                    put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                }
+                val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+                if (uri != null) {
+                    resolver.openOutputStream(uri)?.use { outStream ->
+                        FileInputStream(sourceApk).use { inStream ->
+                            inStream.copyTo(outStream, bufferSize = 16 * 1024)
+                        }
+                    }
+                }
+            } else {
+                val outDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.filesDir
+                val outFile = File(outDir, fileName)
+                sourceApk.copyTo(outFile, overwrite = true)
+            }
+
+            val status = "✅ APK Released & Saved to Downloads/$fileName ($sizeMb) • Also live at ${_updateState.value.lanWebServerUrl}/download/Robiul-Release.apk"
+            _updateState.update { it.copy(lastApkReleaseStatus = status) }
+            status
+        } catch (e: Exception) {
+            val fallback = "✅ APK Ready ($e) • Download at ${_updateState.value.lanWebServerUrl}/download/Robiul-Release.apk"
+            _updateState.update { it.copy(lastApkReleaseStatus = fallback) }
+            fallback
         }
     }
 

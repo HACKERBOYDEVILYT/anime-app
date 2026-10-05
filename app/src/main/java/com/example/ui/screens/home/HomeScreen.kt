@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Notifications
@@ -321,15 +322,17 @@ fun HomeScreen(
                                     )
                                 }
                                 Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "https://robiul.github.io/robiul-rs/ • http://127.0.0.1:8080",
-                                    color = Color.White,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = FontFamily.Monospace,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                                SelectionContainer {
+                                    Text(
+                                        text = "https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app",
+                                        color = Color.White,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = FontFamily.Monospace,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
 
                             Spacer(modifier = Modifier.width(8.dp))
@@ -339,10 +342,10 @@ fun HomeScreen(
                                 color = Color(0xFF00FF66),
                                 modifier = Modifier
                                     .clickable {
-                                        val link = "https://robiul.github.io/robiul-rs/"
+                                        val link = "https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app"
                                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
                                         clipboard?.setPrimaryClip(ClipData.newPlainText("Robiul Website Link", link))
-                                        Toast.makeText(context, "Website Link Copied: $link", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Website Link Copied: $link", Toast.LENGTH_LONG).show()
                                     }
                                     .testTag("home_copy_website_link_btn")
                             ) {

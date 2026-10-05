@@ -1,4 +1,4 @@
-name: Deploy Live Website (GitHub Pages & gh-pages Branch)
+name: Deploy Live Website (GitHub Pages)
 
 on:
   push:
@@ -16,18 +16,15 @@ concurrency:
 
 jobs:
   deploy-pages:
-    name: Instant Deploy Robiul [RS] Website to GitHub Pages
+    name: Deploy Robiul [RS] Live Website & Output Link
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url || steps.meta.outputs.web_url }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Generate Live version.json & Prepare Static Site
+      - name: Prepare Static Website & Live version.json
         id: meta
         run: |
           VERSION_CODE=$((100 + ${{ github.run_number }}))
@@ -38,9 +35,12 @@ jobs:
           APK_URL="https://github.com/${{ github.repository }}/releases/latest/download/Robiul-Release.apk"
           WEB_URL="https://${REPO_OWNER}.github.io/${REPO_NAME}/"
 
-          mkdir -p _site
+          mkdir -p _site/download
           cp docs/index.html _site/index.html
           cp docs/index.html _site/404.html
+          if [ -f ".build-outputs/app-debug.apk" ]; then
+            cp .build-outputs/app-debug.apk _site/download/Robiul-Release.apk
+          fi
           touch _site/.nojekyll
 
           cat > _site/version.json <<EOF
@@ -60,11 +60,11 @@ jobs:
 
           echo "web_url=${WEB_URL}" >> $GITHUB_OUTPUT
           echo "## 🌐 Your Live Website Link is Ready!" >> $GITHUB_STEP_SUMMARY
-          echo "- **GitHub Pages Live Website URL:** [${WEB_URL}](${WEB_URL})" >> $GITHUB_STEP_SUMMARY
-          echo "- **AI Studio Live Preview URL:** [https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app](https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Direct APK Release URL:** [${APK_URL}](${APK_URL})" >> $GITHUB_STEP_SUMMARY
+          echo "### 👉 Live Website URL: [${WEB_URL}](${WEB_URL})" >> $GITHUB_STEP_SUMMARY
+          echo "### 👉 Direct APK Download on Website: [${WEB_URL}download/Robiul-Release.apk](${WEB_URL}download/Robiul-Release.apk)" >> $GITHUB_STEP_SUMMARY
+          echo "### 👉 AI Studio Live Preview URL: [https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app](https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app)" >> $GITHUB_STEP_SUMMARY
 
-      - name: Publish Static Website to gh-pages Branch
+      - name: Publish Website to gh-pages Branch & Auto-Enable GitHub Pages
         continue-on-error: true
         run: |
           cd _site
@@ -76,18 +76,8 @@ jobs:
           git commit -m "Deploy Robiul [RS] Live Website (${{ github.sha }})"
           git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages
 
-      - name: Configure GitHub Pages (Auto-Enable Actions Pages)
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
-        continue-on-error: true
-
-      - name: Upload Pages Artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./_site
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-        continue-on-error: true
+          curl -s -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/pages" \
+            -d '{"source":{"branch":"gh-pages","path":"/"}}' || true
