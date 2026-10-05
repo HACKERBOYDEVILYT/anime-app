@@ -298,6 +298,28 @@ fun WebPortalScreen(
                     OutlinedButton(
                         onClick = {
                             try {
+                                val target = if (updateState.isLanWebServerRunning) {
+                                    "${updateState.lanWebServerUrl}/download/Robiul-Release.apk"
+                                } else {
+                                    updateState.apkDownloadUrl
+                                }
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(target)))
+                            } catch (_: Exception) {
+                            }
+                        },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier
+                            .height(32.dp)
+                            .testTag("download_release_apk_btn")
+                    ) {
+                        Icon(Icons.Default.CloudDownload, contentDescription = "Download APK", tint = CrimsonNeon, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Release APK", color = CrimsonNeon, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            try {
                                 val target = if (updateState.isLanWebServerRunning) updateState.lanWebServerUrl else updateState.liveWebsiteUrl
                                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(target)))
                             } catch (_: Exception) {

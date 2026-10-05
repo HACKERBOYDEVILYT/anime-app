@@ -11,16 +11,16 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "kurostream-pages"
+  group: "robiul-pages"
   cancel-in-progress: true
 
 jobs:
   deploy-pages:
-    name: Instant Deploy Unified Website to GitHub Pages
+    name: Instant Deploy Robiul [RS] Website to GitHub Pages
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.meta.outputs.web_url }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -28,13 +28,14 @@ jobs:
           fetch-depth: 0
 
       - name: Generate Live version.json & Prepare Static Site
+        id: meta
         run: |
           VERSION_CODE=$((100 + ${{ github.run_number }}))
           VERSION_NAME="1.1.${{ github.run_number }}"
-          REPO_OWNER="${{ github.repository_owner }}"
+          REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           REPO_NAME="${{ github.event.repository.name }}"
           COMMIT_MSG=$(git log -1 --pretty=%B | tr '\n' ' ' | sed 's/"/\\"/g')
-          APK_URL="https://github.com/${{ github.repository }}/releases/latest/download/KuroStream-Release.apk"
+          APK_URL="https://github.com/${{ github.repository }}/releases/latest/download/Robiul-Release.apk"
           WEB_URL="https://${REPO_OWNER}.github.io/${REPO_NAME}/"
 
           mkdir -p _site
@@ -44,7 +45,7 @@ jobs:
 
           cat > _site/version.json <<EOF
           {
-            "appName": "KuroStream",
+            "appName": "Robiul",
             "versionCode": ${VERSION_CODE},
             "versionName": "${VERSION_NAME}",
             "commitSha": "${{ github.sha }}",
@@ -53,11 +54,17 @@ jobs:
             "repositorySlug": "${{ github.repository }}",
             "apkDownloadUrl": "${APK_URL}",
             "webPortalUrl": "${WEB_URL}",
-            "changelog": "Repository Update (${VERSION_NAME}): ${COMMIT_MSG}"
+            "changelog": "Robiul [RS] Update (${VERSION_NAME}): ${COMMIT_MSG}"
           }
           EOF
 
-      - name: Publish Static Website to gh-pages Branch (Supports Branch-Based Pages)
+          echo "web_url=${WEB_URL}" >> $GITHUB_OUTPUT
+          echo "## 🌐 Your Live Website Link is Ready!" >> $GITHUB_STEP_SUMMARY
+          echo "- **GitHub Pages Live Website URL:** [${WEB_URL}](${WEB_URL})" >> $GITHUB_STEP_SUMMARY
+          echo "- **AI Studio Live Preview URL:** [https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app](https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Direct APK Release URL:** [${APK_URL}](${APK_URL})" >> $GITHUB_STEP_SUMMARY
+
+      - name: Publish Static Website to gh-pages Branch
         continue-on-error: true
         run: |
           cd _site
@@ -66,7 +73,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b gh-pages
           git add -A
-          git commit -m "Deploy KuroStream Live Website (${{ github.sha }})"
+          git commit -m "Deploy Robiul [RS] Live Website (${{ github.sha }})"
           git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages
 
       - name: Configure GitHub Pages (Auto-Enable Actions Pages)

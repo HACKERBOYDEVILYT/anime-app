@@ -17,6 +17,8 @@ import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
+import java.io.File
+import java.io.FileInputStream
 import java.io.InputStreamReader
 import java.io.PrintWriter
 import java.net.Inet4Address
@@ -419,8 +421,33 @@ class AppUpdateRepository(
                 val requestLine = reader.readLine().orEmpty()
                 val path = requestLine.split(" ").getOrNull(1) ?: "/"
 
-                val output = PrintWriter(sock.getOutputStream(), true)
+                val rawOut = sock.getOutputStream()
+                val output = PrintWriter(rawOut, true)
                 when {
+                    path.startsWith("/download/") && path.endsWith(".apk") -> {
+                        val apkFile = File(context.applicationInfo.sourceDir)
+                        if (apkFile.exists()) {
+                            val header = buildString {
+                                append("HTTP/1.1 200 OK\r\n")
+                                append("Content-Type: application/vnd.android.package-archive\r\n")
+                                append("Content-Disposition: attachment; filename=\"Robiul-Release.apk\"\r\n")
+                                append("Access-Control-Allow-Origin: *\r\n")
+                                append("Content-Length: ${apkFile.length()}\r\n\r\n")
+                            }
+                            rawOut.write(header.toByteArray(Charsets.UTF_8))
+                            FileInputStream(apkFile).use { fis ->
+                                val buffer = ByteArray(16 * 1024)
+                                var read: Int
+                                while (fis.read(buffer).also { read = it } != -1) {
+                                    rawOut.write(buffer, 0, read)
+                                }
+                            }
+                            rawOut.flush()
+                        } else {
+                            output.print("HTTP/1.1 404 Not Found\r\n\r\n")
+                            output.flush()
+                        }
+                    }
                     path.startsWith("/version.json") || path.startsWith("/api/catalog") -> {
                         val json = buildUnifiedAppCatalogJson()
                         output.print("HTTP/1.1 200 OK\r\n")

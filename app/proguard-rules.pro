@@ -54,3 +54,12 @@
 
 # 7. Protect Security & Cryptographic Handlers
 -keep class com.example.security.** { *; }
+
+# 8. Preserve WebView JavascriptInterface Bridge & Media3 ExoPlayer
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+-keepattributes JavascriptInterface
+-dontwarn androidx.media3.**
+-keep class androidx.media3.** { *; }
+

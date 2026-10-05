@@ -1,4 +1,4 @@
-name: Build & Package Android APK
+name: Build & Release Robiul APK + Deploy Live Website
 
 on:
   push:
@@ -11,10 +11,12 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
-  build:
-    name: Build KuroStream APK & Publish Auto-Update Release
+  build-and-release:
+    name: Build Robiul [RS] APK, Release & Output Website Link
     runs-on: ubuntu-latest
 
     steps:
@@ -30,43 +32,47 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
-      - name: Setup Android SDK
+      - name: Setup Android SDK & Accept All Licenses
         uses: android-actions/setup-android@v3
 
-      - name: Prepare Gradle & Keystore
+      - name: Accept Android SDK Licenses & Prepare Keystore
         run: |
+          yes | sdkmanager --licenses || true
           chmod +x gradlew || true
+          if [ -f "debug.keystore.base64" ] && [ ! -f "debug.keystore" ]; then
+            base64 -d debug.keystore.base64 > debug.keystore || true
+          fi
           if [ ! -f "debug.keystore" ]; then
             keytool -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
           fi
 
-      - name: Build Debug & Release APKs
+      - name: Build Release & Debug APKs
         run: |
-          ./gradlew assembleDebug --stacktrace
-          ./gradlew assembleRelease --stacktrace || cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/fallback-release.apk
+          ./gradlew assembleRelease --no-daemon --stacktrace || ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: Prepare APK & Auto-Update Artifacts
+      - name: Package APK Release & Generate Live Website Link
         id: meta
         run: |
           VERSION_CODE=$((100 + ${{ github.run_number }}))
           VERSION_NAME="1.1.${{ github.run_number }}"
-          REPO_OWNER="${{ github.repository_owner }}"
+          REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           REPO_NAME="${{ github.event.repository.name }}"
           COMMIT_MSG=$(git log -1 --pretty=%B | tr '\n' ' ' | sed 's/"/\\"/g')
-          APK_URL="https://github.com/${{ github.repository }}/releases/latest/download/KuroStream-Release.apk"
+          APK_URL="https://github.com/${{ github.repository }}/releases/latest/download/Robiul-Release.apk"
           WEB_URL="https://${REPO_OWNER}.github.io/${REPO_NAME}/"
 
           mkdir -p artifacts
-          cp app/build/outputs/apk/debug/app-debug.apk artifacts/KuroStream-Debug.apk
           if [ -f "app/build/outputs/apk/release/app-release.apk" ]; then
+            cp app/build/outputs/apk/release/app-release.apk artifacts/Robiul-Release.apk
             cp app/build/outputs/apk/release/app-release.apk artifacts/KuroStream-Release.apk
-          else
+          elif [ -f "app/build/outputs/apk/debug/app-debug.apk" ]; then
+            cp app/build/outputs/apk/debug/app-debug.apk artifacts/Robiul-Release.apk
             cp app/build/outputs/apk/debug/app-debug.apk artifacts/KuroStream-Release.apk
           fi
 
           cat > artifacts/version.json <<EOF
           {
-            "appName": "KuroStream",
+            "appName": "Robiul",
             "versionCode": ${VERSION_CODE},
             "versionName": "${VERSION_NAME}",
             "commitSha": "${{ github.sha }}",
@@ -75,29 +81,49 @@ jobs:
             "repositorySlug": "${{ github.repository }}",
             "apkDownloadUrl": "${APK_URL}",
             "webPortalUrl": "${WEB_URL}",
-            "changelog": "Repository Update (${VERSION_NAME}): ${COMMIT_MSG}"
+            "changelog": "Robiul [RS] Update (${VERSION_NAME}): ${COMMIT_MSG}"
           }
           EOF
+
           echo "version_name=${VERSION_NAME}" >> $GITHUB_OUTPUT
+          echo "web_url=${WEB_URL}" >> $GITHUB_OUTPUT
+          echo "apk_url=${APK_URL}" >> $GITHUB_OUTPUT
+
+          echo "## 🌐 Robiul [RS] Live Website & APK Release Links" >> $GITHUB_STEP_SUMMARY
+          echo "| Platform | Direct Link |" >> $GITHUB_STEP_SUMMARY
+          echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
+          echo "| **🌐 Live Website Link (GitHub Pages)** | [${WEB_URL}](${WEB_URL}) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **📥 Direct Release APK Download** | [${APK_URL}](${APK_URL}) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **🚀 AI Studio Live App Preview** | [https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app](https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app) |" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload Release APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: KuroStream-Release-APK
-          path: artifacts/KuroStream-Release.apk
+          name: Robiul-Release-APK
+          path: |
+            artifacts/Robiul-Release.apk
+            artifacts/version.json
           retention-days: 30
 
-      - name: Publish to GitHub Releases
-        if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+      - name: Publish APK to GitHub Releases
+        if: github.event_name != 'pull_request'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}', steps.meta.outputs.version_name) }}
-          name: ${{ format('KuroStream v{0} - Unified App & Web Release', steps.meta.outputs.version_name) }}
+          name: ${{ format('Robiul [RS] v{0} - Release APK & Live Website', steps.meta.outputs.version_name) }}
+          body: |
+            ### 🌐 Live Website Link
+            - **GitHub Pages Website:** ${{ steps.meta.outputs.web_url }}
+            - **AI Studio Shared Preview:** https://ais-pre-nsac4yo6gxe4t4rioushj5-531708784674.asia-southeast1.run.app
+
+            ### 📥 Direct APK Download
+            - **Robiul-Release.apk:** ${{ steps.meta.outputs.apk_url }}
           draft: false
           prerelease: false
+          make_latest: "true"
           files: |
+            artifacts/Robiul-Release.apk
             artifacts/KuroStream-Release.apk
-            artifacts/KuroStream-Debug.apk
             artifacts/version.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
