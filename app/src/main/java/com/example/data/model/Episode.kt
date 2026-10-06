@@ -31,6 +31,9 @@ data class EpisodeSource(
 
     val url: String
         get() = streamUrl
+
+    val audioLang: String
+        get() = audioTrack
 }
 
 data class EpisodeSubtitle(
@@ -67,6 +70,9 @@ data class Episode(
 ) {
     val thumbnailUrl: String
         get() = thumbnail
+
+    val durationSec: Long
+        get() = durationSeconds
 
     val introStartMs: Long
         get() = introStartSec * 1000L

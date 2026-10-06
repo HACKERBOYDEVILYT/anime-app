@@ -51,6 +51,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -78,7 +79,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
-import com.example.data.model.SyncStatusState
+import com.example.data.sync.CloudSyncStatus
 import com.example.ui.components.RobiulBrandHeader
 import com.example.ui.components.RsHackerEmblem
 import com.example.ui.components.SecretAdminDialog
@@ -111,8 +112,7 @@ fun ProfileScreen(
     val user by viewModel.user.collectAsStateWithLifecycle()
     val isLoggedIn by viewModel.isLoggedIn.collectAsStateWithLifecycle()
     val statusBanner by viewModel.statusBannerMessage.collectAsStateWithLifecycle()
-    val syncStatus by viewModel.cloudSyncManager.syncStatus.collectAsStateWithLifecycle()
-    val syncTelemetry by viewModel.cloudSyncManager.telemetry.collectAsStateWithLifecycle()
+    val syncState by viewModel.cloudSyncManager.syncState.collectAsStateWithLifecycle()
     val activeSessions by viewModel.userRepository.activeSessions.collectAsStateWithLifecycle()
     val loginHistory by viewModel.userRepository.loginHistory.collectAsStateWithLifecycle()
     val characters by viewModel.gamificationRepository.characters.collectAsStateWithLifecycle()
@@ -577,11 +577,11 @@ fun ProfileScreen(
 
         // 2. Cloud Sync Control Center (Section 2: SYNCED / SYNCING / OFFLINE / SYNC ERROR)
         item {
-            val statusColor = when (syncStatus) {
-                SyncStatusState.SYNCED -> EmeraldSuccess
-                SyncStatusState.SYNCING -> CyanAccent
-                SyncStatusState.OFFLINE -> StarAmber
-                SyncStatusState.SYNC_ERROR -> CrimsonNeon
+            val statusColor = when (syncState.status) {
+                CloudSyncStatus.SYNCED -> EmeraldSuccess
+                CloudSyncStatus.SYNCING -> CyanAccent
+                CloudSyncStatus.OFFLINE -> StarAmber
+                CloudSyncStatus.SYNC_ERROR -> CrimsonNeon
             }
             Card(
                 shape = RoundedCornerShape(16.dp),
@@ -602,7 +602,7 @@ fun ProfileScreen(
                             Column {
                                 Text("☁️ Real-Time Cloud Sync Engine", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                 Text(
-                                    text = "Last Sync: ${syncTelemetry.formattedLastSync} • Rev #${syncTelemetry.syncVersion}",
+                                    text = "${syncState.lastSyncedLabel} • ${syncState.syncedDomainsCount} Domains",
                                     color = TextSecondary,
                                     fontSize = 11.sp
                                 )
@@ -613,7 +613,7 @@ fun ProfileScreen(
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             Text(
-                                text = syncStatus.badgeLabel,
+                                text = syncState.status.displayLabel,
                                 color = statusColor,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.ExtraBold,
@@ -630,7 +630,7 @@ fun ProfileScreen(
 
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(
-                            onClick = { viewModel.cloudSyncManager.triggerManualSync() },
+                            onClick = { viewModel.cloudSyncManager.performInitialSync(user.id) },
                             colors = ButtonDefaults.buttonColors(containerColor = CyanAccent),
                             modifier = Modifier.weight(1f)
                         ) {
@@ -638,12 +638,12 @@ fun ProfileScreen(
                         }
                         OutlinedButton(
                             onClick = {
-                                viewModel.cloudSyncManager.setOfflineMode(syncStatus != SyncStatusState.OFFLINE)
+                                viewModel.cloudSyncManager.setNetworkOnline(!syncState.isOnline, user.id)
                             },
                             modifier = Modifier.weight(1f)
                         ) {
                             Text(
-                                text = if (syncStatus == SyncStatusState.OFFLINE) "Go Online & Flush" else "Test Offline Queue",
+                                text = if (!syncState.isOnline) "Go Online & Flush" else "Test Offline Queue",
                                 color = StarAmber,
                                 fontSize = 12.sp
                             )
@@ -1085,7 +1085,7 @@ fun ProfileScreen(
                         showSecretAuthDialog = false
                         secretTapCount = 0
                     },
-                    onAuthenticated = {
+                    onSuccess = {
                         showSecretAuthDialog = false
                         secretTapCount = 0
                         onAdminClick()

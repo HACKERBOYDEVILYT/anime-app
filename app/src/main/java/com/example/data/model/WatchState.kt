@@ -42,6 +42,9 @@ data class WatchHistoryItem(
     val watchedPositionMs: Long
         get() = progressMs
 
+    val progressPositionMs: Long
+        get() = progressMs
+
     val totalDurationMs: Long
         get() = durationMs
 

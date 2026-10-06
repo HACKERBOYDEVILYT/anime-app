@@ -551,6 +551,13 @@ class UserRepository(
         incrementWatchStats(minutesWatched)
     }
 
+    fun getCurrentUserSnapshot(): User = _user.value
+
+    fun recordEpisodeWatchedAndStreak() {
+        recordEpisodeWatched(24)
+        incrementWatchStreak()
+    }
+
     private fun recordNewSessionAndHistory(
         email: String,
         deviceName: String,

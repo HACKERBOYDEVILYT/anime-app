@@ -123,12 +123,7 @@ class PlayerViewModel(
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 val anime = animeRepository.getAnimeById(animeId)
-                val baseEpisodes = animeRepository.getEpisodesForAnime(animeId)
-                val episodes = if (adminRepository != null) {
-                    adminRepository.enrichEpisodesWithScrapedSources(animeId, baseEpisodes)
-                } else {
-                    baseEpisodes
-                }
+                val episodes = animeRepository.getEpisodes(animeId)
                 val targetEp = episodes.find { it.episodeNumber == episodeNumber }
                     ?: episodes.firstOrNull()
 
@@ -391,7 +386,7 @@ class PlayerViewModel(
         gamificationRepository.addVideoBookmark(
             animeId = animeId,
             episodeNumber = ep.episodeNumber,
-            timestampMs = _uiState.value.currentPositionMs,
+            positionMs = _uiState.value.currentPositionMs,
             label = label
         )
         _uiState.update {
@@ -400,7 +395,7 @@ class PlayerViewModel(
     }
 
     fun removeBookmark(bookmarkId: String) {
-        gamificationRepository.removeVideoBookmark(bookmarkId)
+        gamificationRepository.deleteVideoBookmark(bookmarkId)
     }
 
     fun addPersonalEpisodeNote(noteText: String) {
@@ -408,7 +403,6 @@ class PlayerViewModel(
         val ep = _uiState.value.currentEpisode ?: return
         gamificationRepository.addEpisodeNote(
             animeId = anime.id,
-            animeTitle = anime.titleEnglish,
             episodeNumber = ep.episodeNumber,
             noteText = noteText
         )
@@ -539,23 +533,20 @@ class PlayerViewModel(
         if (posSec > 0 && posSec % 5L == 0L) {
             viewModelScope.launch {
                 watchRepository.saveWatchProgress(
-                    anime = anime,
-                    episode = ep,
-                    positionMs = positionMs,
+                    animeId = anime.id,
+                    animeTitle = anime.titleEnglish,
+                    episodeId = ep.id,
+                    episodeNumber = ep.episodeNumber,
+                    episodeTitle = ep.title,
+                    thumbnailUrl = ep.thumbnailUrl,
+                    posterUrl = anime.posterUrl,
+                    progressMs = positionMs,
                     durationMs = durationMs
                 )
                 if (durationMs > 0 && positionMs.toFloat() / durationMs.toFloat() >= 0.85f) {
                     userRepository.recordEpisodeWatchedAndStreak()
-                    if (downloadsRepository != null) {
-                        downloadsRepository.onEpisodeWatchedToCompletion(anime.id, ep.episodeNumber)
-                    }
-                    malSyncRepository?.autoUpdateEpisodeProgress(
-                        animeId = anime.id,
-                        animeTitle = anime.titleEnglish,
-                        posterUrl = anime.posterUrl,
-                        episodeNumber = ep.episodeNumber,
-                        totalEpisodes = anime.episodesCount
-                    )
+                    downloadsRepository?.autoDeleteWatchedEpisodeIfNeeded(anime.id, ep.episodeNumber)
+                    malSyncRepository?.recordEpisodeWatched(anime.titleEnglish, ep.episodeNumber)
                 }
             }
         }

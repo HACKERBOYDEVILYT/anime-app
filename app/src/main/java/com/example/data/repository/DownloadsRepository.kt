@@ -242,6 +242,9 @@ class DownloadsRepository(
         _telemetryById.update { it - itemId }
     }
 
+    suspend fun autoDeleteWatchedEpisodeIfNeeded(animeId: String, episodeNumber: Int) =
+        onEpisodeCompleted(animeId, episodeNumber)
+
     fun getDeviceStorageSummary(downloads: List<DownloadItemEntity>): DeviceStorageSummary {
         val usedMb = downloads.filter { it.status == "COMPLETED" || it.status == "DOWNLOADING" }.sumOf {
             if (it.status == "COMPLETED") it.sizeMb else (it.sizeMb * it.progressPercent) / 100
