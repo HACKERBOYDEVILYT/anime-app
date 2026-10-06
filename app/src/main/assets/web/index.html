@@ -289,6 +289,33 @@
   </section>
 
   <div class="container">
+    <!-- Offline Mode Indicator (navigator.onLine check) -->
+    <div id="offlineModeBanner" style="display:none;background:rgba(255,184,0,0.14);border:1px solid #FFB800;border-radius:12px;padding:12px 16px;margin-bottom:14px;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:18px;">📡</span>
+        <div>
+          <div style="font-size:12px;font-weight:800;color:#FFB800;font-family:monospace;">OFFLINE MODE • navigator.onLine: false</div>
+          <div id="offlineModeAlertText" style="font-size:12px;color:#F8F9FA;margin-top:2px;">Lost internet connection while attempting to fetch catalog data. Displaying cached catalog.</div>
+        </div>
+      </div>
+      <button class="btn btn-outline" style="border-color:#FFB800;color:#FFB800;" onclick="retryLastCatalogFetch()">🔄 Retry Connection</button>
+    </div>
+
+    <!-- Visual Fetch Failure Notification Component with Retry Button -->
+    <div id="fetchErrorNotification" style="display:none;background:rgba(255,42,95,0.16);border:1px solid #FF2A5F;border-radius:12px;padding:12px 16px;margin-bottom:16px;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:18px;">⚠️</span>
+        <div>
+          <div style="font-size:12px;font-weight:800;color:#FF2A5F;font-family:monospace;">CATALOG FETCH FAILURE DETECTED</div>
+          <div id="fetchErrorMessageText" style="font-size:12px;color:#F8F9FA;margin-top:2px;">Failed to fetch catalog data from upstream server. Check your connection and click Retry.</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button id="retryFetchBtn" class="btn btn-primary" onclick="retryLastCatalogFetch()">🔄 Retry</button>
+        <button class="btn btn-outline" onclick="hideFetchErrorNotification()">✕ Dismiss</button>
+      </div>
+    </div>
+
     <div class="update-banner">
       <div>
         <div style="font-size:13px;font-weight:800;color:#fff;">
@@ -768,7 +795,63 @@
       showPlayerKeyToast("🔗 Website Link Copied: " + activeUrl);
     }
 
+    let lastCatalogFetchAction = () => loadLiveCatalogAndVersion();
+
+    function updateOfflineIndicator(contextLabel) {
+      const banner = document.getElementById("offlineModeBanner");
+      const alertText = document.getElementById("offlineModeAlertText");
+      const isOnline = navigator.onLine !== false;
+      if (!isOnline) {
+        if (banner) banner.style.display = "flex";
+        if (alertText) {
+          alertText.textContent = contextLabel
+            ? `Alert: Connection lost (navigator.onLine = false) while attempting to fetch ${contextLabel}. Showing cached catalog.`
+            : "Offline Mode Active (navigator.onLine = false): Internet connection lost.";
+        }
+      } else if (banner) {
+        banner.style.display = "none";
+      }
+      return isOnline;
+    }
+
+    function showFetchErrorNotification(errorMessage, retryAction) {
+      if (typeof retryAction === "function") {
+        lastCatalogFetchAction = retryAction;
+      }
+      const box = document.getElementById("fetchErrorNotification");
+      const msgEl = document.getElementById("fetchErrorMessageText");
+      if (msgEl) msgEl.textContent = errorMessage || "Failed to fetch catalog data. Tap Retry to re-attempt the connection.";
+      if (box) box.style.display = "flex";
+    }
+
+    function hideFetchErrorNotification() {
+      const box = document.getElementById("fetchErrorNotification");
+      if (box) box.style.display = "none";
+    }
+
+    function retryLastCatalogFetch() {
+      hideFetchErrorNotification();
+      updateOfflineIndicator("catalog data");
+      if (typeof lastCatalogFetchAction === "function") {
+        lastCatalogFetchAction();
+      } else {
+        loadLiveCatalogAndVersion();
+      }
+    }
+
+    window.addEventListener("offline", () => {
+      updateOfflineIndicator("catalog data");
+      showFetchErrorNotification("Connection lost (navigator.onLine = false) while fetching catalog data. Click 'Retry' to reconnect.", () => loadLiveCatalogAndVersion());
+    });
+
+    window.addEventListener("online", () => {
+      updateOfflineIndicator();
+      hideFetchErrorNotification();
+      loadLiveCatalogAndVersion();
+    });
+
     async function loadLiveCatalogAndVersion() {
+      lastCatalogFetchAction = () => loadLiveCatalogAndVersion();
       const urlDisplay = document.getElementById("currentWebUrlDisplay");
       if (urlDisplay) {
         if (window.location.protocol === "http:" || window.location.protocol === "https:") {
@@ -793,6 +876,15 @@
         } catch (err) {}
       }
 
+      if (!updateOfflineIndicator("live catalog data")) {
+        document.getElementById("catalogStatus").textContent = "Offline Mode (navigator.onLine = false) • Cached Catalog";
+        showFetchErrorNotification(
+          "Lost connection (navigator.onLine = false) while attempting to fetch catalog data. Click 'Retry' to re-attempt the connection.",
+          () => loadLiveCatalogAndVersion()
+        );
+        return;
+      }
+
       try {
         const res = await fetch("./version.json", { cache: "no-store" });
         if (res.ok) {
@@ -810,69 +902,111 @@
 
       try {
         const r = await fetch("https://api.jikan.moe/v4/top/anime?limit=12");
-        if (r.ok) {
-          const json = await r.json();
-          if (json.data && json.data.length > 0) {
-            const liveList = json.data.map(a => ({
-              id: "mal_" + a.mal_id,
-              title: a.title_english || a.title,
-              studio: (a.studios && a.studios[0]) ? a.studios[0].name : "Jikan Live",
-              score: a.score || "8.8",
-              episodes: a.episodes || 12,
-              poster: a.images?.jpg?.large_image_url || a.images?.jpg?.image_url
-            }));
-            renderStreamsAndCatalog(liveList);
-          }
+        if (!r.ok) {
+          throw new Error(`HTTP ${r.status} while fetching catalog`);
         }
-      } catch (e) {}
+        const json = await r.json();
+        if (json.data && json.data.length > 0) {
+          const liveList = json.data.map(a => ({
+            id: "mal_" + a.mal_id,
+            title: a.title_english || a.title,
+            studio: (a.studios && a.studios[0]) ? a.studios[0].name : "Jikan Live",
+            score: a.score || "8.8",
+            episodes: a.episodes || 12,
+            poster: a.images?.jpg?.large_image_url || a.images?.jpg?.image_url
+          }));
+          renderStreamsAndCatalog(liveList);
+          hideFetchErrorNotification();
+        }
+      } catch (e) {
+        updateOfflineIndicator("live catalog data");
+        showFetchErrorNotification(
+          `Catalog fetch failed (${e.message || "Network error"}). Click 'Retry' to re-attempt the connection.`,
+          () => loadLiveCatalogAndVersion()
+        );
+      }
     }
 
     async function syncCrunchyrollWeb() {
+      lastCatalogFetchAction = () => syncCrunchyrollWeb();
+      if (!updateOfflineIndicator("Crunchyroll Simulcast catalog data")) {
+        document.getElementById("catalogStatus").textContent = "Offline Mode • Connection Lost";
+        showFetchErrorNotification(
+          "Lost connection (navigator.onLine = false) while attempting to fetch Crunchyroll Simulcast catalog data. Click 'Retry' to reconnect.",
+          () => syncCrunchyrollWeb()
+        );
+        return;
+      }
       document.getElementById("catalogStatus").textContent = "Syncing Crunchyroll Simulcast API...";
       try {
         const r = await fetch("https://api.jikan.moe/v4/anime?producers=1468&order_by=popularity&sort=asc&limit=12");
-        if (r.ok) {
-          const json = await r.json();
-          if (json.data && json.data.length > 0) {
-            const crList = json.data.map(a => ({
-              id: "cr_" + a.mal_id,
-              title: a.title_english || a.title,
-              studio: "Crunchyroll Simulcast",
-              score: a.score || "8.9",
-              episodes: a.episodes || 12,
-              poster: a.images?.jpg?.large_image_url || a.images?.jpg?.image_url
-            }));
-            document.getElementById("catalogSectionTitle").textContent = "⚡ Crunchyroll Simulcast Catalog (Live API)";
-            document.getElementById("catalogStatus").textContent = `Synced ${crList.length} Crunchyroll Simulcast Series`;
-            renderStreamsAndCatalog(crList);
-          }
+        if (!r.ok) {
+          throw new Error(`HTTP ${r.status} from Crunchyroll Simulcast endpoint`);
         }
-      } catch (e) {}
+        const json = await r.json();
+        if (json.data && json.data.length > 0) {
+          const crList = json.data.map(a => ({
+            id: "cr_" + a.mal_id,
+            title: a.title_english || a.title,
+            studio: "Crunchyroll Simulcast",
+            score: a.score || "8.9",
+            episodes: a.episodes || 12,
+            poster: a.images?.jpg?.large_image_url || a.images?.jpg?.image_url
+          }));
+          document.getElementById("catalogSectionTitle").textContent = "⚡ Crunchyroll Simulcast Catalog (Live API)";
+          document.getElementById("catalogStatus").textContent = `Synced ${crList.length} Crunchyroll Simulcast Series`;
+          renderStreamsAndCatalog(crList);
+          hideFetchErrorNotification();
+        }
+      } catch (e) {
+        updateOfflineIndicator("Crunchyroll Simulcast catalog data");
+        showFetchErrorNotification(
+          `Failed to fetch Crunchyroll Simulcast catalog (${e.message || "Network error"}). Click 'Retry' to re-attempt connection.`,
+          () => syncCrunchyrollWeb()
+        );
+      }
     }
 
     async function searchAnime() {
       const q = document.getElementById("searchInput").value.trim();
       if (!q) return loadLiveCatalogAndVersion();
+      lastCatalogFetchAction = () => searchAnime();
+      if (!updateOfflineIndicator(`search catalog results for "${q}"`)) {
+        document.getElementById("catalogStatus").textContent = "Offline Mode • Search Failed";
+        showFetchErrorNotification(
+          `Lost connection (navigator.onLine = false) while attempting to fetch catalog search results for "${q}". Click 'Retry' to re-attempt.`,
+          () => searchAnime()
+        );
+        return;
+      }
       document.getElementById("catalogStatus").textContent = `Searching "${q}"...`;
       try {
         const r = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(q)}&limit=12`);
-        if (r.ok) {
-          const json = await r.json();
-          if (json.data) {
-            const results = json.data.map(a => ({
-              id: "search_" + a.mal_id,
-              title: a.title_english || a.title,
-              studio: (a.studios && a.studios[0]) ? a.studios[0].name : "Anime",
-              score: a.score || "8.5",
-              episodes: a.episodes || 12,
-              poster: a.images?.jpg?.large_image_url || a.images?.jpg?.image_url
-            }));
-            document.getElementById("catalogSectionTitle").textContent = `🔍 Search Results for "${q}"`;
-            document.getElementById("catalogStatus").textContent = `${results.length} results found`;
-            renderStreamsAndCatalog(results);
-          }
+        if (!r.ok) {
+          throw new Error(`HTTP ${r.status} during catalog search`);
         }
-      } catch (e) {}
+        const json = await r.json();
+        if (json.data) {
+          const results = json.data.map(a => ({
+            id: "search_" + a.mal_id,
+            title: a.title_english || a.title,
+            studio: (a.studios && a.studios[0]) ? a.studios[0].name : "Anime",
+            score: a.score || "8.5",
+            episodes: a.episodes || 12,
+            poster: a.images?.jpg?.large_image_url || a.images?.jpg?.image_url
+          }));
+          document.getElementById("catalogSectionTitle").textContent = `🔍 Search Results for "${q}"`;
+          document.getElementById("catalogStatus").textContent = `${results.length} results found`;
+          renderStreamsAndCatalog(results);
+          hideFetchErrorNotification();
+        }
+      } catch (e) {
+        updateOfflineIndicator(`search catalog results for "${q}"`);
+        showFetchErrorNotification(
+          `Search catalog fetch failed for "${q}" (${e.message || "Network error"}). Click 'Retry' to re-attempt the connection.`,
+          () => searchAnime()
+        );
+      }
     }
 
     loadLiveCatalogAndVersion();

@@ -33,88 +33,40 @@ class UserRepository(
     private val _preferences = MutableStateFlow(UserPreferences())
     val preferences: StateFlow<UserPreferences> = _preferences.asStateFlow()
 
-    private val _activeSessions = MutableStateFlow(
-        listOf(
-            DeviceSession(
-                sessionId = "sess_current_android",
-                deviceName = "Android Phone (${Build.MANUFACTURER} ${Build.MODEL})",
-                platform = "Android ${Build.VERSION.RELEASE}",
-                locationOrIp = "Dhaka, BD • 103.112.44.18 (Verified)",
-                lastActiveLabel = "Active now",
-                lastActiveEpochMs = System.currentTimeMillis(),
-                isCurrentDevice = true
-            ),
-            DeviceSession(
-                sessionId = "sess_tablet_02",
-                deviceName = "Android Tablet • Galaxy Tab S9",
-                platform = "Android 14",
-                locationOrIp = "Dhaka, BD • 103.112.44.19",
-                lastActiveLabel = "2 hours ago",
-                lastActiveEpochMs = System.currentTimeMillis() - 7_200_000L,
-                isCurrentDevice = false
-            ),
-            DeviceSession(
-                sessionId = "sess_tv_03",
-                deviceName = "Sony Bravia 4K Google TV",
-                platform = "Android TV",
-                locationOrIp = "Home Wi-Fi • 192.168.1.40",
-                lastActiveLabel = "Yesterday",
-                lastActiveEpochMs = System.currentTimeMillis() - 86_400_000L,
-                isCurrentDevice = false
-            )
-        )
-    )
+    private val _activeSessions = MutableStateFlow<List<DeviceSession>>(emptyList())
     val activeSessions: StateFlow<List<DeviceSession>> = _activeSessions.asStateFlow()
 
-    private val _loginHistory = MutableStateFlow(
-        listOf(
-            LoginHistoryItem(
-                id = "log_1",
-                deviceName = "Android Phone (${Build.MODEL})",
-                timestampLabel = "Today, Just now",
-                locationOrIp = "103.112.44.18",
-                authMethod = "Email + 2FA Verified",
-                isSuspicious = false,
-                statusText = "Success • Refresh Token Rotated"
-            ),
-            LoginHistoryItem(
-                id = "log_2",
-                deviceName = "Android Tablet • Galaxy Tab S9",
-                timestampLabel = "Today, 2 hours ago",
-                locationOrIp = "103.112.44.19",
-                authMethod = "Google Sign-In",
-                isSuspicious = false,
-                statusText = "Success"
-            )
-        )
-    )
+    private val _loginHistory = MutableStateFlow<List<LoginHistoryItem>>(emptyList())
     val loginHistory: StateFlow<List<LoginHistoryItem>> = _loginHistory.asStateFlow()
 
-    private val _isLoggedIn = MutableStateFlow(true)
+    private val _isLoggedIn = MutableStateFlow(false)
     val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
+
+    private val _authToken = MutableStateFlow<String?>(null)
+    val authToken: StateFlow<String?> = _authToken.asStateFlow()
 
     private val _user = MutableStateFlow(
         User(
-            id = "u_default_01",
-            username = "Robiul",
-            email = "ayanislam10000@gmail.com",
-            avatarUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80",
-            bio = "Anime Master in training • 1080p Simulcast Streamer • Otaku",
-            tier = "Ultra VIP",
-            role = UserRole.SUPER_ADMIN,
-            isLoggedIn = true,
-            emailVerified = true,
-            twoFactorEnabled = true,
-            memberSince = "Jan 2026",
-            episodesWatched = 142,
-            hoursWatched = 56.8f,
-            completedAnimeCount = 18,
-            xp = 2850,
-            level = 25,
-            titleRank = "Otaku",
-            watchStreakDays = 12,
-            activeSessions = _activeSessions.value,
-            loginHistory = _loginHistory.value,
+            id = "guest",
+            username = "Guest",
+            email = "",
+            avatarUrl = "",
+            bio = "Sign in or create an account to save your watchlist and watch history.",
+            tier = "Free Member",
+            role = UserRole.USER,
+            isLoggedIn = false,
+            emailVerified = false,
+            twoFactorEnabled = false,
+            memberSince = "-",
+            episodesWatched = 0,
+            hoursWatched = 0f,
+            completedAnimeCount = 0,
+            xp = 0,
+            level = 1,
+            titleRank = "Guest",
+            watchStreakDays = 0,
+            activeSessions = emptyList(),
+            loginHistory = emptyList(),
             preferences = _preferences.value
         )
     )
@@ -126,22 +78,30 @@ class UserRepository(
             try {
                 val activeAccount = adminScrapedDao?.getActiveSessionUser()
                 if (activeAccount != null) {
-                    _isLoggedIn.value = true
-                    _user.update {
-                        it.copy(
-                            id = activeAccount.userId,
-                            username = activeAccount.username,
-                            email = activeAccount.email,
-                            avatarUrl = activeAccount.avatarUrl,
-                            tier = activeAccount.tier,
-                            episodesWatched = activeAccount.episodesWatched.coerceAtLeast(142),
-                            hoursWatched = activeAccount.watchTimeHours.coerceAtLeast(56.8f),
-                            memberSince = activeAccount.joinDate,
-                            isLoggedIn = true
-                        )
+                    // Never auto-login any legacy pre-seeded fake account
+                    val isLegacyFakeAccount = activeAccount.userId == "u_default_01" ||
+                        activeAccount.userId == "guest"
+                    if (isLegacyFakeAccount) {
+                        adminScrapedDao?.clearAllActiveSessions()
+                        _isLoggedIn.value = false
+                    } else {
+                        _isLoggedIn.value = true
+                        _user.update {
+                            it.copy(
+                                id = activeAccount.userId,
+                                username = activeAccount.username,
+                                email = activeAccount.email,
+                                avatarUrl = activeAccount.avatarUrl,
+                                tier = activeAccount.tier,
+                                episodesWatched = activeAccount.episodesWatched,
+                                hoursWatched = activeAccount.watchTimeHours,
+                                memberSince = activeAccount.joinDate,
+                                isLoggedIn = true
+                            )
+                        }
+                        cloudSyncManager?.performInitialSync(activeAccount.userId)
                     }
                 }
-                cloudSyncManager?.performInitialSync(_user.value.id)
             } catch (_: Exception) {
             }
         }
@@ -195,6 +155,7 @@ class UserRepository(
         )
 
         _isLoggedIn.value = true
+        _authToken.value = "jwt_${UUID.randomUUID().toString().replace("-", "")}"
         recordNewSessionAndHistory(
             email = cleanEmail,
             deviceName = "Android Phone (${Build.MODEL})",
@@ -266,6 +227,7 @@ class UserRepository(
         val verificationCode = AuthSecurityManager.generateEmailVerificationCode(cleanEmail)
         val joinMonth = SimpleDateFormat("MMM yyyy", Locale.US).format(Date())
         _isLoggedIn.value = true
+        _authToken.value = "jwt_${UUID.randomUUID().toString().replace("-", "")}"
         recordNewSessionAndHistory(
             email = cleanEmail,
             deviceName = "Android Phone (${Build.MODEL})",
@@ -371,6 +333,7 @@ class UserRepository(
 
     fun logout() {
         _isLoggedIn.value = false
+        _authToken.value = null
         _user.update { it.copy(isLoggedIn = false) }
         scope.launch {
             try {

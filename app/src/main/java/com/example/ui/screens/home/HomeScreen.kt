@@ -79,9 +79,11 @@ import com.example.data.model.Anime
 import com.example.data.repository.AdminRepository
 import com.example.data.sync.CloudSyncStatus
 import com.example.ui.components.AnimeRow
+import com.example.ui.components.CatalogNetworkNotificationBanner
 import com.example.ui.components.ContinueWatchingRow
 import com.example.ui.components.HeroCarousel
 import com.example.ui.components.HomeShimmerScreen
+import com.example.ui.components.NavigatorOnlineStatusPill
 import com.example.ui.components.RobiulBrandHeader
 import com.example.ui.components.SecretAdminDialog
 import com.example.ui.theme.BackgroundDark
@@ -122,6 +124,7 @@ fun HomeScreen(
     val favorites by viewModel.favorites.collectAsStateWithLifecycle()
     val notifications by viewModel.notifications.collectAsStateWithLifecycle()
     val syncState by viewModel.cloudSyncManager.syncState.collectAsStateWithLifecycle()
+    val networkState by viewModel.catalogNetworkMonitor.state.collectAsStateWithLifecycle()
     val watchQueue by viewModel.gamificationRepository.watchQueue.collectAsStateWithLifecycle()
     val challenges by viewModel.gamificationRepository.challenges.collectAsStateWithLifecycle()
     val adMobConfig by AdminRepository.globalAdMobConfig.collectAsStateWithLifecycle()
@@ -215,6 +218,12 @@ fun HomeScreen(
                         )
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            NavigatorOnlineStatusPill(
+                                networkState = networkState,
+                                onToggleOfflineTest = { viewModel.toggleSimulatedOfflineMode() },
+                                modifier = Modifier.padding(end = 6.dp)
+                            )
+
                             // Cloud Sync Status Badge (SYNCED / SYNCING / OFFLINE / SYNC ERROR)
                             val syncBadgeColor = when (syncState.status) {
                                 CloudSyncStatus.SYNCED -> EmeraldSuccess
@@ -278,6 +287,16 @@ fun HomeScreen(
                             }
                         }
                     }
+                }
+
+                // Offline Mode Indicator & Automatic Catalog Fetch Failure Notification with Retry Button
+                item {
+                    CatalogNetworkNotificationBanner(
+                        networkState = networkState,
+                        externalErrorMessage = uiState.error,
+                        onRetryClick = { viewModel.retryCatalogConnection() },
+                        onDismissError = { viewModel.dismissFetchError() }
+                    )
                 }
 
                 // Quick Navigation Hub

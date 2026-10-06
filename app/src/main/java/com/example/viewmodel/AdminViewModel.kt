@@ -86,8 +86,19 @@ class AdminViewModel(
     }
 
     fun loadCatalog() {
+        val snapshot = animeRepository.getInitialSnapshot()
+        if (snapshot.isNotEmpty()) {
+            _uiState.update { state ->
+                val defaultAnime = snapshot.firstOrNull()
+                state.copy(
+                    animeList = snapshot,
+                    scrapeAnimeId = if (state.scrapeAnimeId.isBlank() && defaultAnime != null) defaultAnime.id else state.scrapeAnimeId,
+                    scrapeAnimeTitle = if (state.scrapeAnimeTitle.isBlank() && defaultAnime != null) defaultAnime.titleEnglish else state.scrapeAnimeTitle
+                )
+            }
+        }
         viewModelScope.launch {
-            val list = animeRepository.getPopular()
+            val list = animeRepository.getPopular().ifEmpty { animeRepository.getInitialSnapshot() }
             _uiState.update { state ->
                 val defaultAnime = list.firstOrNull()
                 state.copy(
@@ -96,6 +107,93 @@ class AdminViewModel(
                     scrapeAnimeTitle = if (state.scrapeAnimeTitle.isBlank() && defaultAnime != null) defaultAnime.titleEnglish else state.scrapeAnimeTitle
                 )
             }
+        }
+    }
+
+    fun clearFeedback() {
+        _uiState.update { it.copy(extractionMessage = null) }
+    }
+
+    fun addApiEndpointDirect(name: String, baseUrl: String, category: String) {
+        if (name.isBlank() || baseUrl.isBlank()) return
+        adminRepository.addApiConfig(name = name, baseUrl = baseUrl, category = category, apiKey = null)
+        _uiState.update {
+            it.copy(extractionMessage = "Added Video Server: $name")
+        }
+    }
+
+    fun addScrapedStreamDirect(
+        animeId: String,
+        animeTitle: String,
+        episodeNumber: Int,
+        episodeTitle: String,
+        streamUrl: String,
+        qualityLabel: String,
+        subtitleUrl: String,
+        subtitleLanguage: String,
+        audioLanguage: String,
+        serverSource: String
+    ) {
+        if (streamUrl.isBlank()) return
+        adminRepository.addScrapedVideo(
+            animeId = animeId,
+            animeTitle = animeTitle,
+            episodeNumber = episodeNumber,
+            episodeTitle = episodeTitle,
+            streamUrl = streamUrl,
+            qualityLabel = qualityLabel,
+            serverSource = serverSource,
+            subtitleUrl = subtitleUrl,
+            subtitleLanguage = subtitleLanguage,
+            audioLanguage = audioLanguage
+        )
+        _uiState.update {
+            it.copy(extractionMessage = "Published Ep $episodeNumber stream on $serverSource")
+        }
+    }
+
+    fun createAnimeDirect(
+        titleEnglish: String,
+        studio: String,
+        episodesCount: Int,
+        releaseYear: Int,
+        posterUrl: String,
+        genresInput: String,
+        description: String,
+        isFeatured: Boolean,
+        isTrending: Boolean
+    ) {
+        if (titleEnglish.isBlank()) return
+        val newAnime = Anime(
+            id = "anime_custom_${System.currentTimeMillis()}",
+            slug = titleEnglish.lowercase().replace(Regex("[^a-z0-9]+"), "-"),
+            titleEnglish = titleEnglish.trim(),
+            titleRomaji = titleEnglish.trim(),
+            titleJapanese = titleEnglish.trim(),
+            description = description.ifBlank { "Streaming in 1080p HD across all servers." },
+            posterUrl = posterUrl,
+            bannerUrl = posterUrl,
+            rating = 4.9f,
+            score = 92,
+            type = AnimeType.TV,
+            status = AnimeStatus.RELEASING,
+            episodesCount = episodesCount.coerceAtLeast(1),
+            releaseYear = releaseYear,
+            season = "Winter $releaseYear",
+            durationMinutes = 24,
+            studio = studio.ifBlank { "MAPPA" },
+            genres = genresInput.split(",").map { it.trim() }.filter { it.isNotBlank() }.ifEmpty { listOf("Action", "Fantasy") },
+            isFeatured = isFeatured,
+            isTrending = isTrending,
+            isPopular = true
+        )
+        adminRepository.addAnime(newAnime)
+        loadCatalog()
+        _uiState.update {
+            it.copy(
+                showAddAnimeDialog = false,
+                extractionMessage = "Added '${newAnime.titleEnglish}' to catalog"
+            )
         }
     }
 

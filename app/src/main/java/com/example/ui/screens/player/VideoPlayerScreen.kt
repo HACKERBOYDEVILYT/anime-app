@@ -7,6 +7,7 @@ import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.util.Rational
+import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.webkit.WebChromeClient
@@ -29,6 +30,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,6 +42,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -216,12 +219,13 @@ fun VideoPlayerScreen(
 
         val renderersFactory = DefaultRenderersFactory(context)
             .setEnableDecoderFallback(true)
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
 
         val trackSelector = DefaultTrackSelector(context).apply {
             setParameters(
                 buildUponParameters()
-                    .setMaxVideoSize(1280, 720)
-                    .setMaxVideoBitrate(2_500_000)
+                    .setExceedVideoConstraintsIfNecessary(true)
+                    .setExceedRendererCapabilitiesIfNecessary(true)
             )
         }
 
@@ -267,12 +271,15 @@ fun VideoPlayerScreen(
         }
     }
 
-    // Watchdog Timer: If any server stays stuck buffering/loading for > 5 seconds without playing,
-    // automatically switch to the next server in the 17-server pool!
+    // Watchdog Timer: If any server fails to initialize after 8.5 seconds,
+    // automatically switch to the next working server in the pool
     LaunchedEffect(currentStreamUrl) {
         if (currentStreamUrl.isNotBlank() && !isWebEmbedOrTrailer) {
-            delay(5000)
-            if (!exoPlayer.isPlaying && exoPlayer.playbackState != Player.STATE_READY) {
+            delay(8500)
+            if (!exoPlayer.isPlaying &&
+                exoPlayer.playbackState != Player.STATE_READY &&
+                exoPlayer.playbackState != Player.STATE_BUFFERING
+            ) {
                 val nextSource = viewModel.fallbackToNextWorkingSource(currentStreamUrl)
                 if (nextSource != null) {
                     kbdShortcutToast = "⚡ Server Timeout → Auto-Switched to ${nextSource.cdnNode}"
@@ -284,12 +291,20 @@ fun VideoPlayerScreen(
     // Set Media Item when currentSource changes
     LaunchedEffect(currentStreamUrl, isWebEmbedOrTrailer) {
         if (currentStreamUrl.isNotBlank() && !isWebEmbedOrTrailer) {
-            val mediaItem = MediaItem.fromUri(Uri.parse(currentStreamUrl))
+            val mediaItem = if (currentStreamUrl.contains(".m3u8", ignoreCase = true)) {
+                MediaItem.Builder()
+                    .setUri(Uri.parse(currentStreamUrl))
+                    .setMimeType(androidx.media3.common.MimeTypes.APPLICATION_M3U8)
+                    .build()
+            } else {
+                MediaItem.fromUri(Uri.parse(currentStreamUrl))
+            }
             exoPlayer.setMediaItem(mediaItem)
-            if (uiState.currentPositionMs > 0) {
+            if (uiState.currentPositionMs > 5000L) {
                 exoPlayer.seekTo(uiState.currentPositionMs)
             }
             exoPlayer.prepare()
+            exoPlayer.playWhenReady = true
             exoPlayer.play()
         } else if (isWebEmbedOrTrailer) {
             exoPlayer.pause()
@@ -510,12 +525,17 @@ fun VideoPlayerScreen(
                 modifier = Modifier.fillMaxSize()
             )
         } else {
-            // ExoPlayer View for Direct .m3u8 / .mp4 / .webm Streams
+            // ExoPlayer View using TextureView (exo_texture_player_view.xml) for guaranteed Compose video rendering
             AndroidView(
                 factory = { ctx ->
-                    PlayerView(ctx).apply {
+                    (LayoutInflater.from(ctx).inflate(
+                        com.example.R.layout.exo_texture_player_view,
+                        null,
+                        false
+                    ) as PlayerView).apply {
                         player = exoPlayer
                         useController = false
+                        keepScreenOn = true
                         resizeMode = if (isFullscreen) {
                             AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                         } else {
@@ -528,6 +548,9 @@ fun VideoPlayerScreen(
                     }
                 },
                 update = { playerView ->
+                    if (playerView.player !== exoPlayer) {
+                        playerView.player = exoPlayer
+                    }
                     playerView.resizeMode = if (isFullscreen) {
                         AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                     } else {
@@ -969,7 +992,7 @@ fun VideoPlayerScreen(
                     }
                 }
 
-                // Bottom Timeline (Custom Media3 Progress Bar) & Settings Bar
+                // Bottom Timeline (Custom Media3 Progress Bar), Quick Server Switcher & Settings Bar
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -977,6 +1000,50 @@ fun VideoPlayerScreen(
                         .navigationBarsPadding()
                         .padding(horizontal = 16.dp, vertical = 10.dp)
                 ) {
+                    // Quick On-Screen Video Server Switcher Row (GitHub Consumet / HiAnime / GogoCDN / VidCloud / AnimeThemes)
+                    val availableServers = uiState.currentEpisode?.sources.orEmpty()
+                    if (availableServers.isNotEmpty()) {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(vertical = 4.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 6.dp)
+                                .testTag("player_quick_server_row")
+                        ) {
+                            items(availableServers, key = { it.id }) { serverSource ->
+                                val isSelected = uiState.currentSource?.id == serverSource.id ||
+                                    uiState.currentSource?.streamUrl == serverSource.streamUrl
+                                Surface(
+                                    onClick = {
+                                        viewModel.selectSource(serverSource)
+                                        kbdShortcutToast = "⚡ Switched Server → ${serverSource.cdnNode}"
+                                    },
+                                    color = if (isSelected) CrimsonNeon else Color(0xFF141824).copy(alpha = 0.88f),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.border(
+                                        width = 1.dp,
+                                        color = if (isSelected) Color.White.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.18f),
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = if (isSelected) "● ${serverSource.cdnNode}" else "▶ ${serverSource.cdnNode}",
+                                            color = Color.White,
+                                            fontSize = 11.sp,
+                                            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     CustomVideoProgressBar(
                         exoPlayer = exoPlayer,
                         currentPositionMs = uiState.currentPositionMs,

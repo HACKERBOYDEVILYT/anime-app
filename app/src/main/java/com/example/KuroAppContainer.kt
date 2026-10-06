@@ -2,6 +2,7 @@ package com.example
 
 import android.content.Context
 import com.example.data.local.KuroDatabase
+import com.example.data.network.CatalogNetworkMonitor
 import com.example.data.network.RetrofitClient
 import com.example.data.repository.AdminRepository
 import com.example.data.repository.AnimeRepository
@@ -25,13 +26,18 @@ class KuroAppContainer(context: Context) {
 
     private val database: KuroDatabase = KuroDatabase.getInstance(context)
 
+    val catalogNetworkMonitor: CatalogNetworkMonitor = CatalogNetworkMonitor.getInstance(context)
+
     val cloudSyncManager: CloudSyncManager = CloudSyncManager()
 
-    val mediaProvider: LocalLicensedMediaProvider = LocalLicensedMediaProvider()
+    val mediaProvider: LocalLicensedMediaProvider = LocalLicensedMediaProvider(
+        adminScrapedDao = database.adminScrapedDao()
+    )
 
     private val remoteMetadataProvider = RetrofitMetadataProvider(
         apiService = RetrofitClient.apiService,
-        fallbackProvider = mediaProvider
+        fallbackProvider = mediaProvider,
+        catalogNetworkMonitor = catalogNetworkMonitor
     )
 
     val animeRepository: AnimeRepository = AnimeRepository(remoteMetadataProvider)

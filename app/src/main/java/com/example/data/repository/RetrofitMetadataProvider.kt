@@ -7,6 +7,7 @@ import com.example.data.model.AnimeStatus
 import com.example.data.model.AnimeType
 import com.example.data.model.Episode
 import com.example.data.model.EpisodeSource
+import com.example.data.network.CatalogNetworkMonitor
 import com.example.data.network.KuroApiService
 import com.example.data.network.RetrofitClient
 import com.example.data.network.model.AnimeDto
@@ -34,7 +35,8 @@ import java.util.UUID
  */
 class RetrofitMetadataProvider(
     private val apiService: KuroApiService,
-    private val fallbackProvider: LocalLicensedMediaProvider = LocalLicensedMediaProvider()
+    private val fallbackProvider: LocalLicensedMediaProvider = LocalLicensedMediaProvider(),
+    private val catalogNetworkMonitor: CatalogNetworkMonitor = CatalogNetworkMonitor.getInstance()
 ) : MetadataProvider {
 
     private val tag = "MultiServerApiProvider"
@@ -42,6 +44,10 @@ class RetrofitMetadataProvider(
     override fun getInitialCatalogSnapshot(): List<Anime> = fallbackProvider.getInitialCatalogSnapshot()
 
     override suspend fun getTrendingAnime(): List<Anime> = withContext(Dispatchers.IO) {
+        if (!catalogNetworkMonitor.verifyConnectionBeforeCatalogFetch("Trending Catalog (Jikan v4 & AnimeThemes)")) {
+            return@withContext fallbackProvider.getTrendingAnime()
+        }
+
         // 1. Fetch real anime + direct 1080p .webm video streams from AnimeThemes Real Video Server
         val animeThemesList = fetchFromAnimeThemesVideoServer("https://api.animethemes.moe/anime?include=animethemes.animethemeentries.videos,images&sort=-year&page[size]=8")
         if (animeThemesList.isNotEmpty()) {
@@ -52,11 +58,18 @@ class RetrofitMetadataProvider(
         val jikanList = fetchFromJikanApi("https://api.jikan.moe/v4/top/anime?filter=airing&limit=10")
         if (jikanList.isNotEmpty()) {
             fallbackProvider.mergeRemoteAnimeList(jikanList)
+            catalogNetworkMonitor.reportCatalogFetchSuccess()
         } else {
             // 3. Fallback to AniList Official GraphQL API
             val anilist = fetchFromAniListGraphQl()
             if (anilist.isNotEmpty()) {
                 fallbackProvider.mergeRemoteAnimeList(anilist)
+                catalogNetworkMonitor.reportCatalogFetchSuccess()
+            } else if (animeThemesList.isEmpty()) {
+                catalogNetworkMonitor.reportCatalogFetchFailure(
+                    sourceLabel = "Trending Catalog API",
+                    errorDetail = "Could not reach Jikan v4, AnimeThemes, or AniList catalog servers"
+                )
             }
         }
 
@@ -64,33 +77,49 @@ class RetrofitMetadataProvider(
     }
 
     override suspend fun getPopularAnime(): List<Anime> = withContext(Dispatchers.IO) {
+        if (!catalogNetworkMonitor.verifyConnectionBeforeCatalogFetch("Popular Catalog (Jikan v4 API)")) {
+            return@withContext fallbackProvider.getPopularAnime()
+        }
         val jikanList = fetchFromJikanApi("https://api.jikan.moe/v4/top/anime?filter=bypopularity&limit=12")
         if (jikanList.isNotEmpty()) {
             fallbackProvider.mergeRemoteAnimeList(jikanList)
+            catalogNetworkMonitor.reportCatalogFetchSuccess()
         }
         fallbackProvider.getPopularAnime()
     }
 
     override suspend fun getTopRatedAnime(): List<Anime> = withContext(Dispatchers.IO) {
+        if (!catalogNetworkMonitor.verifyConnectionBeforeCatalogFetch("Top Rated Catalog (Jikan v4 API)")) {
+            return@withContext fallbackProvider.getTopRatedAnime()
+        }
         val jikanList = fetchFromJikanApi("https://api.jikan.moe/v4/top/anime?limit=12")
         if (jikanList.isNotEmpty()) {
             fallbackProvider.mergeRemoteAnimeList(jikanList)
+            catalogNetworkMonitor.reportCatalogFetchSuccess()
         }
         fallbackProvider.getTopRatedAnime()
     }
 
     override suspend fun getSeasonalAnime(): List<Anime> = withContext(Dispatchers.IO) {
+        if (!catalogNetworkMonitor.verifyConnectionBeforeCatalogFetch("Seasonal Simulcast Catalog")) {
+            return@withContext fallbackProvider.getSeasonalAnime()
+        }
         val jikanSeasonal = fetchFromJikanApi("https://api.jikan.moe/v4/seasons/now?limit=10")
         if (jikanSeasonal.isNotEmpty()) {
             fallbackProvider.mergeRemoteAnimeList(jikanSeasonal)
+            catalogNetworkMonitor.reportCatalogFetchSuccess()
         }
         fallbackProvider.getSeasonalAnime()
     }
 
     override suspend fun getRecentlyAdded(): List<Anime> = withContext(Dispatchers.IO) {
+        if (!catalogNetworkMonitor.verifyConnectionBeforeCatalogFetch("Recently Added Video Catalog")) {
+            return@withContext fallbackProvider.getRecentlyAdded()
+        }
         val recentVideoAnime = fetchFromAnimeThemesVideoServer("https://api.animethemes.moe/anime?include=animethemes.animethemeentries.videos,images&sort=-updated_at&page[size]=8")
         if (recentVideoAnime.isNotEmpty()) {
             fallbackProvider.mergeRemoteAnimeList(recentVideoAnime)
+            catalogNetworkMonitor.reportCatalogFetchSuccess()
         }
         fallbackProvider.getRecentlyAdded()
     }
@@ -107,6 +136,9 @@ class RetrofitMetadataProvider(
         status: String?,
         sortBy: String
     ): List<Anime> = withContext(Dispatchers.IO) {
+        if (!catalogNetworkMonitor.verifyConnectionBeforeCatalogFetch("Catalog Search API")) {
+            return@withContext fallbackProvider.searchAnime(query, genre, year, type, status, sortBy)
+        }
         if (query.isNotBlank()) {
             val encoded = URLEncoder.encode(query.trim(), "UTF-8")
             val jikanResults = fetchFromJikanApi("https://api.jikan.moe/v4/anime?q=$encoded&limit=10&sfw=true")
@@ -116,6 +148,14 @@ class RetrofitMetadataProvider(
             val atResults = fetchFromAnimeThemesVideoServer("https://api.animethemes.moe/anime?q=$encoded&include=animethemes.animethemeentries.videos,images&page[size]=6")
             if (atResults.isNotEmpty()) {
                 fallbackProvider.mergeRemoteAnimeList(atResults)
+            }
+            if (jikanResults.isEmpty() && atResults.isEmpty()) {
+                catalogNetworkMonitor.reportCatalogFetchFailure(
+                    sourceLabel = "Catalog Search API (\"${query.trim()}\")",
+                    errorDetail = "Remote search request failed or returned no upstream response"
+                )
+            } else {
+                catalogNetworkMonitor.reportCatalogFetchSuccess()
             }
         }
         fallbackProvider.searchAnime(query, genre, year, type, status, sortBy)

@@ -7,6 +7,7 @@ import com.example.data.model.NotificationItem
 import com.example.data.model.WatchHistoryItem
 import com.example.data.model.WatchStatus
 import com.example.data.model.WatchlistItem
+import com.example.data.network.CatalogNetworkMonitor
 import com.example.data.repository.AiRecommendationEngine
 import com.example.data.repository.AnimeRepository
 import com.example.data.repository.GamificationAndSocialRepository
@@ -14,6 +15,8 @@ import com.example.data.repository.PersonalizedRecommendationsBundle
 import com.example.data.repository.UserRepository
 import com.example.data.repository.WatchRepository
 import com.example.data.sync.CloudSyncManager
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -23,6 +26,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 data class HomeUiState(
     val isLoading: Boolean = true,
@@ -46,7 +50,8 @@ class HomeViewModel(
     private val watchRepository: WatchRepository,
     val userRepository: UserRepository? = null,
     val gamificationRepository: GamificationAndSocialRepository = GamificationAndSocialRepository(),
-    val cloudSyncManager: CloudSyncManager = CloudSyncManager()
+    val cloudSyncManager: CloudSyncManager = CloudSyncManager(),
+    val catalogNetworkMonitor: CatalogNetworkMonitor = CatalogNetworkMonitor.getInstance()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -131,54 +136,137 @@ class HomeViewModel(
     val notifications: StateFlow<List<NotificationItem>> = _notifications.asStateFlow()
 
     init {
+        catalogNetworkMonitor.registerRetryListener {
+            loadHomeData()
+        }
         loadHomeData()
         observeRecommendationsDynamic()
     }
 
+    fun retryCatalogConnection() {
+        catalogNetworkMonitor.retryCatalogConnection {
+            loadHomeData()
+        }
+    }
+
+    fun toggleSimulatedOfflineMode() {
+        catalogNetworkMonitor.toggleSimulatedOfflineCatalogFailure()
+    }
+
+    fun dismissFetchError() {
+        _uiState.update { it.copy(error = null) }
+        catalogNetworkMonitor.dismissFetchNotification()
+    }
+
     fun loadHomeData() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-            try {
-                val featured = animeRepository.getFeaturedAnime()
-                val trending = animeRepository.getTrending()
-                val popular = animeRepository.getPopular()
-                val seasonal = animeRepository.getSeasonal()
-                val topRated = animeRepository.getTopRated()
-                val recentlyAdded = animeRepository.getRecentlyAdded()
-                val genres = animeRepository.getGenres()
-                val allCatalog = (trending + popular + seasonal + topRated + recentlyAdded).distinctBy { it.id }
-
-                val history = watchRepository.getContinueWatching().firstOrNull().orEmpty()
-                val watchlist = watchRepository.getAllWatchlist().firstOrNull().orEmpty()
-                val prefs = userRepository?.preferences?.value ?: com.example.data.model.UserPreferences()
-                val aiRecs = AiRecommendationEngine.generateRecommendations(
-                    catalog = allCatalog,
-                    watchHistory = history,
-                    watchlist = watchlist,
-                    preferences = prefs
+        // 1. Immediately display local catalog snapshot so Home Screen never hangs on loading
+        val initialCatalog = animeRepository.getInitialSnapshot()
+        if (initialCatalog.isNotEmpty()) {
+            val initTrending = initialCatalog.filter { it.isTrending }.ifEmpty { initialCatalog }
+            val initPopular = initialCatalog.filter { it.isPopular }.ifEmpty { initialCatalog }
+            val initSeasonal = initialCatalog.filter { it.isSeasonal }.ifEmpty { initialCatalog }
+            val initTopRated = initialCatalog.sortedByDescending { it.rating }
+            val initRecent = initialCatalog.sortedByDescending { it.releaseYear }
+            val initFeatured = initialCatalog.firstOrNull { it.isFeatured } ?: initialCatalog.first()
+            val prefs = userRepository?.preferences?.value ?: com.example.data.model.UserPreferences()
+            val initRecs = AiRecommendationEngine.generateRecommendations(
+                catalog = initialCatalog,
+                watchHistory = emptyList(),
+                watchlist = emptyList(),
+                preferences = prefs
+            )
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    featuredAnime = it.featuredAnime ?: initFeatured,
+                    bannerItems = initTrending.take(5),
+                    trending = initTrending,
+                    popular = initPopular,
+                    seasonal = initSeasonal,
+                    topRated = initTopRated,
+                    recentlyAdded = initRecent,
+                    genres = listOf("All", "Action", "Adventure", "Comedy", "Dark Fantasy", "Drama", "Fantasy", "Sci-Fi", "Supernatural"),
+                    recommendations = initRecs,
+                    randomPickedAnime = it.randomPickedAnime ?: initialCatalog.firstOrNull(),
+                    rouletteSelectedAnime = it.rouletteSelectedAnime ?: initialCatalog.lastOrNull(),
+                    error = null
                 )
+            }
+        }
 
+        // 2. Refresh live multi-server catalog data in parallel in the background with strict timeout
+        viewModelScope.launch {
+            val isOnline = catalogNetworkMonitor.verifyConnectionBeforeCatalogFetch("Home Anime Catalog API")
+            if (!isOnline) {
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        featuredAnime = featured,
-                        bannerItems = trending.take(5),
-                        trending = trending,
-                        popular = popular,
-                        seasonal = seasonal,
-                        topRated = topRated,
-                        recentlyAdded = recentlyAdded,
-                        genres = genres,
-                        recommendations = aiRecs,
-                        randomPickedAnime = allCatalog.firstOrNull(),
-                        rouletteSelectedAnime = allCatalog.lastOrNull()
+                        error = "Lost internet connection (navigator.onLine = false) while attempting to fetch live catalog data."
                     )
                 }
+                return@launch
+            }
+            try {
+                coroutineScope {
+                    val trendingDeferred = async { withTimeoutOrNull(6000L) { animeRepository.getTrending() } }
+                    val popularDeferred = async { withTimeoutOrNull(6000L) { animeRepository.getPopular() } }
+                    val seasonalDeferred = async { withTimeoutOrNull(6000L) { animeRepository.getSeasonal() } }
+                    val topRatedDeferred = async { withTimeoutOrNull(6000L) { animeRepository.getTopRated() } }
+                    val recentDeferred = async { withTimeoutOrNull(6000L) { animeRepository.getRecentlyAdded() } }
+                    val genresDeferred = async { withTimeoutOrNull(3000L) { animeRepository.getGenres() } }
+
+                    val currentSnap = animeRepository.getInitialSnapshot()
+                    val trending = trendingDeferred.await()?.takeIf { it.isNotEmpty() }
+                        ?: currentSnap.filter { it.isTrending }.ifEmpty { currentSnap }
+                    val popular = popularDeferred.await()?.takeIf { it.isNotEmpty() }
+                        ?: currentSnap.filter { it.isPopular }.ifEmpty { currentSnap }
+                    val seasonal = seasonalDeferred.await()?.takeIf { it.isNotEmpty() }
+                        ?: currentSnap.filter { it.isSeasonal }.ifEmpty { currentSnap }
+                    val topRated = topRatedDeferred.await()?.takeIf { it.isNotEmpty() }
+                        ?: currentSnap.sortedByDescending { it.rating }
+                    val recentlyAdded = recentDeferred.await()?.takeIf { it.isNotEmpty() }
+                        ?: currentSnap.sortedByDescending { it.releaseYear }
+                    val genres = genresDeferred.await()?.takeIf { it.isNotEmpty() }
+                        ?: _uiState.value.genres
+
+                    val allCatalog = (trending + popular + seasonal + topRated + recentlyAdded + currentSnap).distinctBy { it.id }
+                    val featured = allCatalog.firstOrNull { it.isFeatured } ?: trending.firstOrNull()
+
+                    val history = watchRepository.getContinueWatching().firstOrNull().orEmpty()
+                    val watchlist = watchRepository.getAllWatchlist().firstOrNull().orEmpty()
+                    val prefs = userRepository?.preferences?.value ?: com.example.data.model.UserPreferences()
+                    val aiRecs = AiRecommendationEngine.generateRecommendations(
+                        catalog = allCatalog,
+                        watchHistory = history,
+                        watchlist = watchlist,
+                        preferences = prefs
+                    )
+
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            featuredAnime = featured ?: it.featuredAnime,
+                            bannerItems = trending.take(5),
+                            trending = trending,
+                            popular = popular,
+                            seasonal = seasonal,
+                            topRated = topRated,
+                            recentlyAdded = recentlyAdded,
+                            genres = genres,
+                            recommendations = aiRecs,
+                            randomPickedAnime = it.randomPickedAnime ?: allCatalog.firstOrNull(),
+                            rouletteSelectedAnime = it.rouletteSelectedAnime ?: allCatalog.lastOrNull(),
+                            error = null
+                        )
+                    }
+                }
             } catch (e: Exception) {
+                val msg = e.localizedMessage ?: "Failed to fetch anime catalog data"
+                catalogNetworkMonitor.reportCatalogFetchFailure("Home Anime Catalog API", msg)
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = e.localizedMessage ?: "Failed to load catalog"
+                        error = msg
                     )
                 }
             }

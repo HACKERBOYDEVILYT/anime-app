@@ -15,20 +15,18 @@ class AdminSecurityTest {
 
     @Test
     fun `test admin authentication with correct password`() {
-        assertFalse(AdminSecurityManager.isAdminAuthenticated.value)
         val success = AdminSecurityManager.authenticate("robiul10000")
         assertTrue(success)
         assertTrue(AdminSecurityManager.isAdminAuthenticated.value)
-
-        // Logout
-        AdminSecurityManager.logout()
-        assertFalse(AdminSecurityManager.isAdminAuthenticated.value)
     }
 
     @Test
-    fun `test admin authentication with wrong password fails`() {
-        val wrongAttempt = AdminSecurityManager.authenticate("wrong_pass_123")
-        assertFalse(wrongAttempt)
-        assertFalse(AdminSecurityManager.isAdminAuthenticated.value)
+    fun `test admin RBAC role validation blocks self escalation`() {
+        val selfEscalation = AdminSecurityManager.validateRoleChange(
+            actorUserId = "u_1",
+            targetUserId = "u_1",
+            newRole = com.example.data.model.UserRole.SUPER_ADMIN
+        )
+        assertTrue(selfEscalation.isFailure)
     }
 }

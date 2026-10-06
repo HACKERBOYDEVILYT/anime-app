@@ -372,7 +372,7 @@ fun ProfileScreen(
             }
         }
 
-        // 1. Complete User Profile & Gamification Header Card (Sections 1, 10, 20, 27)
+        // 1. Account & Authentication Card (Clean Signed-Out State by Default on Install)
         item {
             Card(
                 shape = RoundedCornerShape(16.dp),
@@ -382,193 +382,269 @@ fun ProfileScreen(
                     .border(1.dp, CardBorder, RoundedCornerShape(16.dp))
                     .testTag("profile_user_card")
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        AsyncImage(
-                            model = user.avatarUrl,
-                            contentDescription = user.username,
-                            contentScale = ContentScale.Crop,
+                if (!isLoggedIn) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
                             modifier = Modifier
-                                .size(74.dp)
-                                .clip(CircleShape)
-                                .border(2.dp, CrimsonNeon, CircleShape)
+                                .size(64.dp)
+                                .background(SurfaceVariantDark, CircleShape)
+                                .border(2.dp, CrimsonNeon.copy(alpha = 0.6f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Security,
+                                contentDescription = "Not Signed In",
+                                tint = CrimsonNeon,
+                                modifier = Modifier.size(30.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            text = "Not Signed In",
+                            color = TextPrimary,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.ExtraBold
                         )
 
-                        Spacer(modifier = Modifier.width(14.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
 
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "No account is logged in on this device. Sign in or create a new account to sync your watchlist, history, and preferences.",
+                            color = TextSecondary,
+                            fontSize = 12.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Button(
+                                onClick = { showAuthDialog = true },
+                                colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("profile_auth_toggle_btn")
+                            ) {
                                 Text(
-                                    text = user.username,
-                                    color = TextPrimary,
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.ExtraBold
+                                    text = "Sign In / Create Account",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
                                 )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                if (user.emailVerified) {
-                                    Icon(
-                                        imageVector = Icons.Default.Verified,
-                                        contentDescription = "Verified Account",
-                                        tint = CyanGlow,
-                                        modifier = Modifier.size(18.dp)
+                            }
+
+                            OutlinedButton(
+                                onClick = onAdminClick,
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.testTag("profile_open_admin_btn")
+                            ) {
+                                Text("Admin Panel", color = CyanAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            TextButton(onClick = { showForgotPasswordDialog = true }) {
+                                Text("Forgot / Reset Password?", color = TextSecondary, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                } else {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            AsyncImage(
+                                model = user.avatarUrl,
+                                contentDescription = user.username,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(74.dp)
+                                    .clip(CircleShape)
+                                    .border(2.dp, CrimsonNeon, CircleShape)
+                            )
+
+                            Spacer(modifier = Modifier.width(14.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = user.username,
+                                        color = TextPrimary,
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.ExtraBold
                                     )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    if (user.emailVerified) {
+                                        Icon(
+                                            imageVector = Icons.Default.Verified,
+                                            contentDescription = "Verified Account",
+                                            tint = CyanGlow,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+
+                                Text(
+                                    text = "${user.email} • ${user.authProvider}",
+                                    color = TextSecondary,
+                                    fontSize = 12.sp
+                                )
+
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Surface(
+                                        color = CrimsonNeon.copy(alpha = 0.2f),
+                                        shape = RoundedCornerShape(6.dp)
+                                    ) {
+                                        Text(
+                                            text = "🎖️ ${user.userTitle} • Lv.${user.level}",
+                                            color = CrimsonNeon,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                        )
+                                    }
+                                    Surface(
+                                        color = StarAmber.copy(alpha = 0.2f),
+                                        shape = RoundedCornerShape(6.dp)
+                                    ) {
+                                        Text(
+                                            text = "🔥 ${user.currentStreakDays} Day Streak",
+                                            color = StarAmber,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                        )
+                                    }
                                 }
                             }
 
+                            IconButton(onClick = { showEditProfileDialog = true }) {
+                                Icon(Icons.Default.Edit, contentDescription = "Edit Profile", tint = CyanAccent)
+                            }
+                        }
+
+                        if (user.bio.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(10.dp))
                             Text(
-                                text = "${user.email} • ${user.authProvider}",
+                                text = user.bio,
                                 color = TextSecondary,
-                                fontSize = 12.sp
-                            )
-
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            // User Title (Newbie → Fan → Otaku → Elite → Master) & Streak Badge
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Surface(
-                                    color = CrimsonNeon.copy(alpha = 0.2f),
-                                    shape = RoundedCornerShape(6.dp)
-                                ) {
-                                    Text(
-                                        text = "🎖️ ${user.userTitle} • Lv.${user.level}",
-                                        color = CrimsonNeon,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                    )
-                                }
-                                Surface(
-                                    color = StarAmber.copy(alpha = 0.2f),
-                                    shape = RoundedCornerShape(6.dp)
-                                ) {
-                                    Text(
-                                        text = "🔥 ${user.currentStreakDays} Day Streak",
-                                        color = StarAmber,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        IconButton(onClick = { showEditProfileDialog = true }) {
-                            Icon(Icons.Default.Edit, contentDescription = "Edit Profile", tint = CyanAccent)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Text(
-                        text = user.bio,
-                        color = TextSecondary,
-                        fontSize = 13.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // XP Progress Bar & Followers / Following
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "XP: ${user.xpPoints} / ${(user.level) * 500} (Next Title Tier)",
-                            color = CyanAccent,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "${user.followersCount} Followers • ${user.followingCount} Following",
-                            color = TextMuted,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    LinearProgressIndicator(
-                        progress = { ((user.xpPoints % 500) / 500f).coerceIn(0.1f, 1f) },
-                        color = CrimsonNeon,
-                        trackColor = SurfaceVariantDark,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(3.dp))
-                    )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Complete Watch Statistics Row
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(SurfaceVariantDark, RoundedCornerShape(12.dp))
-                            .padding(vertical = 12.dp, horizontal = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        ProfileStatColumn(value = "${user.episodesWatchedCount}", label = "Episodes")
-                        ProfileStatColumn(value = "${user.hoursWatched}h", label = "Hours")
-                        ProfileStatColumn(value = "${user.completedCount}", label = "Completed")
-                        ProfileStatColumn(value = "⭐ ${user.meanScore}", label = "Mean Score")
-                        ProfileStatColumn(value = "${user.favoritesCount}", label = "Favorites")
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Auth Actions Row (Login/Register, Google Sign-In, Verify Email, Forgot Password, Logout)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = {
-                                if (isLoggedIn) viewModel.logout() else showAuthDialog = true
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isLoggedIn) SurfaceVariantDark else CrimsonNeon
-                            ),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("profile_auth_toggle_btn")
-                        ) {
-                            Text(
-                                text = if (isLoggedIn) "Sign Out" else "Sign In / Register",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
+                                fontSize = 13.sp
                             )
                         }
 
-                        OutlinedButton(
-                            onClick = { viewModel.signInWithGoogle("robiul.google@gmail.com", "Robiul Google") },
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.weight(1f)
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Google Sign-In", color = CyanAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        TextButton(onClick = { showVerifyEmailDialog = true }) {
                             Text(
-                                text = if (user.emailVerified) "✓ Email Verified" else "Verify Email",
-                                color = if (user.emailVerified) EmeraldSuccess else StarAmber,
-                                fontSize = 12.sp,
+                                text = "XP: ${user.xpPoints} / ${(user.level) * 500} (Next Title Tier)",
+                                color = CyanAccent,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold
                             )
+                            Text(
+                                text = "${user.followersCount} Followers • ${user.followingCount} Following",
+                                color = TextMuted,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
-                        TextButton(onClick = { showForgotPasswordDialog = true }) {
-                            Text("Forgot / Reset Password", color = TextSecondary, fontSize = 12.sp)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        LinearProgressIndicator(
+                            progress = { ((user.xpPoints % 500) / 500f).coerceIn(0.1f, 1f) },
+                            color = CrimsonNeon,
+                            trackColor = SurfaceVariantDark,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(3.dp))
+                        )
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(SurfaceVariantDark, RoundedCornerShape(12.dp))
+                                .padding(vertical = 12.dp, horizontal = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            ProfileStatColumn(value = "${user.episodesWatchedCount}", label = "Episodes")
+                            ProfileStatColumn(value = "${user.hoursWatched}h", label = "Hours")
+                            ProfileStatColumn(value = "${user.completedCount}", label = "Completed")
+                            ProfileStatColumn(value = "⭐ ${user.meanScore}", label = "Mean Score")
+                            ProfileStatColumn(value = "${user.favoritesCount}", label = "Favorites")
                         }
-                        TextButton(onClick = { showDeleteConfirmDialog = true }) {
-                            Text("Delete Account", color = CrimsonNeon, fontSize = 12.sp)
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = { viewModel.logout() },
+                                colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariantDark),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("profile_auth_toggle_btn")
+                            ) {
+                                Text(
+                                    text = "Sign Out",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp
+                                )
+                            }
+
+                            OutlinedButton(
+                                onClick = onAdminClick,
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Admin Panel", color = CyanAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            TextButton(onClick = { showVerifyEmailDialog = true }) {
+                                Text(
+                                    text = if (user.emailVerified) "✓ Email Verified" else "Verify Email",
+                                    color = if (user.emailVerified) EmeraldSuccess else StarAmber,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            TextButton(onClick = { showForgotPasswordDialog = true }) {
+                                Text("Forgot / Reset Password", color = TextSecondary, fontSize = 12.sp)
+                            }
+                            TextButton(onClick = { showDeleteConfirmDialog = true }) {
+                                Text("Delete Account", color = CrimsonNeon, fontSize = 12.sp)
+                            }
                         }
                     }
                 }

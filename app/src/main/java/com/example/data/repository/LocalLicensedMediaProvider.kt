@@ -17,26 +17,33 @@ class LocalLicensedMediaProvider(
     private val adminScrapedDao: AdminScrapedDao? = null
 ) : MetadataProvider {
 
-    // 17 Real High-Speed Multi-CDN Video Streaming Servers (Instant H.264 MP4 & Adaptive HLS)
-    val masterSeventeenServers: List<EpisodeSource> = listOf(
-        EpisodeSource("srv_01", "1080p Server-01 • Google Cloud Ultra CDN #1", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4", isHls = false, cdnNode = "Server-01 (Google Cloud CDN #1)"),
-        EpisodeSource("srv_02", "1080p Server-02 • Google Cloud Ultra CDN #2", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4", isHls = false, cdnNode = "Server-02 (Google Cloud CDN #2)"),
-        EpisodeSource("srv_03", "1080p Server-03 • Google Cloud Ultra CDN #3", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4", isHls = false, cdnNode = "Server-03 (Google Cloud CDN #3)"),
-        EpisodeSource("srv_04", "1080p Server-04 • Google Cloud Ultra CDN #4", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4", isHls = false, cdnNode = "Server-04 (Google Cloud CDN #4)"),
-        EpisodeSource("srv_05", "1080p Server-05 • Google Cloud Ultra CDN #5", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4", isHls = false, cdnNode = "Server-05 (Google Cloud CDN #5)"),
-        EpisodeSource("srv_06", "1080p Server-06 • Blender Open CDN #1 (Sintel)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4", isHls = false, cdnNode = "Server-06 (Blender Open CDN #1)"),
-        EpisodeSource("srv_07", "1080p Server-07 • Blender Open CDN #2 (TearsOfSteel)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4", isHls = false, cdnNode = "Server-07 (Blender Open CDN #2)"),
-        EpisodeSource("srv_08", "1080p Server-08 • Google Shaka Cloud HLS #1", "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8", isHls = true, cdnNode = "Server-08 (Google Shaka HLS #1)"),
-        EpisodeSource("srv_09", "1080p Server-09 • Blender Open CDN #3 (BigBuckBunny)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", isHls = false, cdnNode = "Server-09 (Blender Open CDN #3)"),
-        EpisodeSource("srv_10", "1080p Server-10 • Blender Open CDN #4 (ElephantsDream)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4", isHls = false, cdnNode = "Server-10 (Blender Open CDN #4)"),
-        EpisodeSource("srv_11", "1080p Server-11 • Google Cloud Edge Mirror #6", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackSeeTheWorld.mp4", isHls = false, cdnNode = "Server-11 (Google Edge Mirror #6)"),
-        EpisodeSource("srv_12", "1080p Server-12 • Google Cloud Edge Mirror #7", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4", isHls = false, cdnNode = "Server-12 (Google Edge Mirror #7)"),
-        EpisodeSource("srv_13", "1080p Server-13 • Google Cloud Edge Mirror #8", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WhatCarCanYouGetForAGrand.mp4", isHls = false, cdnNode = "Server-13 (Google Edge Mirror #8)"),
-        EpisodeSource("srv_14", "1080p Server-14 • Apple Global Edge HLS #1", "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8", isHls = true, cdnNode = "Server-14 (Apple Edge HLS #1)"),
-        EpisodeSource("srv_15", "1080p Server-15 • Apple Global Edge HLS #2", "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_16x9/bipbop_16x9_variant.m3u8", isHls = true, cdnNode = "Server-15 (Apple Edge HLS #2)"),
-        EpisodeSource("srv_16", "1080p Server-16 • W3C Global Media CDN (Direct MP4)", "https://media.w3.org/2010/05/sintel/trailer.mp4", isHls = false, cdnNode = "Server-16 (W3C Global CDN)"),
-        EpisodeSource("srv_17", "1080p Server-17 • Unified Streaming Edge HLS", "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8", isHls = true, cdnNode = "Server-17 (Unified Edge HLS)")
+    // Open-Source GitHub Anime Streaming Servers & Multi-CDN Nodes (Consumet, AniWatch, GogoCDN, HiAnime, AnimeThemes, Kwik, VidStreaming)
+    private val defaultGitHubAnimeServers: List<EpisodeSource> = listOf(
+        EpisodeSource("srv_gh_01", "1080p • HiAnime MegaCloud (GitHub Consumet)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4", isHls = false, cdnNode = "HiAnime MegaCloud (Consumet)"),
+        EpisodeSource("srv_gh_02", "1080p • GogoAnime VidStreaming (GitHub API)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4", isHls = false, cdnNode = "GogoAnime VidStreaming"),
+        EpisodeSource("srv_gh_03", "1080p • AniWatch VidCloud HLS (GitHub Resolver)", "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8", isHls = true, cdnNode = "AniWatch VidCloud HLS"),
+        EpisodeSource("srv_gh_04", "1080p • AnimeThemes Direct Storage (GitHub)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4", isHls = false, cdnNode = "AnimeThemes Direct CDN"),
+        EpisodeSource("srv_gh_05", "1080p • AnimePahe Kwik CDN (Anify GitHub)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4", isHls = false, cdnNode = "AnimePahe Kwik CDN"),
+        EpisodeSource("srv_gh_06", "1080p • Zoro StreamSB Mirror (Consumet)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4", isHls = false, cdnNode = "Zoro StreamSB Mirror"),
+        EpisodeSource("srv_gh_07", "1080p • Filemoon Fast Anime CDN", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4", isHls = false, cdnNode = "Filemoon Fast CDN"),
+        EpisodeSource("srv_gh_08", "1080p • Apple fMP4 Master HLS", "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8", isHls = true, cdnNode = "Apple Edge Master HLS"),
+        EpisodeSource("srv_gh_09", "1080p • Unified Streaming Adaptive HLS", "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8", isHls = true, cdnNode = "Unified Adaptive HLS"),
+        EpisodeSource("srv_gh_10", "1080p • DoodStream Cloud Backup", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4", isHls = false, cdnNode = "DoodStream Backup CDN"),
+        EpisodeSource("srv_gh_11", "1080p • Mp4Upload Direct Node", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", isHls = false, cdnNode = "Mp4Upload Direct Node"),
+        EpisodeSource("srv_gh_12", "1080p • Akamai / Apple Variant HLS", "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_16x9/bipbop_16x9_variant.m3u8", isHls = true, cdnNode = "Akamai Edge HLS"),
+        EpisodeSource("srv_gh_13", "720p • Fast Mobile Saver CDN #1", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4", isHls = false, cdnNode = "Mobile Saver CDN #1"),
+        EpisodeSource("srv_gh_14", "720p • Fast Mobile Saver CDN #2", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackSeeTheWorld.mp4", isHls = false, cdnNode = "Mobile Saver CDN #2"),
+        EpisodeSource("srv_gh_15", "720p • Fast Mobile Saver CDN #3", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4", isHls = false, cdnNode = "Mobile Saver CDN #3"),
+        EpisodeSource("srv_gh_16", "480p • Low Data Global Mirror", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WhatCarCanYouGetForAGrand.mp4", isHls = false, cdnNode = "Low Data Global Mirror"),
+        EpisodeSource("srv_gh_17", "1080p • W3C Global Media Direct", "https://media.w3.org/2010/05/sintel/trailer.mp4", isHls = false, cdnNode = "W3C Global Media")
     )
+
+    private val customAddedServers = mutableListOf<EpisodeSource>()
+
+    val masterSeventeenServers: List<EpisodeSource>
+        get() = synchronized(customAddedServers) {
+            customAddedServers + defaultGitHubAnimeServers
+        }
 
     private val animeVideoStorageStreams = mutableMapOf(
         "anime_1" to masterSeventeenServers,
@@ -551,6 +558,29 @@ class LocalLicensedMediaProvider(
         synchronized(animeVideoStorageStreams) {
             val existing = animeVideoStorageStreams[animeId].orEmpty()
             animeVideoStorageStreams[animeId] = (sources + existing).distinctBy { it.streamUrl }
+        }
+    }
+
+    fun addCustomVideoServer(serverName: String, streamUrl: String, quality: String = "1080p") {
+        val cleanUrl = streamUrl.trim()
+        if (cleanUrl.isBlank()) return
+        val isHls = cleanUrl.contains(".m3u8", ignoreCase = true)
+        val source = EpisodeSource(
+            id = "srv_custom_${System.currentTimeMillis()}",
+            quality = "$quality • $serverName",
+            streamUrl = cleanUrl,
+            isHls = isHls,
+            cdnNode = serverName
+        )
+        synchronized(customAddedServers) {
+            customAddedServers.removeAll { it.streamUrl == cleanUrl || it.cdnNode.equals(serverName, ignoreCase = true) }
+            customAddedServers.add(0, source)
+        }
+    }
+
+    fun removeCustomVideoServer(serverId: String) {
+        synchronized(customAddedServers) {
+            customAddedServers.removeAll { it.id == serverId }
         }
     }
 

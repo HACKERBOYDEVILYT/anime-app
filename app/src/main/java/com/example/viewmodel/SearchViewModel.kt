@@ -7,6 +7,7 @@ import com.example.data.model.AnimeSortOption
 import com.example.data.model.AnimeStatus
 import com.example.data.model.AnimeType
 import com.example.data.model.CharacterProfile
+import com.example.data.network.CatalogNetworkMonitor
 import com.example.data.repository.AnimeRepository
 import com.example.data.repository.GamificationAndSocialRepository
 import kotlinx.coroutines.FlowPreview
@@ -55,13 +56,15 @@ data class SearchUiState(
     ),
     val availableGenres: List<String> = emptyList(),
     val availableStudios: List<String> = listOf("MAPPA", "Madhouse", "ufotable", "A-1 Pictures", "Toei Animation", "Bones", "CloverWorks"),
-    val isSearching: Boolean = false
+    val isSearching: Boolean = false,
+    val error: String? = null
 )
 
 @OptIn(FlowPreview::class)
 class SearchViewModel(
     private val animeRepository: AnimeRepository,
-    private val gamificationRepository: GamificationAndSocialRepository = GamificationAndSocialRepository()
+    private val gamificationRepository: GamificationAndSocialRepository = GamificationAndSocialRepository(),
+    val catalogNetworkMonitor: CatalogNetworkMonitor = CatalogNetworkMonitor.getInstance()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SearchUiState())
@@ -238,10 +241,26 @@ class SearchViewModel(
         _recentSearches.value = emptyList()
     }
 
+    fun retryCatalogConnection() {
+        catalogNetworkMonitor.retryCatalogConnection {
+            executeFilterAndSearch()
+        }
+    }
+
+    fun toggleSimulatedOfflineMode() {
+        catalogNetworkMonitor.toggleSimulatedOfflineCatalogFailure()
+    }
+
+    fun dismissFetchError() {
+        _uiState.update { it.copy(error = null) }
+        catalogNetworkMonitor.dismissFetchNotification()
+    }
+
     private fun executeFilterAndSearch() {
         viewModelScope.launch {
             val state = _uiState.value
-            _uiState.update { it.copy(isSearching = true) }
+            _uiState.update { it.copy(isSearching = true, error = null) }
+            val isOnline = catalogNetworkMonitor.verifyConnectionBeforeCatalogFetch("Search Catalog API")
 
             val baseFiltered = animeRepository.filterCatalog(
                 genre = state.selectedGenre,
@@ -324,7 +343,12 @@ class SearchViewModel(
                     results = fullyFiltered,
                     matchedCharacters = matchedChars,
                     matchedEpisodesSummary = episodeMatches,
-                    isSearching = false
+                    isSearching = false,
+                    error = if (!isOnline) {
+                        "Lost internet connection (navigator.onLine = false) while attempting to fetch search catalog data."
+                    } else {
+                        null
+                    }
                 )
             }
         }

@@ -134,7 +134,14 @@ fun KuroStreamApp(container: KuroAppContainer) {
                 // Home Screen
                 composable(Screen.Home.route) {
                     val homeViewModel = remember {
-                        HomeViewModel(container.animeRepository, container.watchRepository)
+                        HomeViewModel(
+                            animeRepository = container.animeRepository,
+                            watchRepository = container.watchRepository,
+                            userRepository = container.userRepository,
+                            gamificationRepository = container.gamificationRepository,
+                            cloudSyncManager = container.cloudSyncManager,
+                            catalogNetworkMonitor = container.catalogNetworkMonitor
+                        )
                     }
                     HomeScreen(
                         viewModel = homeViewModel,
@@ -198,7 +205,11 @@ fun KuroStreamApp(container: KuroAppContainer) {
                 // Search Screen
                 composable(Screen.Search.route) {
                     val searchViewModel = remember {
-                        SearchViewModel(container.animeRepository)
+                        SearchViewModel(
+                            animeRepository = container.animeRepository,
+                            gamificationRepository = container.gamificationRepository,
+                            catalogNetworkMonitor = container.catalogNetworkMonitor
+                        )
                     }
                     SearchScreen(
                         viewModel = searchViewModel,
@@ -428,6 +439,9 @@ fun KuroStreamApp(container: KuroAppContainer) {
                             onBack = {
                                 AdminSecurityManager.logout()
                                 navController.popBackStack()
+                            },
+                            onPlayStream = { animeId, epNum ->
+                                navController.navigate(Screen.Player.createRoute(animeId, epNum))
                             }
                         )
                     }

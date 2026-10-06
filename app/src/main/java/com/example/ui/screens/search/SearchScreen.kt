@@ -69,6 +69,8 @@ import com.example.data.model.AnimeSortOption
 import com.example.data.model.AnimeStatus
 import com.example.data.model.AnimeType
 import com.example.ui.components.AnimeGridCard
+import com.example.ui.components.CatalogNetworkNotificationBanner
+import com.example.ui.components.NavigatorOnlineStatusPill
 import com.example.ui.theme.BackgroundDark
 import com.example.ui.theme.CardBorder
 import com.example.ui.theme.CrimsonNeon
@@ -90,6 +92,7 @@ fun SearchScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val recentSearches by viewModel.recentSearches.collectAsStateWithLifecycle()
+    val networkState by viewModel.catalogNetworkMonitor.state.collectAsStateWithLifecycle()
     val focusManager = LocalFocusManager.current
     var showAdvancedFilters by remember { mutableStateOf(false) }
 
@@ -110,7 +113,7 @@ fun SearchScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "🔎 Advanced Search & Filters",
                         color = TextPrimary,
@@ -124,17 +127,27 @@ fun SearchScreen(
                     )
                 }
 
-                IconButton(
-                    onClick = { showAdvancedFilters = !showAdvancedFilters },
-                    modifier = Modifier
-                        .background(if (showAdvancedFilters) CrimsonNeon.copy(alpha = 0.2f) else SurfaceVariantDark, CircleShape)
-                        .testTag("toggle_filters_btn")
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Tune,
-                        contentDescription = "Toggle Advanced Filters",
-                        tint = if (showAdvancedFilters) CrimsonNeon else TextPrimary
+                    NavigatorOnlineStatusPill(
+                        networkState = networkState,
+                        onToggleOfflineTest = { viewModel.toggleSimulatedOfflineMode() }
                     )
+
+                    IconButton(
+                        onClick = { showAdvancedFilters = !showAdvancedFilters },
+                        modifier = Modifier
+                            .background(if (showAdvancedFilters) CrimsonNeon.copy(alpha = 0.2f) else SurfaceVariantDark, CircleShape)
+                            .testTag("toggle_filters_btn")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = "Toggle Advanced Filters",
+                            tint = if (showAdvancedFilters) CrimsonNeon else TextPrimary
+                        )
+                    }
                 }
             }
 
@@ -193,6 +206,14 @@ fun SearchScreen(
                     .testTag("search_input_field")
             )
         }
+
+        // Offline Mode Indicator & Automatic Catalog Fetch Failure Notification with Retry Button
+        CatalogNetworkNotificationBanner(
+            networkState = networkState,
+            externalErrorMessage = uiState.error,
+            onRetryClick = { viewModel.retryCatalogConnection() },
+            onDismissError = { viewModel.dismissFetchError() }
+        )
 
         // Categorized Search Suggestions (Anime, Characters, Episodes, Genres) when typing
         if (uiState.query.isNotBlank() && uiState.suggestions.isNotEmpty()) {
