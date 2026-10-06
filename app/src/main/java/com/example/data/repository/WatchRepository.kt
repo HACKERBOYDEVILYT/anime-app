@@ -1,8 +1,9 @@
 package com.example.data.repository
 
-import com.example.data.local.dao.ReviewDao
-import com.example.data.local.dao.WatchHistoryDao
+import com.example.data.local.dao.SocialDao
+import com.example.data.local.dao.WatchDao
 import com.example.data.local.dao.WatchlistDao
+import com.example.data.local.entity.NotificationEntity
 import com.example.data.local.entity.ReviewEntity
 import com.example.data.local.entity.WatchHistoryEntity
 import com.example.data.local.entity.WatchlistEntity
@@ -13,18 +14,14 @@ import com.example.data.model.WatchlistItem
 import com.example.data.sync.CloudSyncManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import java.util.UUID
 
 class WatchRepository(
+    private val watchDao: WatchDao,
     private val watchlistDao: WatchlistDao,
-    private val watchHistoryDao: WatchHistoryDao,
-    private val reviewDao: ReviewDao,
+    private val socialDao: SocialDao,
     private val cloudSyncManager: CloudSyncManager? = null
 ) {
 
@@ -47,7 +44,7 @@ class WatchRepository(
     }
 
     fun isAnimeInWatchlist(animeId: String): Flow<WatchlistItem?> {
-        return watchlistDao.observeWatchlistItem(animeId).map { it?.toDomain() }
+        return watchlistDao.getWatchlistItem(animeId).map { it?.toDomain() }
     }
 
     suspend fun updateWatchlistStatus(
@@ -68,7 +65,7 @@ class WatchRepository(
             episodeCount = episodeCount,
             status = status.name,
             isFavorite = isFavorite,
-            addedAt = now
+            updatedAt = now
         )
         watchlistDao.insertOrUpdate(entity)
         cloudSyncManager?.enqueueIncrementalSync(
@@ -87,7 +84,7 @@ class WatchRepository(
         rating: Float,
         episodeCount: Int
     ) = withContext(Dispatchers.IO) {
-        val current = watchlistDao.observeWatchlistItem(animeId).firstOrNull()
+        val current = watchlistDao.getWatchlistItemSync(animeId)
         val newFav = !(current?.isFavorite ?: false)
         val now = System.currentTimeMillis()
         val entity = WatchlistEntity(
@@ -98,7 +95,7 @@ class WatchRepository(
             episodeCount = episodeCount,
             status = current?.status ?: WatchStatus.PLAN_TO_WATCH.name,
             isFavorite = newFav,
-            addedAt = current?.addedAt ?: now
+            updatedAt = now
         )
         watchlistDao.insertOrUpdate(entity)
         cloudSyncManager?.enqueueIncrementalSync(
@@ -120,15 +117,28 @@ class WatchRepository(
         )
     }
 
-    // Watch History & Continue Watching (with Smart Continue Watching remaining time support)
+    // Watch History & Continue Watching
     fun getContinueWatching(): Flow<List<WatchHistoryItem>> {
-        return watchHistoryDao.getRecentHistory(15).map { list ->
+        return watchDao.getContinueWatching().map { list ->
             list.map { it.toDomain() }
         }
     }
 
+    fun getAllHistory(): Flow<List<WatchHistoryItem>> {
+        return watchDao.getAllHistory().map { list ->
+            list.map { it.toDomain() }
+        }
+    }
+
+    suspend fun getProgressForEpisode(episodeId: String): WatchHistoryItem? = withContext(Dispatchers.IO) {
+        watchDao.getProgressForEpisode(episodeId)?.toDomain()
+    }
+
     suspend fun getEpisodeProgress(animeId: String, episodeNumber: Int): WatchHistoryItem? = withContext(Dispatchers.IO) {
-        watchHistoryDao.getEpisodeProgress(animeId, episodeNumber)?.toDomain()
+        val byId = watchDao.getProgressForEpisode("${animeId}_ep_$episodeNumber")
+            ?: watchDao.getProgressForEpisode("${animeId}_$episodeNumber")
+            ?: watchDao.getLastWatchedEpisodeForAnime(animeId)?.takeIf { it.episodeNumber == episodeNumber }
+        byId?.toDomain()
     }
 
     suspend fun saveWatchProgress(
@@ -137,39 +147,47 @@ class WatchRepository(
         episodeId: String,
         episodeNumber: Int,
         episodeTitle: String,
-        thumbnailUrl: String,
-        watchedPositionMs: Long,
-        totalDurationMs: Long
+        thumbnailUrl: String = "",
+        posterUrl: String = thumbnailUrl,
+        watchedPositionMs: Long = 0L,
+        progressMs: Long = watchedPositionMs,
+        totalDurationMs: Long = 1440_000L,
+        durationMs: Long = totalDurationMs
     ) = withContext(Dispatchers.IO) {
-        val safeDuration = if (totalDurationMs <= 0L) 1440_000L else totalDurationMs
+        val safeDuration = if (durationMs <= 0L) 1440_000L else durationMs
+        val safeProgress = progressMs.coerceAtLeast(0L)
         val now = System.currentTimeMillis()
+        val finalEpisodeId = episodeId.ifBlank { "${animeId}_ep_$episodeNumber" }
         val entity = WatchHistoryEntity(
-            id = "${animeId}_ep_$episodeNumber",
+            episodeId = finalEpisodeId,
             animeId = animeId,
-            animeTitle = animeTitle,
-            episodeId = episodeId,
             episodeNumber = episodeNumber,
             episodeTitle = episodeTitle,
-            thumbnailUrl = thumbnailUrl,
-            watchedPositionMs = watchedPositionMs.coerceAtLeast(0L),
-            totalDurationMs = safeDuration,
+            animeTitle = animeTitle,
+            posterUrl = posterUrl.ifBlank { thumbnailUrl },
+            progressMs = safeProgress,
+            durationMs = safeDuration,
             lastWatchedAt = now
         )
-        watchHistoryDao.saveProgress(entity)
-        val remainingSec = ((safeDuration - watchedPositionMs).coerceAtLeast(0L)) / 1000L
+        watchDao.saveProgress(entity)
+        val remainingSec = ((safeDuration - safeProgress).coerceAtLeast(0L)) / 1000L
         val mins = remainingSec / 60
         val secs = remainingSec % 60
         cloudSyncManager?.enqueueIncrementalSync(
             entityType = "CONTINUE_WATCHING",
-            entityId = entity.id,
+            entityId = finalEpisodeId,
             operation = "UPSERT",
             payloadSummary = "$animeTitle Ep $episodeNumber (${String.format("%d:%02d", mins, secs)} remaining)",
             updatedAtEpochMs = now
         )
     }
 
+    suspend fun removeHistoryItem(episodeId: String) = withContext(Dispatchers.IO) {
+        watchDao.deleteHistoryItem(episodeId)
+    }
+
     suspend fun clearWatchHistory() = withContext(Dispatchers.IO) {
-        watchHistoryDao.clearAllHistory()
+        watchDao.clearHistory()
         cloudSyncManager?.enqueueIncrementalSync(
             entityType = "WATCH_HISTORY",
             entityId = "all",
@@ -180,7 +198,7 @@ class WatchRepository(
 
     // Reviews & Ratings
     fun getReviewsForAnime(animeId: String): Flow<List<Review>> {
-        return reviewDao.getReviewsForAnime(animeId).map { list ->
+        return socialDao.getReviewsForAnime(animeId).map { list ->
             list.map { it.toDomain() }
         }
     }
@@ -192,20 +210,21 @@ class WatchRepository(
         userName: String = "Robiul",
         avatarUrl: String = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200"
     ) = withContext(Dispatchers.IO) {
-        val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.US)
         val now = System.currentTimeMillis()
         val reviewId = UUID.randomUUID().toString()
         val entity = ReviewEntity(
             id = reviewId,
             animeId = animeId,
+            userId = "u_default_01",
             userName = userName,
             userAvatar = avatarUrl,
             rating = rating.coerceIn(1, 5),
             content = content.trim(),
+            createdAt = now,
             likesCount = 1,
-            createdAt = dateFormat.format(Date(now))
+            hasLiked = true
         )
-        reviewDao.insertReview(entity)
+        socialDao.insertReview(entity)
         cloudSyncManager?.enqueueIncrementalSync(
             entityType = "REVIEWS",
             entityId = reviewId,
@@ -216,7 +235,20 @@ class WatchRepository(
     }
 
     suspend fun likeReview(reviewId: String) = withContext(Dispatchers.IO) {
-        reviewDao.incrementReviewLikes(reviewId)
+        socialDao.likeReview(reviewId)
+    }
+
+    // Notifications
+    fun getNotifications(): Flow<List<NotificationEntity>> {
+        return socialDao.getNotifications()
+    }
+
+    suspend fun markNotificationRead(id: String) = withContext(Dispatchers.IO) {
+        socialDao.markNotificationAsRead(id)
+    }
+
+    suspend fun markAllNotificationsRead() = withContext(Dispatchers.IO) {
+        socialDao.markAllNotificationsAsRead()
     }
 
     private fun WatchlistEntity.toDomain() = WatchlistItem(
@@ -227,30 +259,31 @@ class WatchRepository(
         episodeCount = episodeCount,
         status = runCatching { WatchStatus.valueOf(status) }.getOrDefault(WatchStatus.PLAN_TO_WATCH),
         isFavorite = isFavorite,
-        addedAt = addedAt
+        updatedAt = updatedAt
     )
 
     private fun WatchHistoryEntity.toDomain() = WatchHistoryItem(
-        id = id,
         animeId = animeId,
-        animeTitle = animeTitle,
         episodeId = episodeId,
         episodeNumber = episodeNumber,
         episodeTitle = episodeTitle,
-        thumbnailUrl = thumbnailUrl,
-        watchedPositionMs = watchedPositionMs,
-        totalDurationMs = totalDurationMs,
+        animeTitle = animeTitle,
+        posterUrl = posterUrl,
+        progressMs = progressMs,
+        durationMs = durationMs,
         lastWatchedAt = lastWatchedAt
     )
 
     private fun ReviewEntity.toDomain() = Review(
         id = id,
         animeId = animeId,
+        userId = userId,
         userName = userName,
         userAvatar = userAvatar,
         rating = rating,
         content = content,
+        createdAt = createdAt,
         likesCount = likesCount,
-        createdAt = createdAt
+        hasLiked = hasLiked
     )
 }

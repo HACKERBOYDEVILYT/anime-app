@@ -1,6 +1,7 @@
 package com.example.ui.screens.watchlist
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -23,27 +25,38 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BookmarkBorder
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.automirrored.filled.ViewList
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.BookmarkRemove
+import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ScrollableTabRow
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,42 +69,113 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
-import com.example.data.model.WatchHistoryItem
+import com.example.data.model.WatchStatus
 import com.example.data.model.WatchlistItem
-import com.example.ui.components.RatingBadge
 import com.example.ui.theme.BackgroundDark
+import com.example.ui.theme.CardBorder
 import com.example.ui.theme.CrimsonNeon
+import com.example.ui.theme.CyanAccent
+import com.example.ui.theme.StarAmber
 import com.example.ui.theme.SurfaceDark
 import com.example.ui.theme.SurfaceVariantDark
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
+import com.example.viewmodel.WatchlistSortMode
 import com.example.viewmodel.WatchlistViewModel
 
 @Composable
 fun WatchlistScreen(
     viewModel: WatchlistViewModel,
-    onAnimeClick: (String) -> Unit,
-    onResumeEpisode: (String, Int) -> Unit,
+    onAnimeIdClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val allList by viewModel.allWatchlist.collectAsStateWithLifecycle()
-    val watchingList by viewModel.watchingList.collectAsStateWithLifecycle()
-    val planList by viewModel.planToWatchList.collectAsStateWithLifecycle()
-    val completedList by viewModel.completedList.collectAsStateWithLifecycle()
-    val favoritesList by viewModel.favoritesList.collectAsStateWithLifecycle()
-    val historyList by viewModel.historyList.collectAsStateWithLifecycle()
+    val allItems by viewModel.allWatchlist.collectAsStateWithLifecycle()
+    val selectedStatus by viewModel.selectedStatus.collectAsStateWithLifecycle()
+    val showFavoritesOnly by viewModel.showFavoritesOnly.collectAsStateWithLifecycle()
+    val selectedCollectionId by viewModel.selectedCollectionId.collectAsStateWithLifecycle()
+    val customCollections by viewModel.customCollections.collectAsStateWithLifecycle()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val sortMode by viewModel.sortMode.collectAsStateWithLifecycle()
+    val isGridView by viewModel.isGridView.collectAsStateWithLifecycle()
 
-    val tabs = listOf("All", "Watching", "Plan to Watch", "Completed", "Favorites", "History")
+    var showCreateCollectionDialog by remember { mutableStateOf(false) }
+    var newColName by remember { mutableStateOf("") }
+    var newColDesc by remember { mutableStateOf("") }
+    var showSortDropdown by remember { mutableStateOf(false) }
 
-    val activeList = when (uiState.selectedTab) {
-        0 -> allList
-        1 -> watchingList
-        2 -> planList
-        3 -> completedList
-        4 -> favoritesList
-        else -> emptyList()
+    val selectedCollection = customCollections.find { it.id == selectedCollectionId }
+
+    val filteredItems = remember(
+        allItems,
+        selectedStatus,
+        showFavoritesOnly,
+        selectedCollection,
+        searchQuery,
+        sortMode
+    ) {
+        val statusFiltered = when {
+            showFavoritesOnly -> allItems.filter { it.isFavorite }
+            selectedCollection != null -> allItems.filter { it.animeId in selectedCollection.animeIds }
+            selectedStatus != null -> allItems.filter { it.status == selectedStatus }
+            else -> allItems
+        }
+        val queryFiltered = if (searchQuery.isBlank()) {
+            statusFiltered
+        } else {
+            val q = searchQuery.trim().lowercase()
+            statusFiltered.filter { it.animeTitle.lowercase().contains(q) }
+        }
+        when (sortMode) {
+            WatchlistSortMode.RECENT -> queryFiltered.sortedByDescending { it.addedAt }
+            WatchlistSortMode.RATING_DESC -> queryFiltered.sortedByDescending { it.rating }
+            WatchlistSortMode.TITLE_ASC -> queryFiltered.sortedBy { it.animeTitle.lowercase() }
+            WatchlistSortMode.EPISODES_DESC -> queryFiltered.sortedByDescending { it.episodeCount }
+        }
+    }
+
+    if (showCreateCollectionDialog) {
+        AlertDialog(
+            onDismissRequest = { showCreateCollectionDialog = false },
+            containerColor = SurfaceDark,
+            title = { Text("Create Custom Collection", color = TextPrimary, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = newColName,
+                        onValueChange = { newColName = it },
+                        label = { Text("Collection Name (e.g. Peak Fantasy)") },
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = newColDesc,
+                        onValueChange = { newColDesc = it },
+                        label = { Text("Description") },
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newColName.isNotBlank()) {
+                            viewModel.createCustomCollection(newColName, newColDesc)
+                            newColName = ""
+                            newColDesc = ""
+                            showCreateCollectionDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon)
+                ) {
+                    Text("Create")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreateCollectionDialog = false }) {
+                    Text("Cancel", color = TextSecondary)
+                }
+            }
+        )
     }
 
     Column(
@@ -100,7 +184,7 @@ fun WatchlistScreen(
             .background(BackgroundDark)
             .statusBarsPadding()
     ) {
-        // Header
+        // Header with Grid/List Toggle, Sort Dropdown, and New Collection Button
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -108,292 +192,409 @@ fun WatchlistScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "My Library",
-                color = TextPrimary,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            if (uiState.selectedTab == 5 && historyList.isNotEmpty()) {
-                TextButton(
-                    onClick = { viewModel.setShowClearHistoryDialog(true) },
-                    colors = ButtonDefaults.textButtonColors(contentColor = CrimsonNeon)
-                ) {
-                    Icon(Icons.Default.DeleteOutline, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Clear All", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-
-        // Tabs
-        ScrollableTabRow(
-            selectedTabIndex = uiState.selectedTab,
-            containerColor = BackgroundDark,
-            contentColor = CrimsonNeon,
-            edgePadding = 16.dp,
-            indicator = { tabPositions ->
-                TabRowDefaults.SecondaryIndicator(
-                    Modifier.tabIndicatorOffset(tabPositions[uiState.selectedTab]),
-                    color = CrimsonNeon
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "❤️ My Watchlist & Collections",
+                    color = TextPrimary,
+                    fontSize = 21.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    text = "${allItems.size} Tracked • ${customCollections.size} Collections • Cloud Synced",
+                    color = TextSecondary,
+                    fontSize = 11.sp
                 )
             }
-        ) {
-            tabs.forEachIndexed { index, title ->
-                val count = when (index) {
-                    0 -> allList.size
-                    1 -> watchingList.size
-                    2 -> planList.size
-                    3 -> completedList.size
-                    4 -> favoritesList.size
-                    5 -> historyList.size
-                    else -> 0
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { showCreateCollectionDialog = true }) {
+                    Icon(Icons.Default.CreateNewFolder, contentDescription = "Create Collection", tint = CyanAccent)
                 }
-                Tab(
-                    selected = uiState.selectedTab == index,
-                    onClick = { viewModel.selectTab(index) },
-                    text = {
-                        Text(
-                            text = "$title ($count)",
-                            fontSize = 12.sp,
-                            fontWeight = if (uiState.selectedTab == index) FontWeight.Bold else FontWeight.Normal,
-                            color = if (uiState.selectedTab == index) CrimsonNeon else TextSecondary
-                        )
+                Box {
+                    IconButton(onClick = { showSortDropdown = true }) {
+                        Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Sort Watchlist", tint = TextPrimary)
                     }
+                    DropdownMenu(
+                        expanded = showSortDropdown,
+                        onDismissRequest = { showSortDropdown = false },
+                        modifier = Modifier.background(SurfaceVariantDark)
+                    ) {
+                        WatchlistSortMode.entries.forEach { mode ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = mode.label,
+                                        color = if (sortMode == mode) CrimsonNeon else TextPrimary,
+                                        fontWeight = if (sortMode == mode) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                },
+                                onClick = {
+                                    viewModel.setSortMode(mode)
+                                    showSortDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
+                IconButton(
+                    onClick = { viewModel.toggleGridListView() },
+                    modifier = Modifier.testTag("watchlist_view_toggle_btn")
+                ) {
+                    Icon(
+                        imageVector = if (isGridView) Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView,
+                        contentDescription = "Toggle Grid or List View",
+                        tint = StarAmber
+                    )
+                }
+            }
+        }
+
+        // Search Within Watchlist Bar
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { viewModel.onSearchQueryChange(it) },
+            placeholder = { Text("Search within your watchlist...", color = TextMuted, fontSize = 13.sp) },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = TextSecondary) },
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = CrimsonNeon,
+                unfocusedBorderColor = CardBorder,
+                focusedContainerColor = SurfaceDark,
+                unfocusedContainerColor = SurfaceDark,
+                focusedTextColor = TextPrimary,
+                unfocusedTextColor = TextPrimary
+            ),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+                .testTag("watchlist_search_input")
+        )
+
+        // Custom Collections Bar (My Top 10, Shounen, Romance, Comedy, Action, Rewatch List + Custom)
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(customCollections, key = { it.id }) { col ->
+                val isSelected = selectedCollectionId == col.id
+                Surface(
+                    onClick = { viewModel.selectCollectionFilter(col.id) },
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (isSelected) CyanAccent.copy(alpha = 0.22f) else SurfaceDark,
+                    modifier = Modifier.border(
+                        1.dp,
+                        if (isSelected) CyanAccent else CardBorder,
+                        RoundedCornerShape(12.dp)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("${col.iconEmoji} ${col.name}", color = if (isSelected) CyanAccent else TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("(${col.animeIds.size})", color = TextSecondary, fontSize = 11.sp)
+                    }
+                }
+            }
+        }
+
+        // Status Tabs (All, Favorites, Watching, Plan to Watch, Completed, On Hold, Dropped)
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            item {
+                val isAll = selectedStatus == null && !showFavoritesOnly && selectedCollectionId == null
+                FilterChip(
+                    selected = isAll,
+                    onClick = { viewModel.selectStatusFilter(null) },
+                    label = { Text("All (${allItems.size})") },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = CrimsonNeon,
+                        selectedLabelColor = Color.White,
+                        containerColor = SurfaceVariantDark,
+                        labelColor = TextSecondary
+                    )
+                )
+            }
+
+            item {
+                FilterChip(
+                    selected = showFavoritesOnly,
+                    onClick = { viewModel.toggleFavoritesFilter() },
+                    label = { Text("Favorites (${allItems.count { it.isFavorite }})") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Favorite,
+                            contentDescription = null,
+                            tint = if (showFavoritesOnly) Color.White else CrimsonNeon,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = CrimsonNeon,
+                        selectedLabelColor = Color.White,
+                        containerColor = SurfaceVariantDark,
+                        labelColor = TextSecondary
+                    )
+                )
+            }
+
+            items(WatchStatus.entries) { status ->
+                val count = allItems.count { it.status == status }
+                val isSelected = selectedStatus == status && !showFavoritesOnly && selectedCollectionId == null
+                FilterChip(
+                    selected = isSelected,
+                    onClick = { viewModel.selectStatusFilter(status) },
+                    label = { Text("${status.displayName} ($count)") },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = CrimsonNeon,
+                        selectedLabelColor = Color.White,
+                        containerColor = SurfaceVariantDark,
+                        labelColor = TextSecondary
+                    )
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // History Tab View
-        if (uiState.selectedTab == 5) {
-            if (historyList.isEmpty()) {
-                EmptyLibraryView(message = "No watch history yet", subtitle = "Start watching anime to track your progress")
-            } else {
-                LazyColumn(
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 90.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(historyList, key = { it.episodeId }) { item ->
-                        HistoryListItem(
-                            item = item,
-                            onResume = { onResumeEpisode(item.animeId, item.episodeNumber) },
-                            onDelete = { viewModel.deleteHistoryItem(item.episodeId) }
-                        )
+        if (filteredItems.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Default.BookmarkRemove,
+                        contentDescription = null,
+                        tint = TextMuted,
+                        modifier = Modifier.size(56.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Your Watchlist Filter is Empty",
+                        color = TextPrimary,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Save your favorite anime or add titles to custom collections like 'My Top 10' and 'Rewatch List'.",
+                        color = TextSecondary,
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(top = 6.dp)
+                    )
+                }
+            }
+        } else if (isGridView) {
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = 150.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 90.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items(filteredItems, key = { it.animeId }) { item ->
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onAnimeIdClick(item.animeId) }
+                    ) {
+                        Column {
+                            AsyncImage(
+                                model = item.posterUrl,
+                                contentDescription = item.animeTitle,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(185.dp)
+                            )
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Text(item.animeTitle, color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("${item.status.displayName} • ⭐ ${item.rating}", color = CyanAccent, fontSize = 11.sp)
+                            }
+                        }
                     }
                 }
             }
         } else {
-            // Watchlist Grid View
-            if (activeList.isEmpty()) {
-                EmptyLibraryView(message = "No anime in this section", subtitle = "Discover anime and add them to your watchlist")
-            } else {
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 150.dp),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 90.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    items(activeList, key = { it.animeId }) { item ->
-                        WatchlistGridCard(
-                            item = item,
-                            onClick = { onAnimeClick(item.animeId) },
-                            onRemove = { viewModel.removeFromWatchlist(item.animeId) }
-                        )
-                    }
-                }
-            }
-        }
-
-        // Clear History Dialog
-        if (uiState.showClearHistoryDialog) {
-            AlertDialog(
-                onDismissRequest = { viewModel.setShowClearHistoryDialog(false) },
-                containerColor = SurfaceDark,
-                title = { Text(text = "Clear Watch History?", color = TextPrimary, fontWeight = FontWeight.Bold) },
-                text = { Text(text = "This will remove all your saved episodes and playback progress.", color = TextSecondary) },
-                confirmButton = {
-                    Button(
-                        onClick = { viewModel.clearAllHistory() },
-                        colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon)
-                    ) {
-                        Text("Clear All")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { viewModel.setShowClearHistoryDialog(false) }) {
-                        Text("Cancel", color = TextMuted)
-                    }
-                }
-            )
-        }
-    }
-}
-
-@Composable
-fun WatchlistGridCard(
-    item: WatchlistItem,
-    onClick: () -> Unit,
-    onRemove: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .testTag("watchlist_card_${item.animeId}")
-    ) {
-        Column {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
+            LazyColumn(
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 90.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxSize()
             ) {
-                AsyncImage(
-                    model = item.posterUrl,
-                    contentDescription = item.animeTitle,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-
-                IconButton(
-                    onClick = onRemove,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(4.dp)
-                        .background(Color.Black.copy(alpha = 0.6f), CircleShape)
-                        .size(28.dp)
-                ) {
-                    Icon(Icons.Default.Delete, contentDescription = "Remove", tint = Color.White, modifier = Modifier.size(14.dp))
+                items(filteredItems, key = { it.animeId }) { item ->
+                    WatchlistCardItem(
+                        item = item,
+                        collections = customCollections,
+                        onClick = { onAnimeIdClick(item.animeId) },
+                        onStatusChange = { newStatus -> viewModel.updateStatus(item, newStatus) },
+                        onFavoriteToggle = { viewModel.toggleFavorite(item) },
+                        onAddToCollection = { colId -> viewModel.addAnimeToCollection(colId, item.animeId) },
+                        onRemove = { viewModel.removeFromWatchlist(item.animeId) }
+                    )
                 }
-
-                RatingBadge(
-                    rating = item.rating,
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(6.dp)
-                )
-            }
-
-            Column(modifier = Modifier.padding(8.dp)) {
-                Text(
-                    text = item.animeTitle,
-                    color = TextPrimary,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "${item.status.displayName} • ${item.episodeCount} Eps",
-                    color = CrimsonNeon,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
             }
         }
     }
 }
 
 @Composable
-fun HistoryListItem(
-    item: WatchHistoryItem,
-    onResume: () -> Unit,
-    onDelete: () -> Unit,
-    modifier: Modifier = Modifier
+private fun WatchlistCardItem(
+    item: WatchlistItem,
+    collections: List<com.example.data.model.WatchlistCollection>,
+    onClick: () -> Unit,
+    onStatusChange: (WatchStatus) -> Unit,
+    onFavoriteToggle: () -> Unit,
+    onAddToCollection: (String) -> Unit,
+    onRemove: () -> Unit
 ) {
+    var showMenu by remember { mutableStateOf(false) }
+    var showCollectionMenu by remember { mutableStateOf(false) }
+
     Card(
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onResume)
+            .clickable { onClick() }
+            .testTag("watchlist_item_${item.animeId}")
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(10.dp),
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
+            AsyncImage(
+                model = item.posterUrl,
+                contentDescription = item.animeTitle,
+                contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .width(100.dp)
-                    .height(65.dp)
-            ) {
-                AsyncImage(
-                    model = item.posterUrl,
-                    contentDescription = item.animeTitle,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(RoundedCornerShape(6.dp))
-                )
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .align(Alignment.Center)
-                        .background(CrimsonNeon.copy(alpha = 0.85f), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = "Play", tint = Color.White, modifier = Modifier.size(18.dp))
-                }
-            }
+                    .width(72.dp)
+                    .height(100.dp)
+                    .clip(RoundedCornerShape(10.dp))
+            )
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = item.animeTitle,
                     color = TextPrimary,
-                    fontSize = 13.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    text = "Ep ${item.episodeNumber} • ${item.episodeTitle}",
-                    color = TextSecondary,
-                    fontSize = 11.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
+
                 Spacer(modifier = Modifier.height(4.dp))
-                LinearProgressIndicator(
-                    progress = { item.percentage },
-                    color = CrimsonNeon,
-                    trackColor = Color.DarkGray,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(3.dp)
-                )
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Star,
+                        contentDescription = null,
+                        tint = StarAmber,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = String.format("%.1f • %d Eps", item.rating, item.episodeCount),
+                        color = TextSecondary,
+                        fontSize = 12.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box {
+                        Surface(
+                            color = CrimsonNeon.copy(alpha = 0.16f),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.clickable { showMenu = true }
+                        ) {
+                            Text(
+                                text = item.status.displayName,
+                                color = CrimsonNeon,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false },
+                            modifier = Modifier.background(SurfaceVariantDark)
+                        ) {
+                            WatchStatus.entries.forEach { st ->
+                                DropdownMenuItem(
+                                    text = { Text(st.displayName, color = TextPrimary) },
+                                    onClick = {
+                                        onStatusChange(st)
+                                        showMenu = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    Box {
+                        Surface(
+                            color = CyanAccent.copy(alpha = 0.14f),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.clickable { showCollectionMenu = true }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, tint = CyanAccent, modifier = Modifier.size(12.dp))
+                                Text("Collection", color = CyanAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        DropdownMenu(
+                            expanded = showCollectionMenu,
+                            onDismissRequest = { showCollectionMenu = false },
+                            modifier = Modifier.background(SurfaceVariantDark)
+                        ) {
+                            collections.forEach { col ->
+                                DropdownMenuItem(
+                                    text = { Text("${col.iconEmoji} ${col.name}", color = TextPrimary) },
+                                    onClick = {
+                                        onAddToCollection(col.id)
+                                        showCollectionMenu = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.DeleteOutline, contentDescription = "Delete", tint = TextMuted, modifier = Modifier.size(18.dp))
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                IconButton(onClick = onFavoriteToggle) {
+                    Icon(
+                        imageVector = if (item.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = "Favorite",
+                        tint = if (item.isFavorite) CrimsonNeon else TextSecondary
+                    )
+                }
+
+                IconButton(onClick = onRemove) {
+                    Icon(
+                        imageVector = Icons.Default.DeleteOutline,
+                        contentDescription = "Remove from watchlist",
+                        tint = TextMuted
+                    )
+                }
             }
         }
-    }
-}
-
-@Composable
-fun EmptyLibraryView(message: String, subtitle: String) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(Icons.Default.BookmarkBorder, contentDescription = null, tint = TextMuted, modifier = Modifier.size(64.dp))
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(text = message, color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(text = subtitle, color = TextMuted, fontSize = 12.sp)
     }
 }

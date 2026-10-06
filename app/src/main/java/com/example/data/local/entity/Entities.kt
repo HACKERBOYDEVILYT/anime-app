@@ -3,6 +3,8 @@ package com.example.data.local.entity
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
+typealias DownloadItemEntity = DownloadEntity
+
 @Entity(tableName = "watch_history")
 data class WatchHistoryEntity(
     @PrimaryKey
@@ -70,10 +72,33 @@ data class DownloadEntity(
     val localFilePath: String,
     val fileSizeBytes: Long = 210000000L, // ~210 MB default
     val downloadedBytes: Long = 210000000L,
-    val status: String = "COMPLETED", // DOWNLOADING, PAUSED, COMPLETED, FAILED
+    val status: String = "COMPLETED", // DOWNLOADING, PAUSED, COMPLETED, FAILED, WAITING
     val progressPercent: Int = 100,
     val createdAt: Long = System.currentTimeMillis()
-)
+) {
+    val id: String
+        get() = downloadId
+
+    val thumbnailUrl: String
+        get() = posterUrl
+
+    val streamUrl: String
+        get() = videoUrl
+
+    val quality: String
+        get() = when {
+            fileSizeBytes >= 300_000_000L -> "1080p"
+            fileSizeBytes >= 180_000_000L -> "720p"
+            fileSizeBytes >= 120_000_000L -> "480p"
+            else -> "360p"
+        }
+
+    val sizeMb: Int
+        get() = (fileSizeBytes / (1024L * 1024L)).toInt().coerceAtLeast(85)
+
+    val timestamp: Long
+        get() = createdAt
+}
 
 @Entity(tableName = "episode_comments")
 data class EpisodeCommentEntity(
@@ -121,10 +146,16 @@ data class ScrapedVideoEntity(
     val subtitleUrl: String? = null,
     val subtitleLanguage: String? = "Bangla",
     val audioLanguage: String? = "Japanese [Original]",
-    val serverSource: String = "Free Storage Server", // e.g., "HiAnime", "AnimeThemes", "Archive.org Storage", "YouTube Trailer"
+    val serverSource: String = "Free Storage Server",
     val status: String = "Online",
     val createdAt: Long = System.currentTimeMillis()
-)
+) {
+    val quality: String
+        get() = qualityLabel
+
+    val sourceProvider: String
+        get() = serverSource
+}
 
 @Entity(tableName = "user_accounts")
 data class UserAccountEntity(
@@ -179,6 +210,3 @@ data class AdMobConfigEntity(
     val accountStatus: String = "Connected (Google AdMob)",
     val updatedAt: Long = System.currentTimeMillis()
 )
-
-
-

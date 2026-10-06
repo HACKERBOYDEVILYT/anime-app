@@ -179,3 +179,23 @@ fun AnimeCard(
         }
     }
 }
+
+@Composable
+fun AnimeGridCard(
+    anime: Anime,
+    onClick: () -> Unit,
+    onFavoriteToggle: (() -> Unit)? = null,
+    isFavorite: Boolean = false,
+    modifier: Modifier = Modifier
+) {
+    AnimeCard(
+        anime = anime,
+        onClick = onClick,
+        onFavoriteToggle = onFavoriteToggle,
+        isFavorite = isFavorite,
+        modifier = modifier.fillMaxWidth(),
+        cardWidth = 158,
+        cardHeight = 224
+    )
+}
+

@@ -211,15 +211,15 @@ fun KuroStreamApp(container: KuroAppContainer) {
                 // Watchlist Screen
                 composable(Screen.Watchlist.route) {
                     val watchlistViewModel = remember {
-                        WatchlistViewModel(container.watchRepository)
+                        WatchlistViewModel(
+                            watchRepository = container.watchRepository,
+                            gamificationRepository = container.gamificationRepository
+                        )
                     }
                     WatchlistScreen(
                         viewModel = watchlistViewModel,
-                        onAnimeClick = { animeId ->
+                        onAnimeIdClick = { animeId ->
                             navController.navigate(Screen.Details.createRoute(animeId))
-                        },
-                        onResumeEpisode = { animeId, epNum ->
-                            navController.navigate(Screen.Player.createRoute(animeId, epNum))
                         }
                     )
                 }
@@ -227,7 +227,13 @@ fun KuroStreamApp(container: KuroAppContainer) {
                 // Profile Screen
                 composable(Screen.Profile.route) {
                     val profileViewModel = remember {
-                        ProfileViewModel(container.userRepository)
+                        ProfileViewModel(
+                            userRepository = container.userRepository,
+                            watchRepository = container.watchRepository,
+                            gamificationRepository = container.gamificationRepository,
+                            cloudSyncManager = container.cloudSyncManager,
+                            downloadsRepository = container.downloadsRepository
+                        )
                     }
                     ProfileScreen(
                         viewModel = profileViewModel,
@@ -268,7 +274,7 @@ fun KuroStreamApp(container: KuroAppContainer) {
                     DownloadsScreen(
                         downloadsRepository = container.downloadsRepository,
                         onBack = { navController.popBackStack() },
-                        onPlayOffline = { animeId, epNum ->
+                        onPlayOfflineEpisode = { animeId, epNum ->
                             navController.navigate(Screen.Player.createRoute(animeId, epNum))
                         }
                     )

@@ -2,8 +2,6 @@ package com.example.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.data.local.dao.SearchHistoryDao
-import com.example.data.local.entity.SearchHistoryEntity
 import com.example.data.model.Anime
 import com.example.data.model.AnimeSortOption
 import com.example.data.model.AnimeStatus
@@ -13,13 +11,10 @@ import com.example.data.repository.AnimeRepository
 import com.example.data.repository.GamificationAndSocialRepository
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -66,7 +61,6 @@ data class SearchUiState(
 @OptIn(FlowPreview::class)
 class SearchViewModel(
     private val animeRepository: AnimeRepository,
-    private val searchHistoryDao: SearchHistoryDao,
     private val gamificationRepository: GamificationAndSocialRepository = GamificationAndSocialRepository()
 ) : ViewModel() {
 
@@ -75,13 +69,10 @@ class SearchViewModel(
 
     private val queryFlow = MutableStateFlow("")
 
-    val recentSearches: StateFlow<List<String>> = searchHistoryDao.getRecentSearches()
-        .map { list -> list.map { it.query } }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
+    private val _recentSearches = MutableStateFlow(
+        listOf("Frieren", "Solo Leveling", "Jujutsu Kaisen", "One Piece")
+    )
+    val recentSearches: StateFlow<List<String>> = _recentSearches.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -123,13 +114,8 @@ class SearchViewModel(
     fun onSubmitQuery(submitted: String) {
         val trimmed = submitted.trim()
         if (trimmed.isNotEmpty()) {
-            viewModelScope.launch {
-                searchHistoryDao.insertSearch(
-                    SearchHistoryEntity(
-                        query = trimmed,
-                        searchedAt = System.currentTimeMillis()
-                    )
-                )
+            _recentSearches.update { existing ->
+                (listOf(trimmed) + existing.filterNot { it.equals(trimmed, ignoreCase = true) }).take(10)
             }
         }
         onQueryChange(trimmed)
@@ -245,15 +231,11 @@ class SearchViewModel(
     }
 
     fun deleteHistoryItem(q: String) {
-        viewModelScope.launch {
-            searchHistoryDao.deleteSearch(q)
-        }
+        _recentSearches.update { list -> list.filterNot { it == q } }
     }
 
     fun clearHistory() {
-        viewModelScope.launch {
-            searchHistoryDao.clearHistory()
-        }
+        _recentSearches.value = emptyList()
     }
 
     private fun executeFilterAndSearch() {
@@ -283,7 +265,6 @@ class SearchViewModel(
                 }
             }
 
-            // Multi-field search: Title (EN/JP), Character name, Voice actor, Studio, Genre, Season, Year, or Episode
             val searched = if (q.isEmpty()) {
                 baseFiltered
             } else {
@@ -305,7 +286,6 @@ class SearchViewModel(
                 }
             }
 
-            // Apply extended filters (Studio, Score, Episode count, Duration, Sub, Dub, Language)
             val fullyFiltered = searched.filter { anime ->
                 val studioMatch = state.selectedStudio == null || anime.studio.equals(state.selectedStudio, ignoreCase = true)
                 val scoreMatch = state.minScoreFilter == null || anime.score >= state.minScoreFilter

@@ -17,7 +17,10 @@ data class WatchlistItem(
     val status: WatchStatus = WatchStatus.WATCHING,
     val isFavorite: Boolean = false,
     val updatedAt: Long = System.currentTimeMillis()
-)
+) {
+    val addedAt: Long
+        get() = updatedAt
+}
 
 data class WatchHistoryItem(
     val animeId: String,
@@ -30,8 +33,23 @@ data class WatchHistoryItem(
     val durationMs: Long,
     val lastWatchedAt: Long = System.currentTimeMillis()
 ) {
+    val id: String
+        get() = episodeId
+
+    val thumbnailUrl: String
+        get() = posterUrl
+
+    val watchedPositionMs: Long
+        get() = progressMs
+
+    val totalDurationMs: Long
+        get() = durationMs
+
     val percentage: Float
         get() = if (durationMs > 0) (progressMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
+
+    val progressFraction: Float
+        get() = percentage
 
     val remainingMinutes: Int
         get() = (((durationMs - progressMs) / 1000) / 60).toInt().coerceAtLeast(0)
@@ -40,7 +58,7 @@ data class WatchHistoryItem(
 data class Review(
     val id: String,
     val animeId: String,
-    val userId: String,
+    val userId: String = "u_default_01",
     val userName: String,
     val userAvatar: String,
     val rating: Int, // 1 to 5 stars

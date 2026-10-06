@@ -1,5 +1,6 @@
 package com.example.ui.screens.downloads
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,32 +15,38 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DownloadDone
-import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storage
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,7 +57,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -58,12 +64,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
-import coil.request.ImageRequest
-import com.example.data.local.entity.DownloadEntity
+import com.example.data.local.entity.DownloadItemEntity
+import com.example.data.repository.DownloadRuntimeTelemetry
 import com.example.data.repository.DownloadsRepository
 import com.example.ui.theme.BackgroundDark
 import com.example.ui.theme.CardBorder
 import com.example.ui.theme.CrimsonNeon
+import com.example.ui.theme.CyanAccent
+import com.example.ui.theme.EmeraldSuccess
+import com.example.ui.theme.StarAmber
 import com.example.ui.theme.SurfaceDark
 import com.example.ui.theme.SurfaceVariantDark
 import com.example.ui.theme.TextMuted
@@ -71,335 +80,487 @@ import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadsScreen(
     downloadsRepository: DownloadsRepository,
     onBack: () -> Unit,
-    onPlayOffline: (String, Int) -> Unit,
+    onPlayOfflineEpisode: (String, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val downloads by downloadsRepository.getAllDownloads().collectAsStateWithLifecycle(emptyList())
-    val totalStorageUsedBytes by downloadsRepository.getTotalStorageUsedBytes().collectAsStateWithLifecycle(0L)
+    BackHandler { onBack() }
+
+    val downloads by downloadsRepository.allDownloads.collectAsStateWithLifecycle(initialValue = emptyList())
+    val settings by downloadsRepository.settings.collectAsStateWithLifecycle()
+    val telemetryMap by downloadsRepository.telemetryById.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    var showClearDialog by remember { mutableStateOf(false) }
 
-    val usedMb = (totalStorageUsedBytes ?: 0L) / (1024 * 1024)
+    var selectedStatusTab by remember { mutableStateOf("ALL") } // "ALL", "DOWNLOADING", "PAUSED", "COMPLETED", "FAILED", "WAITING"
+    var showSettingsPanel by remember { mutableStateOf(false) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.FileDownload,
-                                contentDescription = null,
-                                tint = CrimsonNeon,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Downloads",
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary,
-                                fontSize = 20.sp
-                            )
-                        }
-                        Text(
-                            text = "Offline viewing without internet",
-                            color = TextMuted,
-                            fontSize = 12.sp
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack, modifier = Modifier.testTag("downloads_back_button")) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = TextPrimary
-                        )
-                    }
-                },
-                actions = {
-                    if (downloads.isNotEmpty()) {
-                        IconButton(onClick = { showClearDialog = true }) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Clear All",
-                                tint = TextMuted
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = BackgroundDark)
-            )
-        },
-        containerColor = BackgroundDark,
+    LaunchedEffect(Unit) {
+        downloadsRepository.seedInitialDownloadsIfEmpty()
+    }
+
+    val storageSummary = remember(downloads) {
+        downloadsRepository.getDeviceStorageSummary(downloads)
+    }
+
+    val filteredDownloads = remember(downloads, selectedStatusTab) {
+        if (selectedStatusTab == "ALL") downloads
+        else downloads.filter { it.status.equals(selectedStatusTab, ignoreCase = true) }
+    }
+
+    Column(
         modifier = modifier
-    ) { padding ->
-        Column(
+            .fillMaxSize()
+            .background(BackgroundDark)
+            .statusBarsPadding()
+    ) {
+        // Top App Bar
+        Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Storage Meter
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-                    .border(1.dp, CardBorder, RoundedCornerShape(12.dp)),
-                shape = RoundedCornerShape(12.dp),
-                color = SurfaceDark
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Storage,
-                                contentDescription = null,
-                                tint = CrimsonNeon,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Device Storage",
-                                color = TextPrimary,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 14.sp
-                            )
-                        }
-                        Text(
-                            text = "${usedMb} MB Used",
-                            color = CrimsonNeon,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    val progressFraction = (usedMb / 2048f).coerceIn(0.02f, 1f)
-                    LinearProgressIndicator(
-                        progress = { progressFraction },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(8.dp)
-                            .clip(RoundedCornerShape(4.dp)),
-                        color = CrimsonNeon,
-                        trackColor = SurfaceVariantDark
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.testTag("downloads_back_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = TextPrimary
                     )
-
-                    Spacer(modifier = Modifier.height(6.dp))
+                }
+                Spacer(modifier = Modifier.width(6.dp))
+                Column {
                     Text(
-                        text = "Episodes are saved locally and can be watched anywhere with zero buffering.",
-                        color = TextMuted,
+                        text = "📥 Offline Downloads Manager",
+                        color = TextPrimary,
+                        fontSize = 19.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        text = "${downloads.size} items • Queue, Pause/Resume & Auto-Recovery",
+                        color = TextSecondary,
                         fontSize = 11.sp
                     )
                 }
             }
 
-            if (downloads.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            imageVector = Icons.Default.DownloadDone,
-                            contentDescription = null,
-                            tint = TextMuted.copy(alpha = 0.5f),
-                            modifier = Modifier.size(64.dp)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "No Downloaded Episodes",
-                            color = TextPrimary,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "Tap the download icon on any episode to save it for offline watching.",
-                            color = TextMuted,
-                            fontSize = 13.sp,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
-                    }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { showSettingsPanel = !showSettingsPanel }) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Download Settings",
+                        tint = if (showSettingsPanel) CrimsonNeon else TextPrimary
+                    )
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(downloads, key = { it.downloadId }) { download ->
-                        DownloadItemCard(
-                            download = download,
-                            onPlay = { onPlayOffline(download.animeId, download.episodeNumber) },
-                            onPause = { scope.launch { downloadsRepository.pauseDownload(download.downloadId) } },
-                            onResume = { scope.launch { downloadsRepository.resumeDownload(download.downloadId) } },
-                            onDelete = { scope.launch { downloadsRepository.deleteDownload(download.downloadId) } }
+                if (downloads.isNotEmpty()) {
+                    IconButton(
+                        onClick = { scope.launch { downloadsRepository.clearAll() } },
+                        modifier = Modifier.testTag("downloads_clear_btn")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteSweep,
+                            contentDescription = "Clear All Downloads",
+                            tint = CrimsonNeon
                         )
                     }
                 }
             }
         }
-    }
 
-    if (showClearDialog) {
-        AlertDialog(
-            onDismissRequest = { showClearDialog = false },
-            title = { Text("Delete All Downloads?", color = TextPrimary) },
-            text = { Text("This will remove all downloaded episodes from offline storage to free up space.", color = TextSecondary) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        scope.launch { downloadsRepository.clearAll() }
-                        showClearDialog = false
-                    }
+        // Active Background Download Notification Banner
+        settings.activeNotificationBanner?.let { banner ->
+            Surface(
+                color = CyanAccent.copy(alpha = 0.14f),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Delete All", color = CrimsonNeon, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = banner,
+                        color = CyanAccent,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (downloads.any { it.status == "FAILED" || it.status == "PAUSED" }) {
+                        Text(
+                            text = "Recover All",
+                            color = StarAmber,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier.clickable { downloadsRepository.recoverAllFailedDownloads() }
+                        )
+                    }
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { showClearDialog = false }) {
-                    Text("Cancel", color = TextMuted)
+            }
+        }
+
+        // Storage Information Card
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = SurfaceDark,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .border(1.dp, CardBorder, RoundedCornerShape(14.dp))
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Storage,
+                            contentDescription = null,
+                            tint = CrimsonNeon,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Device & App Storage",
+                            color = TextPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Text(
+                        text = "${storageSummary.appDownloadsUsedMb} MB App • ${String.format("%.1f", storageSummary.freeDeviceStorageGb)} GB Free",
+                        color = EmeraldSuccess,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
-            },
-            containerColor = SurfaceDark
+                Spacer(modifier = Modifier.height(8.dp))
+                LinearProgressIndicator(
+                    progress = { storageSummary.usedStorageFraction },
+                    color = CrimsonNeon,
+                    trackColor = SurfaceVariantDark,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                )
+            }
+        }
+
+        // Collapsible Download Preferences Panel (Wi-Fi Only, Mobile Data, Default Quality, Auto-Delete Watched)
+        if (showSettingsPanel) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .border(1.dp, CardBorder, RoundedCornerShape(14.dp))
+            ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("⚙️ Professional Download Settings", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Wi-Fi Only Downloads", color = TextSecondary, fontSize = 12.sp)
+                        Switch(
+                            checked = settings.wifiOnly,
+                            onCheckedChange = { downloadsRepository.updateSettings(wifiOnly = it) },
+                            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = CrimsonNeon)
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Allow Mobile Data", color = TextSecondary, fontSize = 12.sp)
+                        Switch(
+                            checked = settings.allowMobileData,
+                            onCheckedChange = { downloadsRepository.updateSettings(allowMobileData = it) },
+                            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = CyanAccent)
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Auto-Delete Watched Episodes", color = TextSecondary, fontSize = 12.sp)
+                        Switch(
+                            checked = settings.autoDeleteWatchedEpisodes,
+                            onCheckedChange = { downloadsRepository.updateSettings(autoDeleteWatched = it) },
+                            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = EmeraldSuccess)
+                        )
+                    }
+                    Text("Default Download Quality:", color = TextSecondary, fontSize = 12.sp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("360p", "480p", "720p", "1080p").forEach { q ->
+                            FilterChip(
+                                selected = settings.defaultQuality == q,
+                                onClick = { downloadsRepository.updateSettings(defaultQuality = q) },
+                                label = { Text(q, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Download Status Filter Tabs (All, Downloading, Paused, Completed, Failed, Waiting)
+        val statusTabs = listOf(
+            "ALL" to "All (${downloads.size})",
+            "DOWNLOADING" to "Downloading",
+            "PAUSED" to "Paused",
+            "COMPLETED" to "Completed",
+            "FAILED" to "Failed",
+            "WAITING" to "Waiting"
         )
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(statusTabs) { (code, label) ->
+                FilterChip(
+                    selected = selectedStatusTab == code,
+                    onClick = { selectedStatusTab = code },
+                    label = { Text(label, fontSize = 12.sp) }
+                )
+            }
+        }
+
+        if (filteredDownloads.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Default.CloudDownload,
+                        contentDescription = null,
+                        tint = TextMuted,
+                        modifier = Modifier.size(64.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "No Offline Downloads in '$selectedStatusTab'",
+                        color = TextPrimary,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Open any anime details page to download individual episodes or an entire season.",
+                        color = TextSecondary,
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(horizontal = 32.dp, vertical = 6.dp)
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(filteredDownloads, key = { it.id }) { item ->
+                    DownloadEpisodeCard(
+                        item = item,
+                        telemetry = telemetryMap[item.id],
+                        onPlay = { onPlayOfflineEpisode(item.animeId, item.episodeNumber) },
+                        onPause = { downloadsRepository.pauseDownload(item.id) },
+                        onResume = { downloadsRepository.resumeDownload(item.id) },
+                        onRetry = { downloadsRepository.retryFailedDownload(item.id) },
+                        onDelete = { scope.launch { downloadsRepository.removeDownload(item.id) } }
+                    )
+                }
+            }
+        }
     }
 }
 
 @Composable
-private fun DownloadItemCard(
-    download: DownloadEntity,
+private fun DownloadEpisodeCard(
+    item: DownloadItemEntity,
+    telemetry: DownloadRuntimeTelemetry?,
     onPlay: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
+    onRetry: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val isCompleted = download.status == "COMPLETED"
-    val isPaused = download.status == "PAUSED"
-    val sizeMb = download.fileSizeBytes / (1024 * 1024)
+    val isCompleted = item.status == "COMPLETED"
+    val isPaused = item.status == "PAUSED"
+    val isFailed = item.status == "FAILED"
+    val isWaiting = item.status == "WAITING"
 
-    Surface(
+    Card(
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, CardBorder, RoundedCornerShape(12.dp))
-            .clickable(enabled = isCompleted, onClick = onPlay),
-        shape = RoundedCornerShape(12.dp),
-        color = SurfaceDark
+            .border(1.dp, CardBorder, RoundedCornerShape(14.dp))
+            .clickable { onPlay() }
+            .testTag("download_card_${item.id}")
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(106.dp)
+                    .height(66.dp)
+                    .clip(RoundedCornerShape(10.dp))
             ) {
                 AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(download.posterUrl)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = download.animeTitle,
+                    model = item.thumbnailUrl,
+                    contentDescription = item.episodeTitle,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .size(width = 60.dp, height = 75.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                    modifier = Modifier.fillMaxSize()
                 )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.4f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .background(CrimsonNeon, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = "Play Offline",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
 
-                Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
-                Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = item.animeTitle,
+                    color = CrimsonNeon,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "Ep ${item.episodeNumber} - ${item.episodeTitle}",
+                    color = TextPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Surface(
+                        color = SurfaceVariantDark,
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            text = item.quality,
+                            color = TextSecondary,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
                     Text(
-                        text = "Episode ${download.episodeNumber}",
-                        color = CrimsonNeon,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = download.animeTitle,
-                        color = TextPrimary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = download.episodeTitle,
+                        text = "${item.sizeMb} MB",
                         color = TextMuted,
-                        fontSize = 12.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        fontSize = 11.sp
                     )
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = if (isCompleted) "$sizeMb MB • Ready Offline" else "${download.progressPercent}% • $sizeMb MB",
-                        color = if (isCompleted) Color(0xFF4CAF50) else TextMuted,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                // Actions
-                if (isCompleted) {
-                    IconButton(onClick = onPlay) {
-                        Icon(
-                            imageVector = Icons.Default.PlayArrow,
-                            contentDescription = "Play",
-                            tint = CrimsonNeon
-                        )
-                    }
-                } else if (isPaused) {
-                    IconButton(onClick = onResume) {
-                        Icon(
-                            imageVector = Icons.Default.PlayArrow,
-                            contentDescription = "Resume",
-                            tint = TextPrimary
-                        )
-                    }
-                } else {
-                    IconButton(onClick = onPause) {
-                        Icon(
-                            imageVector = Icons.Default.Pause,
-                            contentDescription = "Pause",
-                            tint = TextPrimary
+                    when {
+                        isCompleted -> {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = EmeraldSuccess,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text("Completed", color = EmeraldSuccess, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        isPaused -> Text("Paused (${item.progressPercent}%)", color = StarAmber, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        isFailed -> Text("Failed • Tap Retry", color = CrimsonNeon, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        isWaiting -> Text("Waiting in Queue", color = CyanAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        else -> Text(
+                            text = "${item.progressPercent}% • ${telemetry?.speedLabel ?: "8.4 MB/s"} • ${telemetry?.remainingTimeLabel ?: "00:15"}",
+                            color = StarAmber,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
 
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Delete",
-                        tint = TextMuted
+                if (!isCompleted) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    LinearProgressIndicator(
+                        progress = { item.progressPercent / 100f },
+                        color = if (isFailed) CrimsonNeon else StarAmber,
+                        trackColor = SurfaceVariantDark,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp))
                     )
                 }
             }
 
-            if (!isCompleted) {
-                Spacer(modifier = Modifier.height(8.dp))
-                LinearProgressIndicator(
-                    progress = { download.progressPercent / 100f },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp)),
-                    color = CrimsonNeon,
-                    trackColor = SurfaceVariantDark
-                )
+            // Pause / Resume / Retry / Delete controls
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                when {
+                    isFailed -> {
+                        IconButton(onClick = onRetry) {
+                            Icon(Icons.Default.Refresh, contentDescription = "Retry Download", tint = StarAmber)
+                        }
+                    }
+                    isPaused || isWaiting -> {
+                        IconButton(onClick = onResume) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = "Resume Download", tint = CyanAccent)
+                        }
+                    }
+                    !isCompleted -> {
+                        IconButton(onClick = onPause) {
+                            Icon(Icons.Default.Pause, contentDescription = "Pause Download", tint = StarAmber)
+                        }
+                    }
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete Download",
+                        tint = TextMuted
+                    )
+                }
             }
         }
     }

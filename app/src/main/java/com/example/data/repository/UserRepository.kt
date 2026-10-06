@@ -1,8 +1,8 @@
 package com.example.data.repository
 
 import android.os.Build
-import com.example.data.local.dao.UserDao
-import com.example.data.local.entity.UserProfileEntity
+import com.example.data.local.dao.AdminScrapedDao
+import com.example.data.local.entity.UserAccountEntity
 import com.example.data.model.DeviceSession
 import com.example.data.model.LoginHistoryItem
 import com.example.data.model.User
@@ -14,26 +14,22 @@ import com.example.security.AuthSecurityManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.UUID
 
 class UserRepository(
-    private val userDao: UserDao,
+    private val adminScrapedDao: AdminScrapedDao? = null,
     private val cloudSyncManager: CloudSyncManager? = null
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    // Reactive runtime state for preferences, active device sessions, login history, XP, and 2FA
     private val _preferences = MutableStateFlow(UserPreferences())
     val preferences: StateFlow<UserPreferences> = _preferences.asStateFlow()
 
@@ -94,142 +90,234 @@ class UserRepository(
     )
     val loginHistory: StateFlow<List<LoginHistoryItem>> = _loginHistory.asStateFlow()
 
-    private val _userXp = MutableStateFlow(2850)
-    private val _watchStreakDays = MutableStateFlow(12)
-    private val _twoFactorEnabled = MutableStateFlow(true)
-    private val _emailVerified = MutableStateFlow(true)
+    private val _isLoggedIn = MutableStateFlow(true)
+    val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
 
-    val currentUser: Flow<User?> = combine(
-        userDao.observeUser(),
-        _preferences,
-        _activeSessions,
-        _loginHistory,
-        _userXp
-    ) { entity, prefs, sessions, history, xp ->
-        if (entity == null) {
-            null
-        } else {
-            val computedLevel = User.calculateLevel(xp)
-            val computedTitle = User.calculateTitleForLevel(computedLevel)
-            User(
-                id = entity.id,
-                username = entity.username,
-                email = entity.email,
-                avatarUrl = entity.avatarUrl,
-                bio = entity.bio,
-                role = runCatching { UserRole.valueOf(entity.role) }.getOrDefault(UserRole.USER),
-                isLoggedIn = entity.isLoggedIn,
-                emailVerified = _emailVerified.value,
-                twoFactorEnabled = _twoFactorEnabled.value,
-                authProvider = if (entity.email.endsWith("@gmail.com")) "EMAIL_AND_GOOGLE" else "EMAIL",
-                memberSince = entity.memberSince,
-                episodesWatched = entity.episodesWatched.coerceAtLeast(142),
-                hoursWatched = entity.hoursWatched.coerceAtLeast(56.8f),
-                completedAnimeCount = entity.completedAnimeCount.coerceAtLeast(18),
-                reviewsCount = 14,
-                favoritesCount = 9,
-                watchStreakDays = _watchStreakDays.value,
-                lastWatchedDateIso = "2026-10-05",
-                xp = xp,
-                level = computedLevel,
-                titleRank = computedTitle,
-                activeSessions = sessions,
-                loginHistory = history,
-                preferences = prefs.copy(
-                    darkTheme = entity.darkTheme,
-                    preferDub = entity.preferDub,
-                    defaultQuality = entity.defaultQuality,
-                    autoPlayNext = entity.autoPlayNext,
-                    notificationsEnabled = entity.notificationsEnabled
-                )
-            )
-        }
-    }
+    private val _user = MutableStateFlow(
+        User(
+            id = "u_default_01",
+            username = "Robiul",
+            email = "ayanislam10000@gmail.com",
+            avatarUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80",
+            bio = "Anime Master in training • 1080p Simulcast Streamer • Otaku",
+            tier = "Ultra VIP",
+            role = UserRole.SUPER_ADMIN,
+            isLoggedIn = true,
+            emailVerified = true,
+            twoFactorEnabled = true,
+            memberSince = "Jan 2026",
+            episodesWatched = 142,
+            hoursWatched = 56.8f,
+            completedAnimeCount = 18,
+            xp = 2850,
+            level = 25,
+            titleRank = "Otaku",
+            watchStreakDays = 12,
+            activeSessions = _activeSessions.value,
+            loginHistory = _loginHistory.value,
+            preferences = _preferences.value
+        )
+    )
+    val user: StateFlow<User> = _user.asStateFlow()
+    val currentUser: StateFlow<User> = _user.asStateFlow()
 
     init {
         scope.launch {
-            seedDefaultUserIfEmpty()
+            try {
+                val activeAccount = adminScrapedDao?.getActiveSessionUser()
+                if (activeAccount != null) {
+                    _isLoggedIn.value = true
+                    _user.update {
+                        it.copy(
+                            id = activeAccount.userId,
+                            username = activeAccount.username,
+                            email = activeAccount.email,
+                            avatarUrl = activeAccount.avatarUrl,
+                            tier = activeAccount.tier,
+                            episodesWatched = activeAccount.episodesWatched.coerceAtLeast(142),
+                            hoursWatched = activeAccount.watchTimeHours.coerceAtLeast(56.8f),
+                            memberSince = activeAccount.joinDate,
+                            isLoggedIn = true
+                        )
+                    }
+                }
+                cloudSyncManager?.performInitialSync(_user.value.id)
+            } catch (_: Exception) {
+            }
         }
     }
 
-    suspend fun seedDefaultUserIfEmpty() = withContext(Dispatchers.IO) {
-        val current = userDao.observeUser().firstOrNull()
-        if (current == null) {
-            userDao.saveUser(
-                UserProfileEntity(
-                    id = "u_default_01",
-                    username = "Robiul",
-                    email = "robiul@kurostream.app",
-                    avatarUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80",
-                    bio = "Anime Master in training • 1080p Simulcast Enthusiast • MAPPA & Madhouse fan",
-                    role = UserRole.SUPER_ADMIN.name,
-                    isLoggedIn = true,
-                    memberSince = "Oct 2024",
-                    episodesWatched = 142,
-                    hoursWatched = 56.8f,
-                    completedAnimeCount = 18,
-                    darkTheme = true,
-                    preferDub = false,
-                    defaultQuality = "1080p",
-                    autoPlayNext = true,
-                    notificationsEnabled = true
-                )
+    private fun syncUserSnapshots() {
+        _user.update { current ->
+            val computedLevel = User.calculateLevel(current.xp)
+            val computedTitle = User.calculateTitleForLevel(computedLevel)
+            current.copy(
+                level = computedLevel,
+                titleRank = computedTitle,
+                isLoggedIn = _isLoggedIn.value,
+                activeSessions = _activeSessions.value,
+                loginHistory = _loginHistory.value,
+                preferences = _preferences.value
             )
-            AuthSecurityManager.issueSession(
-                userId = "u_default_01",
-                email = "robiul@kurostream.app",
-                deviceName = "Android Phone (${Build.MODEL})",
-                locationMetadata = "Dhaka, BD • Verified"
-            )
-            cloudSyncManager?.performInitialSync("u_default_01")
         }
     }
 
-    /**
-     * Complete Account Registration with Email Verification code issuance.
-     */
-    suspend fun registerAccount(
-        username: String,
-        email: String,
-        passwordPlain: String
-    ): Result<String> = withContext(Dispatchers.IO) {
-        val cleanName = AuthSecurityManager.sanitizeInput(username, 40)
-        val cleanEmail = AuthSecurityManager.sanitizeEmail(email)
-        if (cleanName.length < 2) {
-            return@withContext Result.failure(IllegalArgumentException("Username must be at least 2 characters."))
+    fun login(email: String, passwordPlain: String): Result<User> {
+        return loginSync(username = email.substringBefore("@"), email = email, passwordPlain = passwordPlain)
+    }
+
+    fun login(username: String, email: String, passwordPlain: String = "Anime#2026"): Result<User> {
+        return loginSync(username = username, email = email, passwordPlain = passwordPlain)
+    }
+
+    private fun loginSync(username: String, email: String, passwordPlain: String): Result<User> {
+        val cleanEmail = email.trim().lowercase()
+        if (cleanEmail.isBlank() || !cleanEmail.contains("@")) {
+            return Result.failure(IllegalArgumentException("Please enter a valid email address."))
         }
-        if (!AuthSecurityManager.isValidEmail(cleanEmail)) {
-            return@withContext Result.failure(IllegalArgumentException("Please enter a valid email address."))
+        val pwdErr = AuthSecurityManager.validatePasswordStrength(passwordPlain)
+        if (pwdErr != null) {
+            return Result.failure(IllegalArgumentException(pwdErr))
         }
-        val (validPwd, pwdMsg) = AuthSecurityManager.validatePasswordStrength(passwordPlain)
-        if (!validPwd) {
-            return@withContext Result.failure(IllegalArgumentException(pwdMsg))
+        if (!AuthSecurityManager.checkRateLimit("login_$cleanEmail")) {
+            return Result.failure(IllegalStateException("Too many attempts. Please wait a moment."))
         }
 
-        val current = userDao.observeUser().firstOrNull() ?: UserProfileEntity()
-        val updated = current.copy(
-            username = cleanName,
+        val cleanName = AuthSecurityManager.sanitizeInput(username.ifBlank { cleanEmail.substringBefore("@") }, 40)
+            .ifBlank { "Robiul" }
+
+        val (suspicious, reason) = AuthSecurityManager.detectSuspiciousLogin(
             email = cleanEmail,
-            isLoggedIn = true,
-            memberSince = SimpleDateFormat("MMM yyyy", Locale.US).format(Date())
+            deviceName = "Android Phone (${Build.MODEL})",
+            ipAddress = "103.112.44.18",
+            knownDevices = _activeSessions.value.map { it.deviceName },
+            recentFailedCount = 0
         )
-        userDao.saveUser(updated)
-        val verificationCode = AuthSecurityManager.issueEmailVerificationCode(cleanEmail)
-        _emailVerified.value = false
+
+        _isLoggedIn.value = true
+        recordNewSessionAndHistory(
+            email = cleanEmail,
+            deviceName = "Android Phone (${Build.MODEL})",
+            authMethod = "Email + Password",
+            isSuspicious = suspicious,
+            suspiciousReason = reason
+        )
+
+        _user.update {
+            it.copy(
+                username = cleanName,
+                email = cleanEmail,
+                tier = "Ultra VIP",
+                isLoggedIn = true,
+                activeSessions = _activeSessions.value,
+                loginHistory = _loginHistory.value
+            )
+        }
+
+        scope.launch {
+            try {
+                val salt = AuthSecurityManager.generateSalt()
+                val hash = AuthSecurityManager.hashPassword(passwordPlain, salt)
+                val entity = UserAccountEntity(
+                    email = cleanEmail,
+                    userId = _user.value.id,
+                    username = cleanName,
+                    salt = salt,
+                    passwordHash = hash,
+                    avatarUrl = _user.value.avatarUrl,
+                    tier = "Ultra VIP",
+                    watchTimeHours = _user.value.hoursWatched,
+                    episodesWatched = _user.value.episodesWatched,
+                    joinDate = _user.value.memberSince,
+                    isActiveSession = true
+                )
+                adminScrapedDao?.clearAllActiveSessions()
+                adminScrapedDao?.insertUserAccount(entity)
+                cloudSyncManager?.performInitialSync(_user.value.id)
+            } catch (_: Exception) {
+            }
+        }
+        return Result.success(_user.value)
+    }
+
+    fun register(username: String, email: String, passwordPlain: String): Result<User> {
+        val codeRes = registerAccountSync(username, email, passwordPlain)
+        return codeRes.map { _user.value }
+    }
+
+    suspend fun registerAccount(username: String, email: String, passwordPlain: String): Result<String> {
+        return registerAccountSync(username, email, passwordPlain)
+    }
+
+    fun registerAccountSync(username: String, email: String, passwordPlain: String): Result<String> {
+        val cleanName = AuthSecurityManager.sanitizeInput(username, 40)
+        val cleanEmail = email.trim().lowercase()
+        if (cleanName.length < 2) {
+            return Result.failure(IllegalArgumentException("Username must be at least 2 characters."))
+        }
+        if (!cleanEmail.contains("@")) {
+            return Result.failure(IllegalArgumentException("Please enter a valid email address."))
+        }
+        val pwdErr = AuthSecurityManager.validatePasswordStrength(passwordPlain)
+        if (pwdErr != null) {
+            return Result.failure(IllegalArgumentException(pwdErr))
+        }
+
+        val verificationCode = AuthSecurityManager.generateEmailVerificationCode(cleanEmail)
+        val joinMonth = SimpleDateFormat("MMM yyyy", Locale.US).format(Date())
+        _isLoggedIn.value = true
         recordNewSessionAndHistory(
             email = cleanEmail,
             deviceName = "Android Phone (${Build.MODEL})",
             authMethod = "Email Registration",
             isSuspicious = false
         )
-        cloudSyncManager?.performInitialSync(updated.id)
-        Result.success(verificationCode)
+
+        _user.update {
+            it.copy(
+                id = "u_${UUID.randomUUID().toString().take(8)}",
+                username = cleanName,
+                email = cleanEmail,
+                memberSince = joinMonth,
+                joinDate = joinMonth,
+                isLoggedIn = true,
+                emailVerified = false,
+                isEmailVerified = false,
+                activeSessions = _activeSessions.value,
+                loginHistory = _loginHistory.value
+            )
+        }
+
+        scope.launch {
+            try {
+                val salt = AuthSecurityManager.generateSalt()
+                val hash = AuthSecurityManager.hashPassword(passwordPlain, salt)
+                val entity = UserAccountEntity(
+                    email = cleanEmail,
+                    userId = _user.value.id,
+                    username = cleanName,
+                    salt = salt,
+                    passwordHash = hash,
+                    avatarUrl = _user.value.avatarUrl,
+                    tier = "Ultra VIP",
+                    watchTimeHours = _user.value.hoursWatched,
+                    episodesWatched = _user.value.episodesWatched,
+                    joinDate = joinMonth,
+                    isActiveSession = true
+                )
+                adminScrapedDao?.clearAllActiveSessions()
+                adminScrapedDao?.insertUserAccount(entity)
+                cloudSyncManager?.performInitialSync(_user.value.id)
+            } catch (_: Exception) {
+            }
+        }
+        return Result.success(verificationCode)
     }
 
     fun verifyEmailCode(email: String, code: String): Boolean {
         val ok = AuthSecurityManager.verifyEmailCode(email, code)
         if (ok) {
-            _emailVerified.value = true
+            _user.update { it.copy(emailVerified = true, isEmailVerified = true) }
             awardUserXp(50, "Verified account email")
             cloudSyncManager?.enqueueIncrementalSync("USER_SETTINGS", "email_verified", "UPSERT", "Email verified")
         }
@@ -237,77 +325,42 @@ class UserRepository(
     }
 
     fun sendEmailVerificationCode(email: String): String {
-        return AuthSecurityManager.issueEmailVerificationCode(email)
+        return AuthSecurityManager.generateEmailVerificationCode(email)
     }
 
-    /**
-     * Login with rate limiting, suspicious login detection, session token issuance, and cloud restore.
-     */
-    suspend fun login(username: String, email: String, passwordPlain: String = "Anime#2026"): Result<Unit> = withContext(Dispatchers.IO) {
-        val cleanEmail = AuthSecurityManager.sanitizeEmail(email)
-        val rateStatus = AuthSecurityManager.checkRateLimit(cleanEmail)
-        if (rateStatus.isLockedOut) {
-            val secs = (rateStatus.remainingLockoutMs / 1000L).coerceAtLeast(1L)
-            return@withContext Result.failure(IllegalStateException("Too many attempts. Locked out for ${secs}s."))
-        }
-
-        val current = userDao.observeUser().firstOrNull() ?: UserProfileEntity()
-        val finalUsername = username.ifBlank { cleanEmail.substringBefore("@").ifBlank { "Robiul" } }
-        userDao.saveUser(
-            current.copy(
-                username = AuthSecurityManager.sanitizeInput(finalUsername, 40),
-                email = cleanEmail.ifBlank { current.email },
-                isLoggedIn = true
-            )
-        )
-        AuthSecurityManager.recordAttempt(cleanEmail, success = true)
-        val suspicious = AuthSecurityManager.detectSuspiciousLogin(
-            email = cleanEmail,
-            deviceName = "Android Phone (${Build.MODEL})",
-            locationMetadata = "103.112.44.18"
-        )
-        recordNewSessionAndHistory(
-            email = cleanEmail,
-            deviceName = "Android Phone (${Build.MODEL})",
-            authMethod = "Email + Password",
-            isSuspicious = suspicious
-        )
-        cloudSyncManager?.performInitialSync(current.id)
-        Result.success(Unit)
-    }
-
-    /**
-     * Google Sign-In integration with automatic profile sync and cloud restoration.
-     */
-    suspend fun signInWithGoogle(googleEmail: String, displayName: String): Result<Unit> = withContext(Dispatchers.IO) {
-        val cleanEmail = AuthSecurityManager.sanitizeEmail(googleEmail).ifBlank { "robiul.google@gmail.com" }
+    fun signInWithGoogle(googleEmail: String, displayName: String): Result<User> {
+        val cleanEmail = googleEmail.trim().lowercase().ifBlank { "robiul.google@gmail.com" }
         val cleanName = AuthSecurityManager.sanitizeInput(displayName, 40).ifBlank { "Robiul" }
-        val current = userDao.observeUser().firstOrNull() ?: UserProfileEntity()
-        userDao.saveUser(
-            current.copy(
-                username = cleanName,
-                email = cleanEmail,
-                isLoggedIn = true
-            )
-        )
-        _emailVerified.value = true
+        _isLoggedIn.value = true
         recordNewSessionAndHistory(
             email = cleanEmail,
             deviceName = "Android Phone (${Build.MODEL})",
             authMethod = "Google Sign-In (OAuth 2.0)",
             isSuspicious = false
         )
-        cloudSyncManager?.performInitialSync(current.id)
-        Result.success(Unit)
+        _user.update {
+            it.copy(
+                username = cleanName,
+                email = cleanEmail,
+                isLoggedIn = true,
+                emailVerified = true,
+                isEmailVerified = true,
+                authProvider = "GOOGLE_OAUTH2",
+                activeSessions = _activeSessions.value,
+                loginHistory = _loginHistory.value
+            )
+        }
+        cloudSyncManager?.performInitialSync(_user.value.id)
+        return Result.success(_user.value)
     }
 
     fun requestPasswordResetCode(email: String): String {
-        return AuthSecurityManager.issuePasswordResetCode(email)
+        return AuthSecurityManager.generatePasswordResetCode(email)
     }
 
     fun resetPasswordWithCode(email: String, code: String, newPasswordPlain: String): Result<Unit> {
-        val (valid, msg) = AuthSecurityManager.validatePasswordStrength(newPasswordPlain)
-        if (!valid) return Result.failure(IllegalArgumentException(msg))
+        val pwdErr = AuthSecurityManager.validatePasswordStrength(newPasswordPlain)
+        if (pwdErr != null) return Result.failure(IllegalArgumentException(pwdErr))
         val verified = AuthSecurityManager.verifyPasswordResetCode(email, code)
         if (!verified && code != "123456") {
             return Result.failure(IllegalArgumentException("Invalid or expired password reset code."))
@@ -316,16 +369,19 @@ class UserRepository(
         return Result.success(Unit)
     }
 
-    suspend fun logout() = withContext(Dispatchers.IO) {
-        val current = userDao.observeUser().firstOrNull() ?: return@withContext
-        userDao.saveUser(current.copy(isLoggedIn = false))
+    fun logout() {
+        _isLoggedIn.value = false
+        _user.update { it.copy(isLoggedIn = false) }
+        scope.launch {
+            try {
+                adminScrapedDao?.clearAllActiveSessions()
+            } catch (_: Exception) {
+            }
+        }
     }
 
-    suspend fun logoutFromAllDevices() = withContext(Dispatchers.IO) {
-        val current = userDao.observeUser().firstOrNull()
-        if (current != null) {
-            AuthSecurityManager.revokeAllSessionsForUser(current.id)
-        }
+    fun logoutFromAllDevices() {
+        AuthSecurityManager.revokeAllUserTokens(_user.value.id)
         _activeSessions.update { list ->
             list.filter { it.isCurrentDevice }.map {
                 it.copy(
@@ -334,12 +390,14 @@ class UserRepository(
                 )
             }
         }
+        syncUserSnapshots()
         cloudSyncManager?.enqueueIncrementalSync("USER_SETTINGS", "sessions_revoke_all", "DELETE", "Logged out from all devices")
     }
 
     fun revokeDeviceSession(sessionId: String) {
-        AuthSecurityManager.revokeSession(sessionId)
+        AuthSecurityManager.revokeSessionTokens(sessionId)
         _activeSessions.update { list -> list.filterNot { it.sessionId == sessionId } }
+        syncUserSnapshots()
         cloudSyncManager?.enqueueIncrementalSync("USER_SETTINGS", "session_$sessionId", "DELETE", "Revoked device session")
     }
 
@@ -356,124 +414,155 @@ class UserRepository(
                 } else s
             }
         }
+        syncUserSnapshots()
         return "rt_gen_${newGen}_${System.currentTimeMillis()}"
     }
 
     fun toggleTwoFactor(enabled: Boolean): String? {
-        _twoFactorEnabled.value = enabled
+        _user.update { it.copy(twoFactorEnabled = enabled, isTwoFactorEnabled = enabled) }
         cloudSyncManager?.enqueueIncrementalSync("USER_SETTINGS", "2fa", "UPSERT", "2FA set to $enabled")
-        return if (enabled) AuthSecurityManager.issueTwoFactorCode("robiul@kurostream.app") else null
+        return if (enabled) AuthSecurityManager.generateTwoFactorCode(_user.value.email) else null
     }
 
-    suspend fun deleteAccountPermanently() = withContext(Dispatchers.IO) {
-        val current = userDao.observeUser().firstOrNull() ?: return@withContext
-        AuthSecurityManager.revokeAllSessionsForUser(current.id)
+    fun deleteAccountPermanently() {
+        AuthSecurityManager.revokeAllUserTokens(_user.value.id)
         _activeSessions.value = emptyList()
-        userDao.saveUser(
-            current.copy(
-                username = "Deleted User",
-                email = "deleted@kurostream.app",
-                bio = "Account deleted",
-                isLoggedIn = false
+        _isLoggedIn.value = false
+        _user.update {
+            it.copy(
+                username = "Guest User",
+                email = "not_signed_in@kurostream.app",
+                bio = "Sign in to sync your anime progress",
+                tier = "Free Member",
+                isLoggedIn = false,
+                activeSessions = emptyList()
             )
-        )
+        }
+        scope.launch {
+            try {
+                adminScrapedDao?.clearAllActiveSessions()
+            } catch (_: Exception) {
+            }
+        }
     }
 
-    suspend fun updateProfile(username: String, bio: String, avatarUrl: String? = null) = withContext(Dispatchers.IO) {
-        val current = userDao.observeUser().firstOrNull() ?: return@withContext
-        val cleanName = AuthSecurityManager.sanitizeInput(username, 40).ifBlank { current.username }
+    fun updateProfile(username: String, bio: String, avatarUrl: String? = null) {
+        val cleanName = AuthSecurityManager.sanitizeInput(username, 40).ifBlank { _user.value.username }
         val cleanBio = AuthSecurityManager.sanitizeInput(bio, 240)
-        userDao.saveUser(
-            current.copy(
+        _user.update {
+            it.copy(
                 username = cleanName,
                 bio = cleanBio,
-                avatarUrl = avatarUrl?.takeIf { it.isNotBlank() } ?: current.avatarUrl
+                avatarUrl = avatarUrl?.takeIf { url -> url.isNotBlank() } ?: it.avatarUrl
             )
-        )
-        cloudSyncManager?.enqueueIncrementalSync("USER_SETTINGS", current.id, "UPSERT", "Updated profile ($cleanName)")
-    }
-
-    suspend fun updateRole(role: UserRole) = withContext(Dispatchers.IO) {
-        val current = userDao.observeUser().firstOrNull() ?: return@withContext
-        val currentRole = runCatching { UserRole.valueOf(current.role) }.getOrDefault(UserRole.USER)
-        if (currentRole != UserRole.SUPER_ADMIN && !AdminSecurityManager.isUnlocked.value) {
-            return@withContext
         }
-        userDao.saveUser(current.copy(role = role.name))
+        cloudSyncManager?.enqueueIncrementalSync("USER_SETTINGS", _user.value.id, "UPSERT", "Updated profile ($cleanName)")
     }
 
-    suspend fun updatePreference(
+    fun updateRole(role: UserRole) {
+        if (_user.value.role != UserRole.SUPER_ADMIN && !AdminSecurityManager.isAdminAuthenticated.value) {
+            return
+        }
+        _user.update { it.copy(role = role) }
+    }
+
+    fun updatePreference(
         darkTheme: Boolean? = null,
         preferDub: Boolean? = null,
         defaultQuality: String? = null,
         autoPlayNext: Boolean? = null,
         notificationsEnabled: Boolean? = null
-    ) = withContext(Dispatchers.IO) {
-        val current = userDao.observeUser().firstOrNull() ?: return@withContext
-        userDao.saveUser(
-            current.copy(
-                darkTheme = darkTheme ?: current.darkTheme,
-                preferDub = preferDub ?: current.preferDub,
-                defaultQuality = defaultQuality ?: current.defaultQuality,
-                autoPlayNext = autoPlayNext ?: current.autoPlayNext,
-                notificationsEnabled = notificationsEnabled ?: current.notificationsEnabled
-            )
-        )
+    ) {
         _preferences.update { prefs ->
             prefs.copy(
                 darkTheme = darkTheme ?: prefs.darkTheme,
                 preferDub = preferDub ?: prefs.preferDub,
                 defaultQuality = defaultQuality ?: prefs.defaultQuality,
                 autoPlayNext = autoPlayNext ?: prefs.autoPlayNext,
+                autoNextEpisode = autoPlayNext ?: prefs.autoNextEpisode,
                 notificationsEnabled = notificationsEnabled ?: prefs.notificationsEnabled
             )
         }
+        syncUserSnapshots()
         cloudSyncManager?.enqueueIncrementalSync("USER_PREFERENCES", "core_prefs", "UPSERT", "Updated playback/theme preferences")
+    }
+
+    fun updateDefaultQuality(quality: String) = updatePreference(defaultQuality = quality)
+
+    fun toggleAutoNext(enabled: Boolean) = updatePreference(autoPlayNext = enabled)
+
+    fun toggleSkipIntro(enabled: Boolean) {
+        updateAdvancedPreferences { it.copy(skipIntro = enabled, autoSkipIntro = enabled) }
+    }
+
+    fun toggleSkipOutro(enabled: Boolean) {
+        updateAdvancedPreferences { it.copy(skipOutro = enabled, autoSkipOutro = enabled) }
+    }
+
+    fun updatePreferredAudio(audio: String) {
+        updateAdvancedPreferences { it.copy(preferredAudio = audio, preferredAudioLanguage = audio) }
+    }
+
+    fun updatePreferredSubtitle(sub: String) {
+        updateAdvancedPreferences { it.copy(preferredSubtitle = sub) }
     }
 
     fun updateAdvancedPreferences(transform: (UserPreferences) -> UserPreferences) {
         _preferences.update(transform)
+        syncUserSnapshots()
         cloudSyncManager?.enqueueIncrementalSync("USER_PREFERENCES", "advanced_prefs", "UPSERT", "Updated advanced user preferences")
     }
 
     fun awardUserXp(amount: Int, reason: String = "Activity") {
         if (amount <= 0) return
-        _userXp.update { (it + amount).coerceAtLeast(0) }
+        _user.update { current ->
+            val nextXp = (current.xp + amount).coerceAtLeast(0)
+            val nextLevel = User.calculateLevel(nextXp)
+            val nextTitle = User.calculateTitleForLevel(nextLevel)
+            current.copy(
+                xp = nextXp,
+                level = nextLevel,
+                titleRank = nextTitle
+            )
+        }
         cloudSyncManager?.enqueueIncrementalSync("USER_SETTINGS", "xp_progress", "UPSERT", "+$amount XP ($reason)")
     }
 
     fun incrementWatchStreak() {
-        _watchStreakDays.update { it + 1 }
+        _user.update { it.copy(watchStreakDays = it.watchStreakDays + 1) }
         awardUserXp(50, "Daily Watch Streak maintained")
     }
 
-    suspend fun incrementWatchStats(additionalMinutes: Int) = withContext(Dispatchers.IO) {
-        val current = userDao.observeUser().firstOrNull() ?: return@withContext
+    fun incrementWatchStats(additionalMinutes: Int) {
         val addedHours = additionalMinutes / 60f
-        userDao.saveUser(
-            current.copy(
-                episodesWatched = current.episodesWatched + 1,
-                hoursWatched = current.hoursWatched + addedHours
+        _user.update {
+            val nextHours = it.hoursWatched + addedHours
+            it.copy(
+                episodesWatched = it.episodesWatched + 1,
+                hoursWatched = nextHours,
+                watchTimeHours = nextHours
             )
-        )
+        }
         awardUserXp(15, "Watched an episode")
         cloudSyncManager?.enqueueIncrementalSync("ANIME_PROGRESS", "watch_stats", "UPSERT", "Watched episode (+${additionalMinutes}m)")
+    }
+
+    fun recordEpisodeWatched(minutesWatched: Int = 24) {
+        incrementWatchStats(minutesWatched)
     }
 
     private fun recordNewSessionAndHistory(
         email: String,
         deviceName: String,
         authMethod: String,
-        isSuspicious: Boolean
+        isSuspicious: Boolean,
+        suspiciousReason: String? = null
     ) {
-        val tokenBundle = AuthSecurityManager.issueSession(
-            userId = "u_default_01",
-            email = email,
-            deviceName = deviceName,
-            locationMetadata = "Dhaka, BD • 103.112.44.18"
-        )
+        val sessionId = "sess_${UUID.randomUUID().toString().take(8)}"
+        AuthSecurityManager.issueTokenPair(userId = _user.value.id, sessionId = sessionId)
         val newSession = DeviceSession(
-            sessionId = tokenBundle.sessionId,
+            sessionId = sessionId,
+            userId = _user.value.id,
             deviceName = deviceName,
             platform = "Android ${Build.VERSION.RELEASE}",
             locationOrIp = "Dhaka, BD • 103.112.44.18",
@@ -486,11 +575,13 @@ class UserRepository(
         }
         val historyEntry = LoginHistoryItem(
             id = "login_${System.currentTimeMillis()}",
+            userId = _user.value.id,
             deviceName = deviceName,
             timestampLabel = SimpleDateFormat("MMM dd, HH:mm", Locale.US).format(Date()),
             locationOrIp = "103.112.44.18",
             authMethod = authMethod,
             isSuspicious = isSuspicious,
+            suspiciousReason = suspiciousReason,
             statusText = if (isSuspicious) "⚠️ New Device Alert Sent" else "Success"
         )
         _loginHistory.update { (listOf(historyEntry) + it).take(15) }

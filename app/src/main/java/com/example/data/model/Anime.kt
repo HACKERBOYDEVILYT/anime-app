@@ -14,6 +14,13 @@ enum class AnimeStatus(val displayName: String) {
     NOT_YET_RELEASED("Upcoming")
 }
 
+enum class AnimeSortOption(val displayName: String) {
+    POPULARITY("Most Popular"),
+    RATING("Highest Rated"),
+    NEWEST("Newest Releases"),
+    TITLE_AZ("Title (A-Z)")
+}
+
 data class AnimeCharacter(
     val name: String,
     val role: String,
@@ -48,5 +55,10 @@ data class Anime(
     val isTrending: Boolean = false,
     val isPopular: Boolean = false,
     val isSeasonal: Boolean = false,
-    val nextEpisodeAirDate: String? = null
-)
+    val nextEpisodeAirDate: String? = null,
+    val hasSub: Boolean = true,
+    val hasDub: Boolean = true
+) {
+    val synopsis: String
+        get() = description
+}

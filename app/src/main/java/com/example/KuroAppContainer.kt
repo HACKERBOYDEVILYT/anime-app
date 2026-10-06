@@ -23,28 +23,28 @@ import com.example.data.sync.CloudSyncManager
 
 class KuroAppContainer(context: Context) {
 
-    private val database: KuroDatabase = KuroDatabase.getDatabase(context)
+    private val database: KuroDatabase = KuroDatabase.getInstance(context)
 
     val cloudSyncManager: CloudSyncManager = CloudSyncManager()
 
     val mediaProvider: LocalLicensedMediaProvider = LocalLicensedMediaProvider()
 
     private val remoteMetadataProvider = RetrofitMetadataProvider(
-        apiService = RetrofitClient.createCatalogApiService(),
+        apiService = RetrofitClient.apiService,
         fallbackProvider = mediaProvider
     )
 
     val animeRepository: AnimeRepository = AnimeRepository(remoteMetadataProvider)
 
     val watchRepository: WatchRepository = WatchRepository(
+        watchDao = database.watchDao(),
         watchlistDao = database.watchlistDao(),
-        watchHistoryDao = database.watchHistoryDao(),
-        reviewDao = database.reviewDao(),
+        socialDao = database.socialDao(),
         cloudSyncManager = cloudSyncManager
     )
 
     val userRepository: UserRepository = UserRepository(
-        userDao = database.userDao(),
+        adminScrapedDao = database.adminScrapedDao(),
         cloudSyncManager = cloudSyncManager
     )
 
@@ -59,7 +59,7 @@ class KuroAppContainer(context: Context) {
     )
 
     val watchPartyRepository: WatchPartyRepository = WatchPartyRepository(
-        watchPartyDao = database.watchPartyDao()
+        animeRepository = animeRepository
     )
 
     val malSyncRepository: MalSyncRepository = MalSyncRepository(
@@ -67,7 +67,7 @@ class KuroAppContainer(context: Context) {
     )
 
     val tierListRepository: TierListRepository = TierListRepository(
-        tierListDao = database.tierListDao()
+        animeRepository = animeRepository
     )
 
     val commentsRepository: CommentsRepository = CommentsRepository(
@@ -75,8 +75,7 @@ class KuroAppContainer(context: Context) {
     )
 
     val scheduleRepository: ScheduleRepository = ScheduleRepository(
-        animeRepository = animeRepository,
-        watchRepository = watchRepository
+        animeRepository = animeRepository
     )
 
     val quotesRepository: QuotesRepository = QuotesRepository()
@@ -87,5 +86,21 @@ class KuroAppContainer(context: Context) {
         cloudSyncManager = cloudSyncManager
     )
 
-    val appUpdateRepository: AppUpdateRepository = AppUpdateRepository(context)
+    val appUpdateRepository: AppUpdateRepository = AppUpdateRepository(
+        context = context,
+        mediaProvider = mediaProvider
+    )
+
+    companion object {
+        @Volatile
+        private var INSTANCE: KuroAppContainer? = null
+
+        fun getInstance(context: Context): KuroAppContainer {
+            return INSTANCE ?: synchronized(this) {
+                val instance = KuroAppContainer(context.applicationContext)
+                INSTANCE = instance
+                instance
+            }
+        }
+    }
 }

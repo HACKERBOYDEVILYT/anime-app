@@ -794,6 +794,37 @@ fun VideoPlayerScreen(
                         }
                     }
 
+                    // Cast to Smart TV / External Player Toggle
+                    IconButton(
+                        onClick = {
+                            viewModel.toggleCastToTv()
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    if (!uiState.isCastingToTv) "📺 Casting to ${uiState.castDeviceName}..."
+                                    else "📱 Returned playback to local player"
+                                )
+                            }
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Tv,
+                            contentDescription = "Cast to TV",
+                            tint = if (uiState.isCastingToTv) CrimsonNeon else Color.White
+                        )
+                    }
+
+                    // Bookmarks & Episode Notes Sheet Shortcut
+                    IconButton(
+                        onClick = { viewModel.setShowBookmarksNotesSheet(true) },
+                        modifier = Modifier.testTag("player_bookmarks_notes_btn")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Bookmark,
+                            contentDescription = "Bookmarks & Episode Notes",
+                            tint = Color.White
+                        )
+                    }
+
                     // Comments / Discussion Button
                     IconButton(onClick = { viewModel.setShowCommentsSheet(true) }) {
                         Icon(
@@ -1162,6 +1193,69 @@ fun VideoPlayerScreen(
                             }
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "🎨 Subtitle Styling & Delay (${uiState.subtitleFontSizeSp}sp • Delay ${uiState.subtitleDelayMs}ms)",
+                        color = CrimsonNeon,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(14, 16, 20, 24).forEach { sz ->
+                            Surface(
+                                onClick = { viewModel.updateSubtitleStyling(fontSizeSp = sz) },
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (uiState.subtitleFontSizeSp == sz) CrimsonNeon else SurfaceDark
+                            ) {
+                                Text(
+                                    text = "${sz}sp",
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("#FFEE00" to "Yellow", "#FFFFFF" to "White", "#00E5FF" to "Cyan", "#00E676" to "Green").forEach { (hex, name) ->
+                            Surface(
+                                onClick = { viewModel.updateSubtitleStyling(colorHex = hex) },
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (uiState.subtitleColorHex == hex) CrimsonNeon else SurfaceDark
+                            ) {
+                                Text(
+                                    text = name,
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Button(
+                            onClick = { viewModel.updateSubtitleStyling(delayMs = uiState.subtitleDelayMs - 250L) },
+                            colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark)
+                        ) {
+                            Text("-250ms Delay", color = TextPrimary, fontSize = 11.sp)
+                        }
+                        Button(
+                            onClick = { viewModel.updateSubtitleStyling(delayMs = 0L) },
+                            colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark)
+                        ) {
+                            Text("Reset 0ms", color = TextPrimary, fontSize = 11.sp)
+                        }
+                        Button(
+                            onClick = { viewModel.updateSubtitleStyling(delayMs = uiState.subtitleDelayMs + 250L) },
+                            colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark)
+                        ) {
+                            Text("+250ms Delay", color = TextPrimary, fontSize = 11.sp)
+                        }
+                    }
                 }
             }
         }
@@ -1195,7 +1289,7 @@ fun VideoPlayerScreen(
             }
         }
 
-        // Speed Selection Sheet
+        // Speed Selection & Sleep Timer Sheet (0.5x, 0.75x, 1x, 1.25x, 1.5x, 1.75x, 2x)
         if (uiState.showSpeedSheet) {
             ModalBottomSheet(
                 onDismissRequest = { viewModel.setShowSpeedSheet(false) },
@@ -1204,16 +1298,110 @@ fun VideoPlayerScreen(
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(text = "Playback Speed", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(10.dp))
-                    listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f).forEach { speed ->
+                    listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f).forEach { speed ->
                         val isSelected = uiState.playbackSpeed == speed
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { viewModel.setPlaybackSpeed(speed) }
-                                .padding(vertical = 10.dp)
+                                .padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(text = "${speed}x", color = if (isSelected) CrimsonNeon else TextPrimary, fontWeight = FontWeight.SemiBold)
+                            if (isSelected) {
+                                Text(text = "✓ Active", color = CrimsonNeon, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(text = "⏲️ Sleep Timer", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(0 to "Off", 15 to "15m", 30 to "30m", 45 to "45m", 60 to "60m").forEach { (mins, label) ->
+                            Surface(
+                                onClick = { viewModel.setSleepTimer(mins) },
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (uiState.sleepTimerMinutes == mins) CrimsonNeon else SurfaceDark
+                            ) {
+                                Text(
+                                    text = label,
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Custom Bookmarks & Personal Episode Notes Sheet (Sections 11 & 12)
+        if (uiState.showBookmarksNotesSheet) {
+            val bookmarks by viewModel.videoBookmarks.collectAsStateWithLifecycle()
+            val notes by viewModel.episodeNotes.collectAsStateWithLifecycle()
+            var bookmarkLabelInput by remember { mutableStateOf("") }
+            var noteTextInput by remember { mutableStateOf("") }
+
+            ModalBottomSheet(
+                onDismissRequest = { viewModel.setShowBookmarksNotesSheet(false) },
+                containerColor = SurfaceDark
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "🔖 Custom Timestamp Bookmarks & 📌 Episode Notes",
+                        color = TextPrimary,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Button(
+                            onClick = {
+                                viewModel.addTimestampBookmark(bookmarkLabelInput.ifBlank { "Best fight / Key scene" })
+                                bookmarkLabelInput = ""
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon)
+                        ) {
+                            Text("🔖 Bookmark ${formatTime(uiState.currentPositionMs)}", fontSize = 12.sp)
+                        }
+                        Button(
+                            onClick = {
+                                viewModel.addPersonalEpisodeNote(noteTextInput.ifBlank { "এই episode-এর endingটা crazy ছিল 😂" })
+                                noteTextInput = ""
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF21293A))
+                        ) {
+                            Text("📌 Save Quick Note", color = Color.White, fontSize = 12.sp)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text("Saved Scene Bookmarks:", color = CrimsonNeon, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    bookmarks.take(4).forEach { bm ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    exoPlayer.seekTo(bm.timestampMs)
+                                    viewModel.updatePosition(bm.timestampMs)
+                                    viewModel.setShowBookmarksNotesSheet(false)
+                                }
+                                .padding(vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("${bm.formattedTimestamp} — ${bm.label}", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Jump ⏩", color = CrimsonNeon, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Personal Episode Notes:", color = CrimsonNeon, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    notes.take(3).forEach { note ->
+                        Text(
+                            text = "• Ep ${note.episodeNumber}: “${note.noteText}”",
+                            color = TextSecondary,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
                     }
                 }
             }

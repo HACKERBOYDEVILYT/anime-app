@@ -1,12 +1,37 @@
 package com.example.data.model
 
+typealias StreamSource = EpisodeSource
+typealias SubtitleTrack = EpisodeSubtitle
+
 data class EpisodeSource(
-    val id: String,
-    val quality: String, // "1080p", "720p", "480p", "360p", "Auto"
-    val streamUrl: String,
+    val id: String = "src_default",
+    val quality: String = "1080p", // "1080p", "720p", "480p", "360p", "Auto"
+    val streamUrl: String = "",
     val isHls: Boolean = true,
-    val cdnNode: String = "Cloudflare Global CDN"
-)
+    val cdnNode: String = "Cloudflare Global CDN",
+    val audioTrack: String = "Japanese [Original]"
+) {
+    constructor(
+        serverName: String,
+        quality: String,
+        url: String,
+        isHls: Boolean = true,
+        audioTrack: String = "Japanese [Original]"
+    ) : this(
+        id = "${serverName}_${quality}".replace(" ", "_"),
+        quality = quality,
+        streamUrl = url,
+        isHls = isHls,
+        cdnNode = serverName,
+        audioTrack = audioTrack
+    )
+
+    val serverName: String
+        get() = cdnNode
+
+    val url: String
+        get() = streamUrl
+}
 
 data class EpisodeSubtitle(
     val id: String,
@@ -39,4 +64,19 @@ data class Episode(
     val sources: List<EpisodeSource> = emptyList(),
     val subtitles: List<EpisodeSubtitle> = emptyList(),
     val audioTracks: List<EpisodeAudio> = emptyList()
-)
+) {
+    val thumbnailUrl: String
+        get() = thumbnail
+
+    val introStartMs: Long
+        get() = introStartSec * 1000L
+
+    val introEndMs: Long
+        get() = introEndSec * 1000L
+
+    val outroStartMs: Long
+        get() = outroStartSec * 1000L
+
+    val outroEndMs: Long
+        get() = outroEndSec * 1000L
+}

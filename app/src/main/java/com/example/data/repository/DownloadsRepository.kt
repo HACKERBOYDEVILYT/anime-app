@@ -3,6 +3,7 @@ package com.example.data.repository
 import android.os.Environment
 import android.os.StatFs
 import com.example.data.local.dao.DownloadsDao
+import com.example.data.local.entity.DownloadEntity
 import com.example.data.local.entity.DownloadItemEntity
 import com.example.data.model.Anime
 import com.example.data.model.Episode
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Locale
 
 data class DownloadRuntimeTelemetry(
     val itemId: String,
@@ -48,15 +50,6 @@ data class DeviceStorageSummary(
         } else 0.35f
 }
 
-/**
- * Professional Download System (Section 8):
- * - Supports Waiting, Downloading, Paused, Completed, Failed states
- * - Multi-episode & full-season download queue
- * - Pause, Resume, Cancel, Retry, and Failed download recovery
- * - Real-time speed (MB/s), remaining time (ETA), background notification status
- * - Wi-Fi only, Mobile-data toggle, Download quality, Auto-delete watched episodes
- * - Device & app storage calculation
- */
 class DownloadsRepository(
     private val downloadsDao: DownloadsDao,
     private val cloudSyncManager: CloudSyncManager? = null
@@ -70,10 +63,14 @@ class DownloadsRepository(
     private val _telemetryById = MutableStateFlow<Map<String, DownloadRuntimeTelemetry>>(emptyMap())
     val telemetryById: StateFlow<Map<String, DownloadRuntimeTelemetry>> = _telemetryById.asStateFlow()
 
-    val allDownloads: Flow<List<DownloadItemEntity>> = downloadsDao.getAllDownloads()
+    val allDownloads: Flow<List<DownloadEntity>> = downloadsDao.getAllDownloads()
+    val totalStorageBytes: Flow<Long?> = downloadsDao.getTotalStorageUsedBytes()
+
+    fun getDownloadsForAnime(animeId: String): Flow<List<DownloadEntity>> =
+        downloadsDao.getDownloadsForAnime(animeId)
 
     suspend fun seedInitialDownloadsIfEmpty() = withContext(Dispatchers.IO) {
-        // Keep user downloads clean and authentic (no fake dummy records forced)
+        // Keep downloads authentic
     }
 
     fun updateSettings(
@@ -95,12 +92,16 @@ class DownloadsRepository(
         cloudSyncManager?.enqueueIncrementalSync("DOWNLOAD_METADATA", "download_settings", "UPSERT", "Updated download preferences")
     }
 
-    private fun sizeMbForQuality(quality: String): Int = when (quality) {
-        "360p" -> 95
-        "480p" -> 145
-        "720p" -> 230
-        "1080p" -> 340
-        else -> 240
+    private fun bytesForQuality(quality: String): Long = when (quality) {
+        "360p" -> 95L * 1024L * 1024L
+        "480p" -> 145L * 1024L * 1024L
+        "720p" -> 230L * 1024L * 1024L
+        "1080p" -> 340L * 1024L * 1024L
+        else -> 240L * 1024L * 1024L
+    }
+
+    suspend fun startDownload(anime: Anime, episode: Episode) {
+        enqueueDownload(anime, episode, _settings.value.defaultQuality)
     }
 
     suspend fun enqueueDownload(
@@ -109,55 +110,56 @@ class DownloadsRepository(
         quality: String = _settings.value.defaultQuality
     ) = withContext(Dispatchers.IO) {
         val itemId = "${anime.id}_ep_${episode.episodeNumber}"
-        val streamUrl = episode.sources.firstOrNull()?.url
+        val streamUrl = episode.sources.firstOrNull()?.streamUrl
             ?: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-        val item = DownloadItemEntity(
-            id = itemId,
+        val totalBytes = bytesForQuality(quality)
+        val item = DownloadEntity(
+            downloadId = itemId,
             animeId = anime.id,
-            animeTitle = anime.titleEnglish,
             episodeNumber = episode.episodeNumber,
+            animeTitle = anime.titleEnglish,
             episodeTitle = episode.title,
-            thumbnailUrl = episode.thumbnailUrl.ifBlank { anime.posterUrl },
-            streamUrl = streamUrl,
-            quality = quality,
-            sizeMb = sizeMbForQuality(quality),
-            progressPercent = 0,
+            posterUrl = episode.thumbnail.ifBlank { anime.posterUrl },
+            videoUrl = streamUrl,
+            localFilePath = "/storage/emulated/0/Android/data/com.example/files/Downloads/$itemId.mp4",
+            fileSizeBytes = totalBytes,
+            downloadedBytes = 0L,
             status = "WAITING",
-            timestamp = System.currentTimeMillis()
+            progressPercent = 0,
+            createdAt = System.currentTimeMillis()
         )
-        downloadsDao.insertDownload(item)
+        downloadsDao.insertOrUpdate(item)
         cloudSyncManager?.enqueueIncrementalSync("DOWNLOAD_METADATA", itemId, "UPSERT", "Queued ${anime.titleEnglish} Ep ${episode.episodeNumber} ($quality)")
         startOrResumeWorker(item)
     }
 
-    /**
-     * Enqueues an entire season (multi-episode queue) for sequential background downloading.
-     */
     suspend fun enqueueEntireSeason(
         anime: Anime,
         episodes: List<Episode>,
         quality: String = _settings.value.defaultQuality
     ) = withContext(Dispatchers.IO) {
+        val totalBytes = bytesForQuality(quality)
         val items = episodes.mapIndexed { idx, episode ->
             val itemId = "${anime.id}_ep_${episode.episodeNumber}"
-            val streamUrl = episode.sources.firstOrNull()?.url
+            val streamUrl = episode.sources.firstOrNull()?.streamUrl
                 ?: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-            DownloadItemEntity(
-                id = itemId,
+            DownloadEntity(
+                downloadId = itemId,
                 animeId = anime.id,
-                animeTitle = anime.titleEnglish,
                 episodeNumber = episode.episodeNumber,
+                animeTitle = anime.titleEnglish,
                 episodeTitle = episode.title,
-                thumbnailUrl = episode.thumbnailUrl.ifBlank { anime.posterUrl },
-                streamUrl = streamUrl,
-                quality = quality,
-                sizeMb = sizeMbForQuality(quality),
-                progressPercent = 0,
+                posterUrl = episode.thumbnail.ifBlank { anime.posterUrl },
+                videoUrl = streamUrl,
+                localFilePath = "/storage/emulated/0/Android/data/com.example/files/Downloads/$itemId.mp4",
+                fileSizeBytes = totalBytes,
+                downloadedBytes = 0L,
                 status = if (idx == 0) "DOWNLOADING" else "WAITING",
-                timestamp = System.currentTimeMillis() + idx
+                progressPercent = 0,
+                createdAt = System.currentTimeMillis() + idx
             )
         }
-        items.forEach { downloadsDao.insertDownload(it) }
+        items.forEach { downloadsDao.insertOrUpdate(it) }
         cloudSyncManager?.enqueueIncrementalSync("DOWNLOAD_METADATA", "season_${anime.id}", "UPSERT", "Queued ${items.size} episodes of ${anime.titleEnglish}")
         items.forEach { startOrResumeWorker(it) }
     }
@@ -166,28 +168,29 @@ class DownloadsRepository(
         activeDownloadJobs[id]?.cancel()
         activeDownloadJobs.remove(id)
         scope.launch {
-            val current = downloadsDao.getAllDownloads().firstOrNull()?.find { it.id == id }
-            val progress = current?.progressPercent ?: 35
-            downloadsDao.updateProgress(id, progress, "PAUSED")
+            val current = downloadsDao.getDownload(id) ?: return@launch
+            val progress = current.progressPercent.coerceIn(5, 95)
+            downloadsDao.insertOrUpdate(current.copy(progressPercent = progress, status = "PAUSED"))
             _telemetryById.update { map ->
-                map + (id to DownloadRuntimeTelemetry(id, "0.0 MB/s (Paused)", "Paused by user", "Paused: ${current?.animeTitle ?: id}"))
+                map + (id to DownloadRuntimeTelemetry(id, "0.0 MB/s (Paused)", "Paused by user", "Paused: ${current.animeTitle}"))
             }
-            _settings.update { it.copy(activeNotificationBanner = "⏸️ Download paused: ${current?.animeTitle ?: ""} Ep ${current?.episodeNumber ?: ""}") }
+            _settings.update { it.copy(activeNotificationBanner = "⏸️ Download paused: ${current.animeTitle} Ep ${current.episodeNumber}") }
         }
     }
 
     fun resumeDownload(id: String) {
         scope.launch {
-            val current = downloadsDao.getAllDownloads().firstOrNull()?.find { it.id == id } ?: return@launch
+            val current = downloadsDao.getDownload(id) ?: return@launch
             startOrResumeWorker(current)
         }
     }
 
     fun retryFailedDownload(id: String) {
         scope.launch {
-            val current = downloadsDao.getAllDownloads().firstOrNull()?.find { it.id == id } ?: return@launch
-            downloadsDao.updateProgress(id, 0, "WAITING")
-            startOrResumeWorker(current.copy(progressPercent = 0, status = "WAITING"))
+            val current = downloadsDao.getDownload(id) ?: return@launch
+            val reset = current.copy(progressPercent = 0, downloadedBytes = 0L, status = "WAITING")
+            downloadsDao.insertOrUpdate(reset)
+            startOrResumeWorker(reset)
         }
     }
 
@@ -204,13 +207,15 @@ class DownloadsRepository(
         activeDownloadJobs[id]?.cancel()
         activeDownloadJobs.remove(id)
         scope.launch {
-            val current = downloadsDao.getAllDownloads().firstOrNull()?.find { it.id == id } ?: return@launch
-            downloadsDao.updateProgress(id, current.progressPercent.coerceAtLeast(20), "FAILED")
+            val current = downloadsDao.getDownload(id) ?: return@launch
+            downloadsDao.insertOrUpdate(current.copy(progressPercent = current.progressPercent.coerceAtLeast(20), status = "FAILED"))
             _telemetryById.update { map ->
                 map + (id to DownloadRuntimeTelemetry(id, "0.0 MB/s • Network Error", "Tap Retry to recover", "Failed: ${current.animeTitle}"))
             }
         }
     }
+
+    suspend fun deleteDownload(downloadId: String) = removeDownload(downloadId)
 
     suspend fun removeDownload(id: String) = withContext(Dispatchers.IO) {
         activeDownloadJobs[id]?.cancel()
@@ -220,6 +225,8 @@ class DownloadsRepository(
         cloudSyncManager?.enqueueIncrementalSync("DOWNLOAD_METADATA", id, "DELETE", "Deleted offline download $id")
     }
 
+    suspend fun clearAllDownloads() = clearAll()
+
     suspend fun clearAll() = withContext(Dispatchers.IO) {
         activeDownloadJobs.values.forEach { it.cancel() }
         activeDownloadJobs.clear()
@@ -228,9 +235,6 @@ class DownloadsRepository(
         _settings.update { it.copy(activeNotificationBanner = null) }
     }
 
-    /**
-     * Automatically deletes the offline episode when the user finishes watching it (if enabled in settings).
-     */
     suspend fun onEpisodeCompleted(animeId: String, episodeNumber: Int) = withContext(Dispatchers.IO) {
         if (!_settings.value.autoDeleteWatchedEpisodes) return@withContext
         val itemId = "${animeId}_ep_$episodeNumber"
@@ -258,23 +262,30 @@ class DownloadsRepository(
         }
     }
 
-    private fun startOrResumeWorker(item: DownloadItemEntity) {
-        activeDownloadJobs[item.id]?.cancel()
+    private fun startOrResumeWorker(item: DownloadEntity) {
+        activeDownloadJobs[item.downloadId]?.cancel()
         val job = scope.launch {
             var p = item.progressPercent.coerceIn(0, 95)
-            downloadsDao.updateProgress(item.id, p, "DOWNLOADING")
+            downloadsDao.insertOrUpdate(item.copy(progressPercent = p, status = "DOWNLOADING"))
             while (p < 100) {
                 delay(280)
                 p = (p + 15).coerceAtMost(100)
                 val status = if (p >= 100) "COMPLETED" else "DOWNLOADING"
-                downloadsDao.updateProgress(item.id, p, status)
+                val dlBytes = (item.fileSizeBytes * p) / 100L
+                downloadsDao.insertOrUpdate(
+                    item.copy(
+                        progressPercent = p,
+                        downloadedBytes = dlBytes,
+                        status = status
+                    )
+                )
                 val remainingMb = ((100 - p) * item.sizeMb) / 100f
                 val speed = 7.8f + ((p % 4) * 1.1f)
                 val etaSec = (remainingMb / speed).toInt().coerceAtLeast(1)
                 _telemetryById.update { map ->
                     map + (
-                        item.id to DownloadRuntimeTelemetry(
-                            itemId = item.id,
+                        item.downloadId to DownloadRuntimeTelemetry(
+                            itemId = item.downloadId,
                             speedLabel = if (p >= 100) "Completed • Offline Ready" else String.format(Locale.US, "%.1f MB/s", speed),
                             remainingTimeLabel = if (p >= 100) "00:00 remaining" else String.format(Locale.US, "00:%02d remaining", etaSec),
                             notificationTitle = if (p >= 100) "Download Complete: ${item.animeTitle} Ep ${item.episodeNumber}"
@@ -291,8 +302,8 @@ class DownloadsRepository(
                     }
                 }
             }
-            activeDownloadJobs.remove(item.id)
+            activeDownloadJobs.remove(item.downloadId)
         }
-        activeDownloadJobs[item.id] = job
+        activeDownloadJobs[item.downloadId] = job
     }
 }

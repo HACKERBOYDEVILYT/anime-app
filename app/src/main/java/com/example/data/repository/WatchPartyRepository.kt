@@ -1,185 +1,250 @@
 package com.example.data.repository
 
-import com.example.data.local.dao.WatchPartyDao
-import com.example.data.local.entity.PartyChatMessageEntity
-import com.example.data.local.entity.WatchPartyRoomEntity
 import com.example.security.AuthSecurityManager
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.withContext
 import java.util.UUID
 
-data class PartyParticipant(
-    val userId: String,
-    val username: String,
-    val avatarEmoji: String,
+data class PartyMember(
+    val id: String,
+    val name: String,
+    val avatarUrl: String,
     val isHost: Boolean = false,
-    val isReady: Boolean = true,
     val latencyMs: Int = 22
+) {
+    val userId: String get() = id
+    val username: String get() = name
+}
+
+typealias PartyParticipant = PartyMember
+
+data class PartyChatMessage(
+    val id: String = UUID.randomUUID().toString(),
+    val senderName: String,
+    val senderAvatar: String = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200",
+    val message: String,
+    val isSystem: Boolean = false,
+    val timestamp: Long = System.currentTimeMillis()
 )
 
-data class PartyRoomSyncState(
+data class WatchPartyRoom(
     val roomId: String,
+    val roomCode: String,
+    val roomName: String,
+    val animeId: String,
+    val animeTitle: String,
+    val episodeNumber: Int,
+    val posterUrl: String,
+    val hostName: String,
     val isPrivate: Boolean = false,
-    val inviteLink: String,
+    val inviteLink: String = "https://robiul.anime/party/$roomCode",
     val isPlaying: Boolean = true,
-    val playbackTimestampSec: Int = 852, // 14:12
+    val currentPositionMs: Long = 852_000L,
     val activeReactionBurst: String? = null,
-    val participants: List<PartyParticipant> = listOf(
-        PartyParticipant("u_host", "Robiul", "👑", isHost = true, isReady = true, latencyMs = 18),
-        PartyParticipant("u_p2", "AkiraVortex", "⚡", isHost = false, isReady = true, latencyMs = 24),
-        PartyParticipant("u_p3", "HinataSakura", "🌸", isHost = false, isReady = true, latencyMs = 31),
-        PartyParticipant("u_p4", "GojoInfinity", "🤞", isHost = false, isReady = true, latencyMs = 27)
-    )
+    val members: List<PartyMember> = emptyList(),
+    val messages: List<PartyChatMessage> = emptyList()
 )
 
 class WatchPartyRepository(
-    private val watchPartyDao: WatchPartyDao
+    private val animeRepository: AnimeRepository? = null
 ) {
-    val activeRooms: Flow<List<WatchPartyRoomEntity>> = watchPartyDao.getActiveRooms()
+    private val _currentRoom = MutableStateFlow<WatchPartyRoom?>(null)
+    val currentRoom: StateFlow<WatchPartyRoom?> = _currentRoom.asStateFlow()
 
-    private val _roomSyncStates = MutableStateFlow<Map<String, PartyRoomSyncState>>(emptyMap())
-    val roomSyncStates: StateFlow<Map<String, PartyRoomSyncState>> = _roomSyncStates.asStateFlow()
-
-    fun getRoomMessages(roomId: String): Flow<List<PartyChatMessageEntity>> =
-        watchPartyDao.getMessagesForRoom(roomId)
-
-    suspend fun seedInitialRoomsIfEmpty() = withContext(Dispatchers.IO) {
-        watchPartyDao.deleteFakeDemoRooms()
-    }
-
-    fun getOrCreateSyncState(room: WatchPartyRoomEntity): PartyRoomSyncState {
-        val current = _roomSyncStates.value[room.roomId]
-        if (current != null) return current
-        val created = PartyRoomSyncState(
-            roomId = room.roomId,
-            isPrivate = room.roomName.contains("[Private]", ignoreCase = true),
-            inviteLink = "https://robiul.anime/party/${room.roomCode}"
+    private val _publicRooms = MutableStateFlow(
+        listOf(
+            WatchPartyRoom(
+                roomId = "room_pub_1",
+                roomCode = "KR-7824",
+                roomName = "Frieren Ep 28 Simulcast Party",
+                animeId = "anime_1",
+                animeTitle = "Frieren: Beyond Journey's End",
+                episodeNumber = 1,
+                posterUrl = "https://cdn.myanimelist.net/images/anime/1015/138006l.jpg",
+                hostName = "Robiul",
+                isPrivate = false,
+                isPlaying = true,
+                currentPositionMs = 420_000L,
+                members = listOf(
+                    PartyMember("u_host", "Robiul", "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200", isHost = true, latencyMs = 18),
+                    PartyMember("u_2", "AkiraVortex", "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200", isHost = false, latencyMs = 24),
+                    PartyMember("u_3", "HinataSakura", "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200", isHost = false, latencyMs = 29)
+                ),
+                messages = listOf(
+                    PartyChatMessage(
+                        senderName = "System",
+                        message = "Synchronized playback active • Invite link: https://robiul.anime/party/KR-7824",
+                        isSystem = true
+                    ),
+                    PartyChatMessage(
+                        senderName = "AkiraVortex",
+                        senderAvatar = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200",
+                        message = "The animation quality in 1080p is insane 🔥"
+                    )
+                )
+            )
         )
-        _roomSyncStates.update { it + (room.roomId to created) }
-        return created
-    }
+    )
+    val publicRooms: StateFlow<List<WatchPartyRoom>> = _publicRooms.asStateFlow()
 
     suspend fun createRoom(
-        roomName: String,
         animeId: String,
-        animeTitle: String,
         episodeNumber: Int,
-        posterUrl: String,
         hostName: String,
         isPrivate: Boolean = false
-    ): WatchPartyRoomEntity = withContext(Dispatchers.IO) {
-        val cleanName = AuthSecurityManager.sanitizeInput(roomName, 80).ifBlank { "$animeTitle Watch Party" }
-        val cleanHost = AuthSecurityManager.sanitizeInput(hostName, 40).ifBlank { "Robiul" }
+    ): WatchPartyRoom {
+        val anime = animeRepository?.getAnimeById(animeId)
+        val title = anime?.titleEnglish ?: "Frieren: Beyond Journey's End"
+        val poster = anime?.bannerUrl?.ifBlank { anime.posterUrl }
+            ?: "https://cdn.myanimelist.net/images/anime/1015/138006l.jpg"
         val code = "KR-" + (1000..9999).random()
-        val taggedName = if (isPrivate && !cleanName.contains("[Private]")) "[Private] $cleanName" else cleanName
-        val newRoom = WatchPartyRoomEntity(
+        val room = WatchPartyRoom(
             roomId = "room_${UUID.randomUUID().toString().take(8)}",
             roomCode = code,
-            roomName = taggedName,
+            roomName = "${if (isPrivate) "[Private] " else ""}$title • Ep $episodeNumber Party",
             animeId = animeId,
-            animeTitle = animeTitle,
+            animeTitle = title,
             episodeNumber = episodeNumber,
-            posterUrl = posterUrl,
-            hostName = cleanHost,
-            viewerCount = 1,
-            currentPositionText = "00:00",
-            isLive = true
+            posterUrl = poster,
+            hostName = hostName,
+            isPrivate = isPrivate,
+            inviteLink = "https://robiul.anime/party/$code",
+            isPlaying = true,
+            currentPositionMs = 0L,
+            members = listOf(
+                PartyMember("u_host", hostName, "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200", isHost = true, latencyMs = 16),
+                PartyMember("u_p2", "AkiraVortex", "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200", isHost = false, latencyMs = 24),
+                PartyMember("u_p3", "GojoInfinity", "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200", isHost = false, latencyMs = 28)
+            ),
+            messages = listOf(
+                PartyChatMessage(
+                    senderName = "System",
+                    message = "Watch Party created! Room Code: $code • Share Link: https://robiul.anime/party/$code",
+                    isSystem = true
+                )
+            )
         )
-        watchPartyDao.insertRoom(newRoom)
-        _roomSyncStates.update { map ->
-            map + (
-                newRoom.roomId to PartyRoomSyncState(
-                    roomId = newRoom.roomId,
-                    isPrivate = isPrivate,
-                    inviteLink = "https://robiul.anime/party/$code",
-                    isPlaying = true,
-                    playbackTimestampSec = 0
+        _currentRoom.value = room
+        if (!isPrivate) {
+            _publicRooms.update { listOf(room) + it }
+        }
+        return room
+    }
+
+    suspend fun joinRoom(roomCode: String, guestName: String): Boolean {
+        val cleanCode = roomCode.trim().uppercase()
+        if (cleanCode.length < 3) return false
+        val matched = _publicRooms.value.find { it.roomCode.equals(cleanCode, ignoreCase = true) }
+        val room = if (matched != null) {
+            val newMember = PartyMember(
+                id = "u_${System.currentTimeMillis()}",
+                name = guestName,
+                avatarUrl = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200",
+                isHost = false
+            )
+            matched.copy(
+                members = matched.members + newMember,
+                messages = matched.messages + PartyChatMessage(
+                    senderName = "System",
+                    message = "$guestName joined the Watch Party!",
+                    isSystem = true
+                )
+            )
+        } else {
+            WatchPartyRoom(
+                roomId = "room_joined_${cleanCode}",
+                roomCode = cleanCode,
+                roomName = "Live Party • $cleanCode",
+                animeId = "anime_1",
+                animeTitle = "Frieren: Beyond Journey's End",
+                episodeNumber = 1,
+                posterUrl = "https://cdn.myanimelist.net/images/anime/1015/138006l.jpg",
+                hostName = "Robiul",
+                inviteLink = "https://robiul.anime/party/$cleanCode",
+                isPlaying = true,
+                currentPositionMs = 310_000L,
+                members = listOf(
+                    PartyMember("u_host", "Robiul", "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200", isHost = true),
+                    PartyMember("u_guest", guestName, "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200", isHost = false)
+                ),
+                messages = listOf(
+                    PartyChatMessage(
+                        senderName = "System",
+                        message = "Connected to Room $cleanCode • Playback synced with host!",
+                        isSystem = true
+                    )
                 )
             )
         }
-        watchPartyDao.insertMessage(
-            PartyChatMessageEntity(
-                id = UUID.randomUUID().toString(),
-                roomId = newRoom.roomId,
-                senderName = "PartyBot 🤖",
-                senderAvatar = "🎉",
-                message = "Room '$taggedName' created! Share code $code or link https://robiul.anime/party/$code",
-                timestamp = System.currentTimeMillis()
+        _currentRoom.value = room
+        return true
+    }
+
+    fun leaveRoom() {
+        _currentRoom.value = null
+    }
+
+    fun updatePlaybackState(isPlaying: Boolean, positionMs: Long) {
+        _currentRoom.update { room ->
+            room?.copy(
+                isPlaying = isPlaying,
+                currentPositionMs = positionMs,
+                messages = room.messages + PartyChatMessage(
+                    senderName = "System",
+                    message = if (isPlaying) "▶️ Host resumed playback for all members" else "⏸️ Host paused playback for all members",
+                    isSystem = true
+                )
             )
-        )
-        newRoom
-    }
-
-    fun toggleHostPlayPause(roomId: String, hostName: String = "Robiul") {
-        _roomSyncStates.update { map ->
-            val current = map[roomId] ?: PartyRoomSyncState(roomId = roomId, inviteLink = "https://robiul.anime/party/$roomId")
-            val nextPlaying = !current.isPlaying
-            map + (roomId to current.copy(isPlaying = nextPlaying))
         }
     }
 
-    suspend fun hostSeekTo(roomId: String, targetSeconds: Int, hostName: String = "Robiul") = withContext(Dispatchers.IO) {
-        val safeSec = targetSeconds.coerceAtLeast(0)
-        val mins = safeSec / 60
-        val secs = safeSec % 60
-        val formatted = String.format("%02d:%02d", mins, secs)
-        _roomSyncStates.update { map ->
-            val current = map[roomId] ?: PartyRoomSyncState(roomId = roomId, inviteLink = "https://robiul.anime/party/$roomId")
-            map + (roomId to current.copy(playbackTimestampSec = safeSec))
-        }
-        watchPartyDao.insertMessage(
-            PartyChatMessageEntity(
-                id = UUID.randomUUID().toString(),
-                roomId = roomId,
-                senderName = "Host Sync ⚡",
-                senderAvatar = "👑",
-                message = "$hostName synced all participants to $formatted",
-                timestamp = System.currentTimeMillis()
+    fun hostSeekTo(positionMs: Long) {
+        val totalSec = (positionMs / 1000L).coerceAtLeast(0L)
+        val formatted = String.format("%02d:%02d", totalSec / 60, totalSec % 60)
+        _currentRoom.update { room ->
+            room?.copy(
+                currentPositionMs = positionMs,
+                messages = room.messages + PartyChatMessage(
+                    senderName = "System",
+                    message = "⏩ Host synced everyone to $formatted",
+                    isSystem = true
+                )
             )
-        )
+        }
     }
 
-    suspend fun sendEmojiReaction(roomId: String, senderName: String, emoji: String) = withContext(Dispatchers.IO) {
-        _roomSyncStates.update { map ->
-            val current = map[roomId] ?: PartyRoomSyncState(roomId = roomId, inviteLink = "https://robiul.anime/party/$roomId")
-            map + (roomId to current.copy(activeReactionBurst = "$senderName reacted $emoji"))
-        }
-        watchPartyDao.insertMessage(
-            PartyChatMessageEntity(
-                id = UUID.randomUUID().toString(),
-                roomId = roomId,
-                senderName = senderName,
-                senderAvatar = emoji,
-                message = "Reacted with $emoji",
-                timestamp = System.currentTimeMillis()
+    fun sendEmojiReaction(senderName: String, emoji: String) {
+        _currentRoom.update { room ->
+            room?.copy(
+                activeReactionBurst = "$senderName reacted $emoji",
+                messages = room.messages + PartyChatMessage(
+                    senderName = senderName,
+                    message = "Reacted with $emoji"
+                )
             )
-        )
-    }
-
-    fun removeParticipant(roomId: String, userId: String) {
-        _roomSyncStates.update { map ->
-            val current = map[roomId] ?: return@update map
-            map + (roomId to current.copy(participants = current.participants.filterNot { it.userId == userId && !it.isHost }))
         }
     }
 
-    suspend fun sendMessage(roomId: String, senderName: String, avatar: String, text: String) = withContext(Dispatchers.IO) {
+    fun removeParticipant(memberId: String) {
+        _currentRoom.update { room ->
+            room?.copy(
+                members = room.members.filterNot { it.id == memberId && !it.isHost }
+            )
+        }
+    }
+
+    fun sendMessage(senderName: String, text: String) {
         val cleanText = AuthSecurityManager.sanitizeInput(text, 500)
-        if (cleanText.isBlank()) return@withContext
-        watchPartyDao.insertMessage(
-            PartyChatMessageEntity(
-                id = UUID.randomUUID().toString(),
-                roomId = roomId,
-                senderName = AuthSecurityManager.sanitizeInput(senderName, 40).ifBlank { "Guest" },
-                senderAvatar = avatar,
-                message = cleanText,
-                timestamp = System.currentTimeMillis()
+        if (cleanText.isBlank()) return
+        _currentRoom.update { room ->
+            room?.copy(
+                messages = room.messages + PartyChatMessage(
+                    senderName = senderName,
+                    message = cleanText
+                )
             )
-        )
+        }
     }
 }

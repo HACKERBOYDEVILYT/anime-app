@@ -15,25 +15,30 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class ProfileViewModel(
     val userRepository: UserRepository,
-    private val watchRepository: WatchRepository,
+    private val watchRepository: WatchRepository? = null,
     val gamificationRepository: GamificationAndSocialRepository = GamificationAndSocialRepository(),
     val cloudSyncManager: CloudSyncManager = CloudSyncManager(),
     val downloadsRepository: DownloadsRepository? = null
 ) : ViewModel() {
 
-    val user: StateFlow<User?> = userRepository.currentUser
+    val user: StateFlow<User> = userRepository.currentUser
+        .map { it ?: userRepository.getCurrentUserSnapshot() }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = null
+            initialValue = userRepository.getCurrentUserSnapshot()
         )
 
-    val watchlistItems: StateFlow<List<WatchlistItem>> = watchRepository.getAllWatchlist()
+    val isLoggedIn: StateFlow<Boolean> = userRepository.isLoggedIn
+
+    val watchlistItems: StateFlow<List<WatchlistItem>> = (watchRepository?.getAllWatchlist()
+        ?: MutableStateFlow(emptyList()))
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -47,7 +52,19 @@ class ProfileViewModel(
         _statusBannerMessage.value = null
     }
 
-    fun login(username: String, email: String, passwordPlain: String = "Anime#2026") {
+    fun login(email: String, passwordPlain: String): Result<User> {
+        val uname = email.substringBefore("@").replaceFirstChar { it.uppercase() }.ifBlank { "Robiul" }
+        viewModelScope.launch {
+            val res = userRepository.login(uname, email, passwordPlain)
+            _statusBannerMessage.value = res.fold(
+                onSuccess = { "✅ Signed in & restored cloud state across 13 domains." },
+                onFailure = { "⚠️ ${it.localizedMessage}" }
+            )
+        }
+        return Result.success(userRepository.getCurrentUserSnapshot())
+    }
+
+    fun login(username: String, email: String, passwordPlain: String) {
         viewModelScope.launch {
             val res = userRepository.login(username, email, passwordPlain)
             _statusBannerMessage.value = res.fold(
@@ -55,6 +72,11 @@ class ProfileViewModel(
                 onFailure = { "⚠️ ${it.localizedMessage}" }
             )
         }
+    }
+
+    fun register(username: String, email: String, passwordPlain: String): Result<User> {
+        registerAccount(username, email, passwordPlain)
+        return Result.success(userRepository.getCurrentUserSnapshot())
     }
 
     fun registerAccount(username: String, email: String, passwordPlain: String) {
@@ -172,10 +194,30 @@ class ProfileViewModel(
         }
     }
 
+    fun updateDefaultQuality(quality: String) {
+        setDefaultQuality(quality)
+    }
+
     fun toggleAutoPlayNext(enabled: Boolean) {
         viewModelScope.launch {
             userRepository.updatePreference(autoPlayNext = enabled)
         }
+    }
+
+    fun toggleAutoNext(enabled: Boolean) {
+        toggleAutoPlayNext(enabled)
+    }
+
+    fun toggleSkipIntro(enabled: Boolean) {
+        userRepository.updateAdvancedPreferences { it.copy(autoSkipIntro = enabled) }
+    }
+
+    fun updatePreferredAudio(lang: String) {
+        userRepository.updateAdvancedPreferences { it.copy(preferredAudioLanguage = lang) }
+    }
+
+    fun updatePreferredSubtitle(lang: String) {
+        userRepository.updateAdvancedPreferences { it.copy(preferredSubtitleLanguage = lang) }
     }
 
     fun toggleNotifications(enabled: Boolean) {
@@ -199,7 +241,7 @@ class ProfileViewModel(
 
     fun clearWatchHistory() {
         viewModelScope.launch {
-            watchRepository.clearWatchHistory()
+            watchRepository?.clearWatchHistory()
             _statusBannerMessage.value = "Watch history cleared."
         }
     }

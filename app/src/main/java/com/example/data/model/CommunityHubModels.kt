@@ -212,6 +212,7 @@ data class VideoBookmark(
     val label: String, // e.g., "Best fight", "Important scene"
     val createdAt: Long = System.currentTimeMillis()
 ) {
+    val timestampMs: Long get() = positionMs
     val formattedTimestamp: String
         get() {
             val totalSeconds = (positionMs / 1000L).coerceAtLeast(0L)
