@@ -78,5 +78,38 @@ class AuthAndApiConfigTest {
         // 3. Delete custom API
         adminRepo.deleteApiConfig(customApi.id)
         assertEquals(initialCount, adminRepo.apiConfigs.value.size)
+
+        // 4. Verify all 6 Enterprise Cloud Streaming Server APIs are registered
+        val allNames = adminRepo.apiConfigs.value.map { it.name }
+        assertTrue(allNames.any { it.contains("Cloudflare R2 + Cloudflare CDN") })
+        assertTrue(allNames.any { it.contains("AWS S3 + CloudFront") })
+        assertTrue(allNames.any { it.contains("Bunny.net Storage + Bunny CDN") })
+        assertTrue(allNames.any { it.contains("Cloudflare Stream") })
+        assertTrue(allNames.any { it.contains("Mux") })
+        assertTrue(allNames.any { it.contains("Self-hosted VPS + Nginx") })
+    }
+
+    @Test
+    fun `test AI recommendation engine natural language search and watch plan`() {
+        val mediaProvider = LocalLicensedMediaProvider()
+        val catalog = mediaProvider.getAllCatalogSnapshot()
+
+        val nlMatches = com.example.data.repository.AiRecommendationEngine.naturalLanguageSearch(
+            "dark fantasy with overpowered protagonist",
+            catalog
+        )
+        assertTrue(nlMatches.isNotEmpty())
+
+        val moodMatches = com.example.data.repository.AiRecommendationEngine.recommendByMood(
+            "🔥 Hype & Action",
+            catalog
+        )
+        assertTrue(moodMatches.isNotEmpty())
+
+        val watchPlan = com.example.data.repository.AiRecommendationEngine.generateWatchPlan(
+            catalog.take(2),
+            minutesPerDay = 48
+        )
+        assertTrue(watchPlan.dailySchedule.isNotEmpty())
     }
 }

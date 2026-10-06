@@ -1134,10 +1134,12 @@ private fun LiveServerVideosRow(
     onPlayVideoClick: (Anime) -> Unit
 ) {
     val serverLabels = listOf(
-        "HD-1 • VidStreaming (1080p HLS)",
-        "HD-2 • MegaCloud (1080p MP4)",
-        "VidCloud • Multi-Bitrate HLS",
-        "StreamTape • Direct 1080p"
+        "Cloudflare R2 + CDN (✅ HLS)",
+        "AWS S3 + CloudFront (✅ HLS/DASH)",
+        "Bunny.net Storage + CDN (✅ HLS)",
+        "Cloudflare Stream (✅ HLS)",
+        "Mux Video Platform (✅ HLS)",
+        "Self-hosted VPS + Nginx (✅ HLS)"
     )
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(

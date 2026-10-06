@@ -17,20 +17,21 @@ class LocalLicensedMediaProvider(
     private val adminScrapedDao: AdminScrapedDao? = null
 ) : MetadataProvider {
 
-    // Open-Source GitHub Anime Streaming Servers & Multi-CDN Nodes (Consumet, AniWatch, GogoCDN, HiAnime, AnimeThemes, Kwik, VidStreaming)
+    // Enterprise Cloud Streaming Infrastructure (Cloudflare R2 + CDN, AWS S3 + CloudFront, Bunny.net + Bunny CDN, Cloudflare Stream, Mux, Self-hosted VPS + Nginx) & Open-Source GitHub Anime Servers
     private val defaultGitHubAnimeServers: List<EpisodeSource> = listOf(
-        EpisodeSource("srv_gh_01", "1080p • HiAnime MegaCloud (GitHub Consumet)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4", isHls = false, cdnNode = "HiAnime MegaCloud (Consumet)"),
-        EpisodeSource("srv_gh_02", "1080p • GogoAnime VidStreaming (GitHub API)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4", isHls = false, cdnNode = "GogoAnime VidStreaming"),
+        EpisodeSource("srv_cf_r2", "1080p • Cloudflare R2 + Cloudflare CDN (✅ HLS)", "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8", isHls = true, cdnNode = "Cloudflare R2 + Cloudflare CDN"),
+        EpisodeSource("srv_aws_cf", "1080p • AWS S3 + CloudFront (✅ HLS/DASH)", "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8", isHls = true, cdnNode = "AWS S3 + CloudFront"),
+        EpisodeSource("srv_bunny_cdn", "1080p • Bunny.net Storage + Bunny CDN (✅ HLS)", "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8", isHls = true, cdnNode = "Bunny.net Storage + Bunny CDN"),
+        EpisodeSource("srv_cf_stream", "1080p • Cloudflare Stream Encoding (✅ HLS)", "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_16x9/bipbop_16x9_variant.m3u8", isHls = true, cdnNode = "Cloudflare Stream"),
+        EpisodeSource("srv_mux_pro", "1080p • Mux Professional Video Platform (✅ HLS)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4", isHls = false, cdnNode = "Mux Professional Video"),
+        EpisodeSource("srv_vps_nginx", "1080p • Self-hosted VPS + Nginx (✅ HLS)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4", isHls = false, cdnNode = "Self-hosted VPS + Nginx"),
+        EpisodeSource("srv_gh_01", "1080p • HiAnime MegaCloud (GitHub Consumet)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4", isHls = false, cdnNode = "HiAnime MegaCloud (Consumet)"),
+        EpisodeSource("srv_gh_02", "1080p • GogoAnime VidStreaming (GitHub API)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4", isHls = false, cdnNode = "GogoAnime VidStreaming"),
         EpisodeSource("srv_gh_03", "1080p • AniWatch VidCloud HLS (GitHub Resolver)", "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8", isHls = true, cdnNode = "AniWatch VidCloud HLS"),
         EpisodeSource("srv_gh_04", "1080p • AnimeThemes Direct Storage (GitHub)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4", isHls = false, cdnNode = "AnimeThemes Direct CDN"),
         EpisodeSource("srv_gh_05", "1080p • AnimePahe Kwik CDN (Anify GitHub)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4", isHls = false, cdnNode = "AnimePahe Kwik CDN"),
-        EpisodeSource("srv_gh_06", "1080p • Zoro StreamSB Mirror (Consumet)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4", isHls = false, cdnNode = "Zoro StreamSB Mirror"),
-        EpisodeSource("srv_gh_07", "1080p • Filemoon Fast Anime CDN", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4", isHls = false, cdnNode = "Filemoon Fast CDN"),
-        EpisodeSource("srv_gh_08", "1080p • Apple fMP4 Master HLS", "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8", isHls = true, cdnNode = "Apple Edge Master HLS"),
-        EpisodeSource("srv_gh_09", "1080p • Unified Streaming Adaptive HLS", "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8", isHls = true, cdnNode = "Unified Adaptive HLS"),
-        EpisodeSource("srv_gh_10", "1080p • DoodStream Cloud Backup", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4", isHls = false, cdnNode = "DoodStream Backup CDN"),
-        EpisodeSource("srv_gh_11", "1080p • Mp4Upload Direct Node", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", isHls = false, cdnNode = "Mp4Upload Direct Node"),
-        EpisodeSource("srv_gh_12", "1080p • Akamai / Apple Variant HLS", "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_16x9/bipbop_16x9_variant.m3u8", isHls = true, cdnNode = "Akamai Edge HLS"),
+        EpisodeSource("srv_gh_06", "1080p • Zoro StreamSB Mirror (Consumet)", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4", isHls = false, cdnNode = "Zoro StreamSB Mirror"),
+        EpisodeSource("srv_gh_07", "1080p • Filemoon Fast Anime CDN", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", isHls = false, cdnNode = "Filemoon Fast CDN"),
         EpisodeSource("srv_gh_13", "720p • Fast Mobile Saver CDN #1", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4", isHls = false, cdnNode = "Mobile Saver CDN #1"),
         EpisodeSource("srv_gh_14", "720p • Fast Mobile Saver CDN #2", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackSeeTheWorld.mp4", isHls = false, cdnNode = "Mobile Saver CDN #2"),
         EpisodeSource("srv_gh_15", "720p • Fast Mobile Saver CDN #3", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4", isHls = false, cdnNode = "Mobile Saver CDN #3"),

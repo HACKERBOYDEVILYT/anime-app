@@ -193,11 +193,22 @@ fun KuroStreamApp(container: KuroAppContainer) {
                     )
                 }
 
-                // Browse Screen
+                // Browse Screen (AI Assistant, Cloud CDN APIs, Manga Reader & Enterprise Hub)
                 composable(Screen.Browse.route) {
+                    val catalogSnapshot = remember { container.mediaProvider.getAllCatalogSnapshot() }
                     BrowseScreen(
                         onCategoryClick = {
                             navController.navigate(Screen.Search.route)
+                        },
+                        catalog = catalogSnapshot,
+                        onAnimeClick = { anime ->
+                            navController.navigate(Screen.Details.createRoute(anime.id))
+                        },
+                        onWatchEpisodeClick = { animeId, epNum ->
+                            navController.navigate(Screen.Player.createRoute(animeId, epNum))
+                        },
+                        onAddStreamingServer = { name, url, category ->
+                            container.adminRepository.addApiConfig(name, url, category, "")
                         }
                     )
                 }
