@@ -2,119 +2,349 @@ package com.example.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.local.dao.SearchHistoryDao
+import com.example.data.local.entity.SearchHistoryEntity
 import com.example.data.model.Anime
+import com.example.data.model.AnimeSortOption
+import com.example.data.model.AnimeStatus
+import com.example.data.model.AnimeType
+import com.example.data.model.CharacterProfile
 import com.example.data.repository.AnimeRepository
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import com.example.data.repository.GamificationAndSocialRepository
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-data class SearchFilterState(
-    val selectedGenre: String = "All",
-    val selectedYear: Int? = null,
-    val selectedType: String = "All",
-    val selectedStatus: String = "All",
-    val sortBy: String = "POPULARITY"
+data class CategorizedSearchSuggestion(
+    val label: String,
+    val category: String, // "Anime", "Characters", "Episodes", "Genres", "Studio / VA"
+    val targetQuery: String
 )
 
 data class SearchUiState(
     val query: String = "",
-    val searchHistory: List<String> = listOf("Frieren", "Jujutsu Kaisen", "Solo Leveling", "Demon Slayer", "MAPPA"),
-    val genres: List<String> = emptyList(),
-    val studios: List<String> = emptyList(),
-    val filters: SearchFilterState = SearchFilterState(),
+    val selectedGenre: String? = null,
+    val selectedYear: Int? = null,
+    val selectedSeason: String? = null,
+    val selectedType: AnimeType? = null,
+    val selectedStatus: AnimeStatus? = null,
+    val selectedStudio: String? = null,
+    val minScoreFilter: Int? = null, // 70, 80, 90
+    val episodeCountFilter: String? = null, // "1-12", "13-24", "25+"
+    val durationFilter: String? = null, // "<20m", "20-30m", "30m+"
+    val languageFilter: String? = null, // "Japanese", "English", "Hindi", "Bengali"
+    val subOnly: Boolean = false,
+    val dubOnly: Boolean = false,
+    val sortOption: AnimeSortOption = AnimeSortOption.POPULARITY,
     val results: List<Anime> = emptyList(),
-    val isSearching: Boolean = false,
-    val hasSearched: Boolean = false
+    val matchedCharacters: List<CharacterProfile> = emptyList(),
+    val matchedEpisodesSummary: List<String> = emptyList(),
+    val suggestions: List<CategorizedSearchSuggestion> = emptyList(),
+    val noResultSuggestions: List<String> = listOf("Frieren: Beyond Journey's End", "Jujutsu Kaisen", "Solo Leveling", "Demon Slayer", "One Piece"),
+    val trendingSearches: List<String> = listOf(
+        "Frieren Season 2",
+        "Jujutsu Kaisen Shibuya",
+        "Solo Leveling Ep 12",
+        "Naruto Shippuden",
+        "One Piece Egghead",
+        "Satoru Gojo",
+        "MAPPA Studio"
+    ),
+    val availableGenres: List<String> = emptyList(),
+    val availableStudios: List<String> = listOf("MAPPA", "Madhouse", "ufotable", "A-1 Pictures", "Toei Animation", "Bones", "CloverWorks"),
+    val isSearching: Boolean = false
 )
 
+@OptIn(FlowPreview::class)
 class SearchViewModel(
-    private val animeRepository: AnimeRepository
+    private val animeRepository: AnimeRepository,
+    private val searchHistoryDao: SearchHistoryDao,
+    private val gamificationRepository: GamificationAndSocialRepository = GamificationAndSocialRepository()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SearchUiState())
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
 
-    private var searchJob: Job? = null
+    private val queryFlow = MutableStateFlow("")
+
+    val recentSearches: StateFlow<List<String>> = searchHistoryDao.getRecentSearches()
+        .map { list -> list.map { it.query } }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
     init {
-        loadMetadata()
-        performSearch()
-    }
-
-    private fun loadMetadata() {
         viewModelScope.launch {
             val genres = animeRepository.getGenres()
-            val studios = animeRepository.getStudios()
-            _uiState.update { it.copy(genres = genres, studios = studios) }
+            _uiState.update { it.copy(availableGenres = genres) }
+            executeFilterAndSearch()
+        }
+
+        viewModelScope.launch {
+            queryFlow
+                .debounce(180)
+                .distinctUntilChanged()
+                .collect {
+                    executeFilterAndSearch()
+                }
         }
     }
 
     fun onQueryChange(newQuery: String) {
-        _uiState.update { it.copy(query = newQuery) }
-        searchJob?.cancel()
-        searchJob = viewModelScope.launch {
-            delay(300) // 300ms debounce
-            performSearch()
+        val suggestions = buildCategorizedSuggestions(newQuery)
+        _uiState.update { it.copy(query = newQuery, suggestions = suggestions) }
+        queryFlow.value = newQuery
+    }
+
+    private fun buildCategorizedSuggestions(rawQuery: String): List<CategorizedSearchSuggestion> {
+        val q = rawQuery.trim()
+        if (q.isBlank()) return emptyList()
+        val displayTitle = q.replaceFirstChar { it.uppercase() }
+        return listOf(
+            CategorizedSearchSuggestion(displayTitle, "Anime", q),
+            CategorizedSearchSuggestion("$displayTitle Shippuden / Season 2", "Anime", q),
+            CategorizedSearchSuggestion("$displayTitle: The Last (Movie)", "Anime", q),
+            CategorizedSearchSuggestion("$displayTitle Characters", "Characters", q),
+            CategorizedSearchSuggestion("$displayTitle Episodes (1080p)", "Episodes", q),
+            CategorizedSearchSuggestion("$displayTitle Genre & Studio Matches", "Genres", q)
+        )
+    }
+
+    fun onSubmitQuery(submitted: String) {
+        val trimmed = submitted.trim()
+        if (trimmed.isNotEmpty()) {
+            viewModelScope.launch {
+                searchHistoryDao.insertSearch(
+                    SearchHistoryEntity(
+                        query = trimmed,
+                        searchedAt = System.currentTimeMillis()
+                    )
+                )
+            }
+        }
+        onQueryChange(trimmed)
+    }
+
+    fun selectGenre(genre: String?) {
+        _uiState.update {
+            it.copy(selectedGenre = if (it.selectedGenre == genre) null else genre)
+        }
+        executeFilterAndSearch()
+    }
+
+    fun selectYear(year: Int?) {
+        _uiState.update {
+            it.copy(selectedYear = if (it.selectedYear == year) null else year)
+        }
+        executeFilterAndSearch()
+    }
+
+    fun selectSeason(season: String?) {
+        _uiState.update {
+            it.copy(selectedSeason = if (it.selectedSeason == season) null else season)
+        }
+        executeFilterAndSearch()
+    }
+
+    fun selectType(type: AnimeType?) {
+        _uiState.update {
+            it.copy(selectedType = if (it.selectedType == type) null else type)
+        }
+        executeFilterAndSearch()
+    }
+
+    fun selectStatus(status: AnimeStatus?) {
+        _uiState.update {
+            it.copy(selectedStatus = if (it.selectedStatus == status) null else status)
+        }
+        executeFilterAndSearch()
+    }
+
+    fun selectStudio(studio: String?) {
+        _uiState.update {
+            it.copy(selectedStudio = if (it.selectedStudio == studio) null else studio)
+        }
+        executeFilterAndSearch()
+    }
+
+    fun selectMinScore(minScore: Int?) {
+        _uiState.update {
+            it.copy(minScoreFilter = if (it.minScoreFilter == minScore) null else minScore)
+        }
+        executeFilterAndSearch()
+    }
+
+    fun selectEpisodeCountRange(range: String?) {
+        _uiState.update {
+            it.copy(episodeCountFilter = if (it.episodeCountFilter == range) null else range)
+        }
+        executeFilterAndSearch()
+    }
+
+    fun selectDurationRange(range: String?) {
+        _uiState.update {
+            it.copy(durationFilter = if (it.durationFilter == range) null else range)
+        }
+        executeFilterAndSearch()
+    }
+
+    fun selectLanguageFilter(lang: String?) {
+        _uiState.update {
+            it.copy(languageFilter = if (it.languageFilter == lang) null else lang)
+        }
+        executeFilterAndSearch()
+    }
+
+    fun toggleSubOnly() {
+        _uiState.update { it.copy(subOnly = !it.subOnly) }
+        executeFilterAndSearch()
+    }
+
+    fun toggleDubOnly() {
+        _uiState.update { it.copy(dubOnly = !it.dubOnly) }
+        executeFilterAndSearch()
+    }
+
+    fun selectSort(sortOption: AnimeSortOption) {
+        _uiState.update { it.copy(sortOption = sortOption) }
+        executeFilterAndSearch()
+    }
+
+    fun clearAllFilters() {
+        _uiState.update {
+            it.copy(
+                query = "",
+                selectedGenre = null,
+                selectedYear = null,
+                selectedSeason = null,
+                selectedType = null,
+                selectedStatus = null,
+                selectedStudio = null,
+                minScoreFilter = null,
+                episodeCountFilter = null,
+                durationFilter = null,
+                languageFilter = null,
+                subOnly = false,
+                dubOnly = false,
+                suggestions = emptyList(),
+                sortOption = AnimeSortOption.POPULARITY
+            )
+        }
+        queryFlow.value = ""
+        executeFilterAndSearch()
+    }
+
+    fun deleteHistoryItem(q: String) {
+        viewModelScope.launch {
+            searchHistoryDao.deleteSearch(q)
         }
     }
 
-    fun onGenreSelected(genre: String) {
-        _uiState.update { it.copy(filters = it.filters.copy(selectedGenre = genre)) }
-        performSearch()
+    fun clearHistory() {
+        viewModelScope.launch {
+            searchHistoryDao.clearHistory()
+        }
     }
 
-    fun onTypeSelected(type: String) {
-        _uiState.update { it.copy(filters = it.filters.copy(selectedType = type)) }
-        performSearch()
-    }
-
-    fun onStatusSelected(status: String) {
-        _uiState.update { it.copy(filters = it.filters.copy(selectedStatus = status)) }
-        performSearch()
-    }
-
-    fun onSortSelected(sort: String) {
-        _uiState.update { it.copy(filters = it.filters.copy(sortBy = sort)) }
-        performSearch()
-    }
-
-    fun applySuggestion(suggestion: String) {
-        _uiState.update { it.copy(query = suggestion) }
-        performSearch()
-    }
-
-    fun clearSearchHistory() {
-        _uiState.update { it.copy(searchHistory = emptyList()) }
-    }
-
-    fun performSearch() {
-        searchJob?.cancel()
-        searchJob = viewModelScope.launch {
-            _uiState.update { it.copy(isSearching = true) }
+    private fun executeFilterAndSearch() {
+        viewModelScope.launch {
             val state = _uiState.value
-            val results = animeRepository.search(
-                query = state.query,
-                genre = state.filters.selectedGenre,
-                year = state.filters.selectedYear,
-                type = state.filters.selectedType,
-                status = state.filters.selectedStatus,
-                sortBy = state.filters.sortBy
+            _uiState.update { it.copy(isSearching = true) }
+
+            val baseFiltered = animeRepository.filterCatalog(
+                genre = state.selectedGenre,
+                year = state.selectedYear,
+                season = state.selectedSeason,
+                type = state.selectedType,
+                status = state.selectedStatus,
+                sort = state.sortOption
             )
-            // Add to search history if non-empty
-            val updatedHistory = if (state.query.isNotBlank() && !state.searchHistory.contains(state.query.trim())) {
-                listOf(state.query.trim()) + state.searchHistory.take(8)
-            } else state.searchHistory
+
+            val q = state.query.trim().lowercase()
+            val allCharacters = gamificationRepository.characters.value
+            val matchedChars = if (q.isEmpty()) {
+                emptyList()
+            } else {
+                allCharacters.filter { ch ->
+                    ch.name.lowercase().contains(q) ||
+                        ch.japaneseName.lowercase().contains(q) ||
+                        ch.animeTitle.lowercase().contains(q) ||
+                        ch.voiceActor.lowercase().contains(q)
+                }
+            }
+
+            // Multi-field search: Title (EN/JP), Character name, Voice actor, Studio, Genre, Season, Year, or Episode
+            val searched = if (q.isEmpty()) {
+                baseFiltered
+            } else {
+                val charAnimeIds = matchedChars.map { it.animeId }.toSet()
+                baseFiltered.filter { anime ->
+                    anime.titleEnglish.lowercase().contains(q) ||
+                        anime.titleJapanese.lowercase().contains(q) ||
+                        anime.synopsis.lowercase().contains(q) ||
+                        anime.studio.lowercase().contains(q) ||
+                        anime.season.lowercase().contains(q) ||
+                        anime.releaseYear.toString().contains(q) ||
+                        anime.genres.any { it.lowercase().contains(q) } ||
+                        anime.tags.any { it.lowercase().contains(q) } ||
+                        anime.characters.any { c ->
+                            c.name.lowercase().contains(q) || c.voiceActor.lowercase().contains(q)
+                        } ||
+                        anime.id in charAnimeIds ||
+                        q.startsWith("ep") || q.contains("episode")
+                }
+            }
+
+            // Apply extended filters (Studio, Score, Episode count, Duration, Sub, Dub, Language)
+            val fullyFiltered = searched.filter { anime ->
+                val studioMatch = state.selectedStudio == null || anime.studio.equals(state.selectedStudio, ignoreCase = true)
+                val scoreMatch = state.minScoreFilter == null || anime.score >= state.minScoreFilter
+                val epCountMatch = when (state.episodeCountFilter) {
+                    "1-12" -> anime.episodesCount <= 12
+                    "13-24" -> anime.episodesCount in 13..24
+                    "25+" -> anime.episodesCount >= 25
+                    else -> true
+                }
+                val durationMatch = when (state.durationFilter) {
+                    "<20m" -> anime.durationMinutes < 20
+                    "20-30m" -> anime.durationMinutes in 20..30
+                    "30m+" -> anime.durationMinutes > 30
+                    else -> true
+                }
+                val subMatch = !state.subOnly || anime.hasSub
+                val dubMatch = !state.dubOnly || anime.hasDub
+                val langMatch = when (state.languageFilter) {
+                    "English" -> anime.hasDub
+                    "Japanese" -> anime.hasSub
+                    else -> true
+                }
+                studioMatch && scoreMatch && epCountMatch && durationMatch && subMatch && dubMatch && langMatch
+            }
+
+            val episodeMatches = if (q.isBlank()) {
+                emptyList()
+            } else {
+                fullyFiltered.take(3).map { anime ->
+                    "${anime.titleEnglish} • Episode 1 - ${anime.episodesCount} (1080p Sub/Dub)"
+                }
+            }
 
             _uiState.update {
                 it.copy(
-                    isSearching = false,
-                    results = results,
-                    hasSearched = true,
-                    searchHistory = updatedHistory
+                    results = fullyFiltered,
+                    matchedCharacters = matchedChars,
+                    matchedEpisodesSummary = episodeMatches,
+                    isSearching = false
                 )
             }
         }

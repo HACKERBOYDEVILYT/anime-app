@@ -6,20 +6,37 @@
     <string name="nav_watchlist">Watchlist</string>
     <string name="nav_profile">Profile</string>
     <string name="nav_admin">Admin</string>
-    
+
     <string name="trending_now">Trending Now</string>
-    <string name="popular_anime">Popular Anime</string>
+    <string name="popular_anime">Popular This Week</string>
     <string name="top_rated">Top Rated</string>
     <string name="continue_watching">Continue Watching</string>
-    <string name="seasonal_anime">Seasonal Anime</string>
+    <string name="seasonal_anime">Airing Today</string>
     <string name="recently_added">Recently Added</string>
+    <string name="ai_picks_for_you">AI Picks For You</string>
+    <string name="because_you_watched">Because You Watched</string>
+    <string name="your_next_anime">Your Next Anime</string>
+    <string name="recommended_for_you">Recommended For You</string>
+    <string name="similar_anime">Similar Anime</string>
+    <string name="hidden_gems">Hidden Gems</string>
+    <string name="trending_for_you">Trending For You</string>
+    <string name="latest_episodes">Latest Episodes</string>
+    <string name="daily_challenge">Daily Challenge</string>
+    <string name="personal_statistics">Personal Statistics</string>
     <string name="watch_now">Watch Now</string>
     <string name="add_to_watchlist">Add to Watchlist</string>
     <string name="in_watchlist">In Watchlist</string>
     <string name="episodes">Episodes</string>
-    <string name="search_placeholder">Search anime, genres, studios…</string>
+    <string name="search_placeholder">Search anime, characters, genres, studios, episodes…</string>
     <string name="filter_genre">Genre</string>
     <string name="filter_year">Year</string>
     <string name="filter_status">Status</string>
     <string name="filter_type">Type</string>
+    <string name="sync_synced">SYNCED</string>
+    <string name="sync_syncing">SYNCING</string>
+    <string name="sync_offline">OFFLINE</string>
+    <string name="sync_error">SYNC ERROR</string>
+    <string name="skip_intro">SKIP INTRO ⏩</string>
+    <string name="skip_outro">SKIP OUTRO ⏩</string>
+    <string name="language_label">Language</string>
 </resources>

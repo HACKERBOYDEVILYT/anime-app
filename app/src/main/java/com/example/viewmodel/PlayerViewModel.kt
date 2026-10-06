@@ -4,15 +4,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.model.Anime
 import com.example.data.model.Episode
-import com.example.data.model.EpisodeAudio
-import com.example.data.model.EpisodeSource
-import com.example.data.model.EpisodeSubtitle
-import com.example.data.network.HlsStreamService
+import com.example.data.model.EpisodeNote
+import com.example.data.model.StreamSource
+import com.example.data.model.SubtitleTrack
+import com.example.data.model.VideoBookmark
+import com.example.data.repository.AdminRepository
 import com.example.data.repository.AnimeRepository
+import com.example.data.repository.DownloadsRepository
+import com.example.data.repository.GamificationAndSocialRepository
+import com.example.data.repository.MalSyncRepository
 import com.example.data.repository.UserRepository
 import com.example.data.repository.WatchRepository
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,35 +24,41 @@ import kotlinx.coroutines.launch
 data class PlayerUiState(
     val isLoading: Boolean = true,
     val anime: Anime? = null,
+    val episodes: List<Episode> = emptyList(),
     val currentEpisode: Episode? = null,
-    val allEpisodes: List<Episode> = emptyList(),
-    val currentSource: EpisodeSource? = null,
+    val selectedSource: StreamSource? = null,
     val selectedQuality: String = "1080p",
-    val selectedSubtitle: EpisodeSubtitle? = null,
-    val selectedAudio: EpisodeAudio? = null,
-    val playbackSpeed: Float = 1.0f,
-    val isPlaying: Boolean = true,
+    val selectedAudio: String = "Japanese (Sub)",
+    val selectedSubtitle: SubtitleTrack? = null,
+    val playbackSpeed: Float = 1.0f, // 0.5x, 0.75x, 1x, 1.25x, 1.5x, 1.75x, 2x
+    val isScreenLocked: Boolean = false,
+    val sleepTimerMinutes: Int? = null,
+    val autoPlayNextEnabled: Boolean = true,
+    val autoSkipIntro: Boolean = false,
+    val autoSkipOutro: Boolean = false,
+    val backgroundPlaybackEnabled: Boolean = false,
+    val isCastingToTv: Boolean = false,
+    val castDeviceName: String = "Living Room 4K Smart TV",
+    // Subtitle styling & synchronization (Section 7)
+    val subtitleFontSizeSp: Int = 16,
+    val subtitleColorHex: String = "#FFEE00", // Yellow, White, Cyan, Green
+    val subtitleBackgroundColorHex: String = "#000000",
+    val subtitleBackgroundOpacity: Float = 0.75f,
+    val subtitleBottomPaddingDp: Int = 34,
+    val subtitleDelayMs: Long = 0L,
+    // Network & Failover telemetry
+    val networkQualityLabel: String = "Excellent • 24.8 Mbps (1080p Ready)",
+    val initialSeekPositionMs: Long = 0L,
     val currentPositionMs: Long = 0L,
-    val totalDurationMs: Long = 1440000L,
-    val bufferedPositionMs: Long = 0L,
-    val showControls: Boolean = true,
-    val isLocked: Boolean = false,
-    val showQualitySheet: Boolean = false,
-    val showSubtitleSheet: Boolean = false,
-    val showAudioSheet: Boolean = false,
-    val showSpeedSheet: Boolean = false,
-    val showEpisodeListSheet: Boolean = false,
-    val showCommentsSheet: Boolean = false,
-    val isBackgroundAudioEnabled: Boolean = false,
-    val isDubMode: Boolean = false,
-    val gestureOverlayIcon: String? = null, // "BRIGHTNESS", "VOLUME", "FORWARD", "REWIND"
-    val gestureOverlayText: String? = null,
-    val brightnessPercent: Int = 70,
-    val volumePercent: Int = 65,
-    val isInIntro: Boolean = false,
-    val isInOutro: Boolean = false,
-    val autoNextCountdown: Int? = null,
-    val error: String? = null
+    val totalDurationMs: Long = 1440_000L,
+    val showSkipIntro: Boolean = false,
+    val showSkipOutro: Boolean = false,
+    val nextEpisodeCountdownSec: Int? = null,
+    val spoilerFreeMode: Boolean = false,
+    val error: String? = null,
+    val failoverNotice: String? = null,
+    val failedSourceUrls: Set<String> = emptySet(),
+    val autoFailoverCount: Int = 0
 )
 
 class PlayerViewModel(
@@ -58,286 +66,388 @@ class PlayerViewModel(
     private val initialEpisodeNumber: Int,
     private val animeRepository: AnimeRepository,
     private val watchRepository: WatchRepository,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val adminRepository: AdminRepository? = null,
+    private val malSyncRepository: MalSyncRepository? = null,
+    private val downloadsRepository: DownloadsRepository? = null,
+    val gamificationRepository: GamificationAndSocialRepository = GamificationAndSocialRepository()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
 
-    private var progressSaveJob: Job? = null
-    private var lastSavedPositionMs = 0L
-    private val failedStreamUrls = mutableSetOf<String>()
+    val episodeNotes: StateFlow<List<EpisodeNote>> = gamificationRepository.episodeNotes
+    val videoBookmarks: StateFlow<List<VideoBookmark>> = gamificationRepository.videoBookmarks
 
     init {
-        loadPlaybackSession(initialEpisodeNumber)
+        loadPlayerData(initialEpisodeNumber)
     }
 
-    fun fallbackToNextWorkingSource(failedUrl: String): EpisodeSource? {
-        if (failedUrl.isNotBlank()) {
-            failedStreamUrls.add(failedUrl)
-        }
-        val sources = _uiState.value.currentEpisode?.sources.orEmpty()
-            .filter { !it.streamUrl.contains("youtube.com/embed", ignoreCase = true) }
-        if (sources.isEmpty()) return null
-
-        var nextWorking = sources.firstOrNull { it.streamUrl.isNotBlank() && it.streamUrl !in failedStreamUrls }
-        if (nextWorking == null) {
-            // If all 17 servers were tried, reset failed set and cycle to next server after current
-            failedStreamUrls.clear()
-            val curIdx = sources.indexOfFirst { it.streamUrl == failedUrl }
-            nextWorking = sources.getOrNull((curIdx + 1) % sources.size) ?: sources.first()
-        }
-        _uiState.update {
-            it.copy(
-                isLoading = false,
-                currentSource = nextWorking,
-                selectedQuality = nextWorking.quality
-            )
-        }
-        return nextWorking
-    }
-
-    fun loadPlaybackSession(episodeNumber: Int) {
+    fun loadPlayerData(episodeNumber: Int) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 val anime = animeRepository.getAnimeById(animeId)
-                val episodes = animeRepository.getEpisodes(animeId)
-                val rawEpisode = episodes.find { it.episodeNumber == episodeNumber } ?: episodes.firstOrNull()
+                val baseEpisodes = animeRepository.getEpisodes(animeId)
 
-                if (rawEpisode != null && anime != null) {
-                    val prioritizedSources = HlsStreamService.prioritizeEpisodeSources(rawEpisode.sources)
-                    val episode = rawEpisode.copy(sources = prioritizedSources)
-                    val defaultSource = prioritizedSources.firstOrNull()
-                    val defaultSub = episode.subtitles.find { it.isDefault }
-                        ?: episode.subtitles.firstOrNull()
-                    val defaultAud = episode.audioTracks.find { it.isDefault }
-                        ?: episode.audioTracks.firstOrNull()
+                val episodes = baseEpisodes.map { ep ->
+                    val adminStreamSources = adminRepository?.getScrapedStreamsForEpisode(animeId, ep.episodeNumber)
+                        .orEmpty()
+                        .mapIndexed { idx, scraped ->
+                            StreamSource(
+                                serverName = "Server ${idx + 1} • ${scraped.sourceProvider}",
+                                quality = scraped.quality.ifBlank { "1080p" },
+                                url = scraped.streamUrl,
+                                isHls = scraped.isHls || scraped.streamUrl.contains(".m3u8", ignoreCase = true),
+                                audioTrack = "Japanese / Multi-Audio"
+                            )
+                        }
+                    val combined = (adminStreamSources + ep.sources).distinctBy { "${it.serverName}_${it.url}" }
+                    if (combined.isNotEmpty()) ep.copy(sources = combined) else ep
+                }
 
-                    // Check if saved progress exists in database to resume!
-                    val savedHistory = watchRepository.getEpisodeProgress(episode.id)
-                    val resumePos = savedHistory?.progressMs ?: 0L
+                val targetEpisode = episodes.find { it.episodeNumber == episodeNumber }
+                    ?: episodes.firstOrNull()
 
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            anime = anime,
-                            currentEpisode = episode,
-                            allEpisodes = episodes,
-                            currentSource = defaultSource,
-                            selectedQuality = defaultSource?.quality ?: "1080p",
-                            selectedSubtitle = defaultSub,
-                            selectedAudio = defaultAud,
-                            currentPositionMs = resumePos,
-                            totalDurationMs = episode.durationSeconds * 1000L
-                        )
-                    }
-                } else {
-                    _uiState.update { it.copy(isLoading = false) }
+                val savedProgress = watchRepository.getEpisodeProgress(animeId, episodeNumber)
+                val startPos = savedProgress?.watchedPositionMs ?: 0L
+
+                val defaultSource = targetEpisode?.sources?.firstOrNull()
+                val defaultSub = targetEpisode?.subtitles?.firstOrNull { it.isDefault }
+                    ?: targetEpisode?.subtitles?.firstOrNull()
+
+                val prefs = userRepository.preferences.value
+
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        anime = anime,
+                        episodes = episodes,
+                        currentEpisode = targetEpisode,
+                        selectedSource = defaultSource,
+                        selectedQuality = defaultSource?.quality ?: prefs.defaultQuality,
+                        selectedAudio = defaultSource?.audioTrack ?: prefs.preferredAudioLanguage,
+                        selectedSubtitle = defaultSub,
+                        autoPlayNextEnabled = prefs.autoPlayNext,
+                        autoSkipIntro = prefs.autoSkipIntro,
+                        autoSkipOutro = prefs.autoSkipOutro,
+                        backgroundPlaybackEnabled = prefs.backgroundPlayback,
+                        spoilerFreeMode = prefs.spoilerFreeMode,
+                        subtitleFontSizeSp = prefs.subtitleStyle.fontSizeSp,
+                        subtitleColorHex = prefs.subtitleStyle.textColorHex,
+                        subtitleBackgroundColorHex = prefs.subtitleStyle.backgroundColorHex,
+                        subtitleBackgroundOpacity = prefs.subtitleStyle.backgroundOpacity,
+                        subtitleBottomPaddingDp = prefs.subtitleStyle.bottomMarginDp,
+                        subtitleDelayMs = prefs.subtitleStyle.subtitleDelayMs,
+                        initialSeekPositionMs = startPos,
+                        currentPositionMs = startPos,
+                        failedSourceUrls = emptySet(),
+                        failoverNotice = null
+                    )
+                }
+
+                if (anime != null) {
+                    userRepository.incrementWatchStats(anime.durationMinutes)
+                    malSyncRepository?.recordEpisodeWatched(anime.titleEnglish, episodeNumber)
+                    gamificationRepository.recordEpisodeWatchedProgress()
                 }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = e.localizedMessage) }
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = e.localizedMessage ?: "Failed to initialize video stream"
+                    )
+                }
             }
         }
     }
 
-    fun togglePlayPause() {
-        _uiState.update { it.copy(isPlaying = !it.isPlaying) }
+    fun selectEpisode(episodeNumber: Int) {
+        saveProgressNow()
+        loadPlayerData(episodeNumber)
     }
 
-    fun setPlaying(playing: Boolean) {
-        _uiState.update { it.copy(isPlaying = playing) }
-    }
-
-    fun toggleControls() {
-        if (!_uiState.value.isLocked) {
-            _uiState.update { it.copy(showControls = !it.showControls) }
-        }
-    }
-
-    fun toggleLock() {
+    fun selectSource(source: StreamSource) {
         _uiState.update {
-            val newLocked = !it.isLocked
-            it.copy(isLocked = newLocked, showControls = !newLocked)
-        }
-    }
-
-    fun updatePosition(posMs: Long, durationMs: Long, bufferedMs: Long = 0L) {
-        val currentEp = _uiState.value.currentEpisode ?: return
-        val safePos = posMs.coerceAtLeast(0L)
-        val currentSec = safePos / 1000L
-
-        val inIntro = currentSec in currentEp.introStartSec..currentEp.introEndSec
-        val inOutro = currentSec in currentEp.outroStartSec..currentEp.outroEndSec
-
-        _uiState.update {
-            val validDuration = if (durationMs > 1000L) durationMs else it.totalDurationMs.coerceAtLeast(1000L)
             it.copy(
-                currentPositionMs = safePos.coerceAtMost(validDuration),
-                totalDurationMs = validDuration,
-                bufferedPositionMs = bufferedMs.coerceIn(0L, validDuration),
-                isInIntro = inIntro,
-                isInOutro = inOutro
+                selectedSource = source,
+                selectedQuality = source.quality,
+                selectedAudio = source.audioTrack,
+                initialSeekPositionMs = it.currentPositionMs,
+                error = null,
+                failoverNotice = "Switched to ${source.serverName} (${source.quality})"
+            )
+        }
+    }
+
+    /**
+     * Automatic Multi-Server Failover across all 17 servers.
+     */
+    fun switchToNextWorkingServer(reason: String = "Stream error") {
+        val state = _uiState.value
+        val ep = state.currentEpisode ?: return
+        val currentUrl = state.selectedSource?.url.orEmpty()
+        val currentServer = state.selectedSource?.serverName ?: "Current Server"
+
+        val updatedFailedUrls = state.failedSourceUrls + setOfNotNull(currentUrl.takeIf { it.isNotBlank() })
+        val allSources = ep.sources
+
+        val nextCandidate = allSources.firstOrNull { src ->
+            src.url !in updatedFailedUrls && src.serverName != currentServer
+        } ?: allSources.firstOrNull { src ->
+            src.url !in updatedFailedUrls
+        }
+
+        if (nextCandidate != null) {
+            _uiState.update {
+                it.copy(
+                    selectedSource = nextCandidate,
+                    selectedQuality = nextCandidate.quality,
+                    selectedAudio = nextCandidate.audioTrack,
+                    initialSeekPositionMs = it.currentPositionMs,
+                    failedSourceUrls = updatedFailedUrls,
+                    autoFailoverCount = it.autoFailoverCount + 1,
+                    error = null,
+                    failoverNotice = "Auto-switched to ${nextCandidate.serverName} ($reason)"
+                )
+            }
+        } else {
+            val firstSource = allSources.firstOrNull()
+            _uiState.update {
+                it.copy(
+                    selectedSource = firstSource,
+                    failedSourceUrls = emptySet(),
+                    error = "All ${allSources.size} servers timed out. Tap Retry to reconnect.",
+                    failoverNotice = null
+                )
+            }
+        }
+    }
+
+    fun clearFailoverNotice() {
+        _uiState.update { it.copy(failoverNotice = null) }
+    }
+
+    fun selectQuality(quality: String) {
+        val ep = _uiState.value.currentEpisode ?: return
+        val matchingSource = ep.sources.find { it.quality == quality } ?: _uiState.value.selectedSource
+        _uiState.update {
+            it.copy(
+                selectedQuality = quality,
+                selectedSource = matchingSource,
+                initialSeekPositionMs = it.currentPositionMs
+            )
+        }
+    }
+
+    fun selectAudioTrack(audioLabel: String) {
+        val ep = _uiState.value.currentEpisode ?: return
+        val matchingSource = ep.sources.find { it.audioTrack.contains(audioLabel, ignoreCase = true) }
+            ?: _uiState.value.selectedSource
+        _uiState.update {
+            it.copy(
+                selectedAudio = audioLabel,
+                selectedSource = matchingSource,
+                initialSeekPositionMs = it.currentPositionMs,
+                failoverNotice = "Audio Track: $audioLabel"
+            )
+        }
+        userRepository.updateAdvancedPreferences { prefs ->
+            prefs.copy(preferredAudioLanguage = audioLabel)
+        }
+    }
+
+    fun selectSubtitle(track: SubtitleTrack?) {
+        _uiState.update { it.copy(selectedSubtitle = track) }
+    }
+
+    fun setPlaybackSpeed(speed: Float) {
+        _uiState.update { it.copy(playbackSpeed = speed.coerceIn(0.5f, 2.0f)) }
+    }
+
+    fun toggleScreenLock() {
+        _uiState.update { it.copy(isScreenLocked = !it.isScreenLocked) }
+    }
+
+    fun setSleepTimer(minutes: Int?) {
+        _uiState.update { it.copy(sleepTimerMinutes = minutes) }
+    }
+
+    fun toggleAutoSkipIntro() {
+        val next = !_uiState.value.autoSkipIntro
+        _uiState.update { it.copy(autoSkipIntro = next) }
+        userRepository.updateAdvancedPreferences { it.copy(autoSkipIntro = next) }
+    }
+
+    fun toggleAutoSkipOutro() {
+        val next = !_uiState.value.autoSkipOutro
+        _uiState.update { it.copy(autoSkipOutro = next) }
+        userRepository.updateAdvancedPreferences { it.copy(autoSkipOutro = next) }
+    }
+
+    fun toggleAutoPlayNext() {
+        val next = !_uiState.value.autoPlayNextEnabled
+        _uiState.update { it.copy(autoPlayNextEnabled = next) }
+        viewModelScope.launch {
+            userRepository.updatePreference(autoPlayNext = next)
+        }
+    }
+
+    fun toggleBackgroundPlayback() {
+        val next = !_uiState.value.backgroundPlaybackEnabled
+        _uiState.update { it.copy(backgroundPlaybackEnabled = next) }
+        userRepository.updateAdvancedPreferences { it.copy(backgroundPlayback = next) }
+    }
+
+    fun toggleCastToSmartTv() {
+        val next = !_uiState.value.isCastingToTv
+        _uiState.update {
+            it.copy(
+                isCastingToTv = next,
+                failoverNotice = if (next) "📺 Connected to ${it.castDeviceName}" else "Disconnected from Smart TV Cast"
+            )
+        }
+    }
+
+    fun updateSubtitleStyling(
+        fontSizeSp: Int? = null,
+        colorHex: String? = null,
+        bgOpacity: Float? = null,
+        bottomPaddingDp: Int? = null,
+        delayMs: Long? = null
+    ) {
+        _uiState.update { state ->
+            state.copy(
+                subtitleFontSizeSp = (fontSizeSp ?: state.subtitleFontSizeSp).coerceIn(12, 28),
+                subtitleColorHex = colorHex ?: state.subtitleColorHex,
+                subtitleBackgroundOpacity = (bgOpacity ?: state.subtitleBackgroundOpacity).coerceIn(0f, 1f),
+                subtitleBottomPaddingDp = (bottomPaddingDp ?: state.subtitleBottomPaddingDp).coerceIn(12, 84),
+                subtitleDelayMs = (delayMs ?: state.subtitleDelayMs).coerceIn(-5000L, 5000L)
+            )
+        }
+    }
+
+    fun addNoteForCurrentEpisode(text: String) {
+        val ep = _uiState.value.currentEpisode ?: return
+        gamificationRepository.addEpisodeNote(animeId, ep.episodeNumber, text)
+        userRepository.awardUserXp(10, "Saved Episode Note")
+    }
+
+    fun deleteEpisodeNote(noteId: String) {
+        gamificationRepository.deleteEpisodeNote(noteId)
+    }
+
+    fun addBookmarkAtCurrentPosition(label: String) {
+        val state = _uiState.value
+        val ep = state.currentEpisode ?: return
+        gamificationRepository.addVideoBookmark(
+            animeId = animeId,
+            episodeNumber = ep.episodeNumber,
+            positionMs = state.currentPositionMs,
+            label = label
+        )
+        userRepository.awardUserXp(10, "Created Timestamp Bookmark")
+    }
+
+    fun deleteBookmark(bookmarkId: String) {
+        gamificationRepository.deleteVideoBookmark(bookmarkId)
+    }
+
+    fun updatePlaybackPosition(positionMs: Long, durationMs: Long) {
+        val ep = _uiState.value.currentEpisode ?: return
+        val safeDuration = if (durationMs > 0) durationMs else 1440_000L
+
+        val inIntro = positionMs in ep.introStartMs..ep.introEndMs
+        val inOutro = positionMs in ep.outroStartMs..ep.outroEndMs
+
+        val remainingSec = ((safeDuration - positionMs) / 1000L).toInt()
+        val countdown = if (stateHasNextEpisode() && _uiState.value.autoPlayNextEnabled && remainingSec in 1..10) {
+            remainingSec
+        } else null
+
+        _uiState.update {
+            it.copy(
+                currentPositionMs = positionMs,
+                totalDurationMs = safeDuration,
+                showSkipIntro = inIntro,
+                showSkipOutro = inOutro,
+                nextEpisodeCountdownSec = countdown
             )
         }
 
-        // Debounced save watch progress to Room database (save at most once every 5 seconds)
-        if (kotlin.math.abs(safePos - lastSavedPositionMs) > 5000L) {
-            lastSavedPositionMs = safePos
-            saveProgressToDatabase(safePos, _uiState.value.totalDurationMs)
+        if (positionMs > 0 && (positionMs / 1000) % 5L == 0L) {
+            saveProgressNow()
+        }
+
+        if (remainingSec <= 1 && safeDuration > 10_000L) {
+            viewModelScope.launch {
+                downloadsRepository?.onEpisodeCompleted(animeId, ep.episodeNumber)
+            }
         }
     }
 
-    fun skipIntro() {
-        val ep = _uiState.value.currentEpisode ?: return
-        val skipToMs = (ep.introEndSec + 1) * 1000L
-        _uiState.update { it.copy(currentPositionMs = skipToMs, isInIntro = false) }
+    fun getIntroEndPositionMs(): Long {
+        return _uiState.value.currentEpisode?.introEndMs ?: 90_000L
     }
 
-    fun skipOutro() {
-        playNextEpisode()
+    fun getOutroEndPositionMs(): Long {
+        return _uiState.value.currentEpisode?.outroEndMs ?: 1400_000L
+    }
+
+    private fun stateHasNextEpisode(): Boolean {
+        val state = _uiState.value
+        val currentEpNum = state.currentEpisode?.episodeNumber ?: return false
+        return state.episodes.any { it.episodeNumber == currentEpNum + 1 }
+    }
+
+    fun hasNextEpisode(): Boolean = stateHasNextEpisode()
+
+    fun hasPreviousEpisode(): Boolean {
+        val state = _uiState.value
+        val currentEpNum = state.currentEpisode?.episodeNumber ?: return false
+        return state.episodes.any { it.episodeNumber == currentEpNum - 1 }
     }
 
     fun playNextEpisode() {
         val currentEpNum = _uiState.value.currentEpisode?.episodeNumber ?: return
-        val nextEp = _uiState.value.allEpisodes.find { it.episodeNumber == currentEpNum + 1 }
-        if (nextEp != null) {
-            loadPlaybackSession(nextEp.episodeNumber)
+        if (hasNextEpisode()) {
+            selectEpisode(currentEpNum + 1)
         }
     }
 
     fun playPreviousEpisode() {
         val currentEpNum = _uiState.value.currentEpisode?.episodeNumber ?: return
-        val prevEp = _uiState.value.allEpisodes.find { it.episodeNumber == currentEpNum - 1 }
-        if (prevEp != null) {
-            loadPlaybackSession(prevEp.episodeNumber)
+        if (hasPreviousEpisode()) {
+            selectEpisode(currentEpNum - 1)
         }
     }
 
-    fun selectQuality(source: EpisodeSource) {
-        _uiState.update { it.copy(currentSource = source, selectedQuality = source.quality, showQualitySheet = false) }
+    fun onPlayerError(message: String) {
+        switchToNextWorkingServer(message)
     }
 
-    fun selectSubtitle(subtitle: EpisodeSubtitle?) {
-        _uiState.update { it.copy(selectedSubtitle = subtitle, showSubtitleSheet = false) }
+    fun retryPlayback() {
+        val currentEp = _uiState.value.currentEpisode?.episodeNumber ?: initialEpisodeNumber
+        loadPlayerData(currentEp)
     }
 
-    fun selectAudio(audio: EpisodeAudio) {
-        _uiState.update { it.copy(selectedAudio = audio, showAudioSheet = false) }
-    }
-
-    fun setPlaybackSpeed(speed: Float) {
-        _uiState.update { it.copy(playbackSpeed = speed, showSpeedSheet = false) }
-    }
-
-    fun setShowQualitySheet(show: Boolean) = _uiState.update { it.copy(showQualitySheet = show) }
-    fun setShowSubtitleSheet(show: Boolean) = _uiState.update { it.copy(showSubtitleSheet = show) }
-    fun setShowAudioSheet(show: Boolean) = _uiState.update { it.copy(showAudioSheet = show) }
-    fun setShowSpeedSheet(show: Boolean) = _uiState.update { it.copy(showSpeedSheet = show) }
-    fun setShowEpisodeListSheet(show: Boolean) = _uiState.update { it.copy(showEpisodeListSheet = show) }
-    fun setShowCommentsSheet(show: Boolean) = _uiState.update { it.copy(showCommentsSheet = show) }
-
-    fun toggleBackgroundAudio() {
-        _uiState.update { it.copy(isBackgroundAudioEnabled = !it.isBackgroundAudioEnabled) }
-    }
-
-    fun toggleDubSub() {
-        _uiState.update { current ->
-            val newDubMode = !current.isDubMode
-            val targetAudio = if (newDubMode) {
-                current.currentEpisode?.audioTracks?.find { it.language == "bn" || it.language == "en" }
-            } else {
-                current.currentEpisode?.audioTracks?.find { it.language == "ja" }
-            }
-            current.copy(
-                isDubMode = newDubMode,
-                selectedAudio = targetAudio ?: current.selectedAudio
-            )
-        }
-    }
-
-    fun selectBanglaSubtitle() {
-        val bnSub = _uiState.value.currentEpisode?.subtitles?.find { it.language == "bn" }
-        if (bnSub != null) {
-            selectSubtitle(bnSub)
-        }
-    }
-
-    fun setBrightnessPercent(percent: Int) {
-        val clamped = percent.coerceIn(0, 100)
-        _uiState.update {
-            it.copy(
-                brightnessPercent = clamped,
-                gestureOverlayIcon = "BRIGHTNESS",
-                gestureOverlayText = "Brightness: $clamped%"
-            )
-        }
-    }
-
-    fun setVolumePercent(percent: Int) {
-        val clamped = percent.coerceIn(0, 100)
-        _uiState.update {
-            it.copy(
-                volumePercent = clamped,
-                gestureOverlayIcon = "VOLUME",
-                gestureOverlayText = "Volume: $clamped%"
-            )
-        }
-    }
-
-    fun showSeekGestureIndicator(isForward: Boolean, deltaSec: Int) {
-        _uiState.update {
-            it.copy(
-                gestureOverlayIcon = if (isForward) "FORWARD" else "REWIND",
-                gestureOverlayText = if (isForward) "+${deltaSec}s" else "-${deltaSec}s"
-            )
-        }
-    }
-
-    fun clearGestureIndicator() {
-        _uiState.update { it.copy(gestureOverlayIcon = null, gestureOverlayText = null) }
-    }
-
-    private fun saveProgressToDatabase(posMs: Long, durationMs: Long) {
+    fun saveProgressNow() {
         val state = _uiState.value
-        val ep = state.currentEpisode ?: return
         val anime = state.anime ?: return
+        val ep = state.currentEpisode ?: return
+        if (state.currentPositionMs <= 0L) return
 
-        progressSaveJob?.cancel()
-        progressSaveJob = viewModelScope.launch {
+        viewModelScope.launch {
             watchRepository.saveWatchProgress(
                 animeId = anime.id,
+                animeTitle = anime.titleEnglish,
                 episodeId = ep.id,
                 episodeNumber = ep.episodeNumber,
                 episodeTitle = ep.title,
-                animeTitle = anime.titleEnglish,
-                posterUrl = anime.posterUrl,
-                progressMs = posMs,
-                durationMs = durationMs
+                thumbnailUrl = ep.thumbnailUrl.ifBlank { anime.posterUrl },
+                watchedPositionMs = state.currentPositionMs,
+                totalDurationMs = state.totalDurationMs
             )
-            userRepository.incrementWatchTime(0.08f) // ~5 seconds added to user watch stats
-        }
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        // Final save on player exit
-        val state = _uiState.value
-        val ep = state.currentEpisode
-        val anime = state.anime
-        if (ep != null && anime != null && state.currentPositionMs > 0) {
-            viewModelScope.launch {
-                watchRepository.saveWatchProgress(
-                    animeId = anime.id,
-                    episodeId = ep.id,
-                    episodeNumber = ep.episodeNumber,
-                    episodeTitle = ep.title,
-                    animeTitle = anime.titleEnglish,
-                    posterUrl = anime.posterUrl,
-                    progressMs = state.currentPositionMs,
-                    durationMs = state.totalDurationMs
-                )
-            }
         }
     }
 }

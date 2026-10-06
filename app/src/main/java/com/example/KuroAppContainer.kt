@@ -2,14 +2,13 @@ package com.example
 
 import android.content.Context
 import com.example.data.local.KuroDatabase
-import com.example.data.network.KuroApiService
-import com.example.data.network.NetworkClient
 import com.example.data.network.RetrofitClient
 import com.example.data.repository.AdminRepository
 import com.example.data.repository.AnimeRepository
 import com.example.data.repository.AppUpdateRepository
 import com.example.data.repository.CommentsRepository
 import com.example.data.repository.DownloadsRepository
+import com.example.data.repository.GamificationAndSocialRepository
 import com.example.data.repository.LocalLicensedMediaProvider
 import com.example.data.repository.MalSyncRepository
 import com.example.data.repository.QuotesRepository
@@ -20,42 +19,73 @@ import com.example.data.repository.TierListRepository
 import com.example.data.repository.UserRepository
 import com.example.data.repository.WatchPartyRepository
 import com.example.data.repository.WatchRepository
+import com.example.data.sync.CloudSyncManager
 
 class KuroAppContainer(context: Context) {
-    private val database = KuroDatabase.getInstance(context)
 
-    val apiService: KuroApiService = RetrofitClient.apiService
-    val localMediaProvider = LocalLicensedMediaProvider(database.adminScrapedDao())
-    val metadataProvider = RetrofitMetadataProvider(apiService, localMediaProvider)
+    private val database: KuroDatabase = KuroDatabase.getDatabase(context)
 
-    val animeRepository = AnimeRepository(metadataProvider)
-    val watchRepository = WatchRepository(
-        watchDao = database.watchDao(),
-        watchlistDao = database.watchlistDao(),
-        socialDao = database.socialDao()
+    val cloudSyncManager: CloudSyncManager = CloudSyncManager()
+
+    val mediaProvider: LocalLicensedMediaProvider = LocalLicensedMediaProvider()
+
+    private val remoteMetadataProvider = RetrofitMetadataProvider(
+        apiService = RetrofitClient.createCatalogApiService(),
+        fallbackProvider = mediaProvider
     )
-    val userRepository = UserRepository(database.adminScrapedDao())
-    val adminRepository = AdminRepository(localMediaProvider, database.adminScrapedDao())
-    val downloadsRepository = DownloadsRepository(database.downloadsDao())
-    val commentsRepository = CommentsRepository(database.commentsDao())
-    val malSyncRepository = MalSyncRepository(database.malSyncDao())
-    val scheduleRepository = ScheduleRepository(animeRepository)
-    val watchPartyRepository = WatchPartyRepository(animeRepository)
-    val radioRepository = RadioRepository()
-    val quotesRepository = QuotesRepository()
-    val tierListRepository = TierListRepository(animeRepository)
-    val appUpdateRepository = AppUpdateRepository(context, localMediaProvider)
 
-    companion object {
-        @Volatile
-        private var INSTANCE: KuroAppContainer? = null
+    val animeRepository: AnimeRepository = AnimeRepository(remoteMetadataProvider)
 
-        fun getInstance(context: Context): KuroAppContainer {
-            return INSTANCE ?: synchronized(this) {
-                val instance = KuroAppContainer(context.applicationContext)
-                INSTANCE = instance
-                instance
-            }
-        }
-    }
+    val watchRepository: WatchRepository = WatchRepository(
+        watchlistDao = database.watchlistDao(),
+        watchHistoryDao = database.watchHistoryDao(),
+        reviewDao = database.reviewDao(),
+        cloudSyncManager = cloudSyncManager
+    )
+
+    val userRepository: UserRepository = UserRepository(
+        userDao = database.userDao(),
+        cloudSyncManager = cloudSyncManager
+    )
+
+    val adminRepository: AdminRepository = AdminRepository(
+        mediaProvider = mediaProvider,
+        adminScrapedDao = database.adminScrapedDao()
+    )
+
+    val downloadsRepository: DownloadsRepository = DownloadsRepository(
+        downloadsDao = database.downloadsDao(),
+        cloudSyncManager = cloudSyncManager
+    )
+
+    val watchPartyRepository: WatchPartyRepository = WatchPartyRepository(
+        watchPartyDao = database.watchPartyDao()
+    )
+
+    val malSyncRepository: MalSyncRepository = MalSyncRepository(
+        malSyncDao = database.malSyncDao()
+    )
+
+    val tierListRepository: TierListRepository = TierListRepository(
+        tierListDao = database.tierListDao()
+    )
+
+    val commentsRepository: CommentsRepository = CommentsRepository(
+        commentsDao = database.commentsDao()
+    )
+
+    val scheduleRepository: ScheduleRepository = ScheduleRepository(
+        animeRepository = animeRepository,
+        watchRepository = watchRepository
+    )
+
+    val quotesRepository: QuotesRepository = QuotesRepository()
+
+    val radioRepository: RadioRepository = RadioRepository()
+
+    val gamificationRepository: GamificationAndSocialRepository = GamificationAndSocialRepository(
+        cloudSyncManager = cloudSyncManager
+    )
+
+    val appUpdateRepository: AppUpdateRepository = AppUpdateRepository(context)
 }

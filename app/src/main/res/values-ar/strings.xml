@@ -1,0 +1,42 @@
+<resources>
+    <string name="app_name">Robiul</string>
+    <string name="nav_home">الرئيسية</string>
+    <string name="nav_browse">تصفح</string>
+    <string name="nav_search">بحث</string>
+    <string name="nav_watchlist">قائمتي</string>
+    <string name="nav_profile">الملف الشخصي</string>
+    <string name="nav_admin">الإدارة</string>
+
+    <string name="trending_now">الرائج الآن</string>
+    <string name="popular_anime">الأكثر شعبية هذا الأسبوع</string>
+    <string name="top_rated">الأعلى تقييماً</string>
+    <string name="continue_watching">متابعة المشاهدة</string>
+    <string name="seasonal_anime">يعرض اليوم</string>
+    <string name="recently_added">أضيف مؤخراً</string>
+    <string name="ai_picks_for_you">اختيارات الذكاء الاصطناعي لك</string>
+    <string name="because_you_watched">لأنك شاهدت</string>
+    <string name="your_next_anime">أنميك القادم</string>
+    <string name="recommended_for_you">موصى به لك</string>
+    <string name="similar_anime">أنمي مشابه</string>
+    <string name="hidden_gems">جواهر مخفية</string>
+    <string name="trending_for_you">رائج لك</string>
+    <string name="latest_episodes">أحدث الحلقات</string>
+    <string name="daily_challenge">التحدي اليومي</string>
+    <string name="personal_statistics">إحصائياتك الشخصية</string>
+    <string name="watch_now">شاهد الآن</string>
+    <string name="add_to_watchlist">أضف إلى قائمتي</string>
+    <string name="in_watchlist">في قائمتي</string>
+    <string name="episodes">الحلقات</string>
+    <string name="search_placeholder">ابحث عن أنمي، شخصيات، تصنيفات، استوديوهات…</string>
+    <string name="filter_genre">التصنيف</string>
+    <string name="filter_year">السنة</string>
+    <string name="filter_status">الحالة</string>
+    <string name="filter_type">النوع</string>
+    <string name="sync_synced">تمت المزامنة</string>
+    <string name="sync_syncing">جاري المزامنة</string>
+    <string name="sync_offline">غير متصل</string>
+    <string name="sync_error">خطأ في المزامنة</string>
+    <string name="skip_intro">تخطي المقدمة ⏩</string>
+    <string name="skip_outro">تخطي الخاتمة ⏩</string>
+    <string name="language_label">اللغة</string>
+</resources>

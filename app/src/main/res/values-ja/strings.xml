@@ -1,0 +1,42 @@
+<resources>
+    <string name="app_name">Robiul</string>
+    <string name="nav_home">ホーム</string>
+    <string name="nav_browse">ブラウズ</string>
+    <string name="nav_search">検索</string>
+    <string name="nav_watchlist">マイリスト</string>
+    <string name="nav_profile">プロフィール</string>
+    <string name="nav_admin">管理</string>
+
+    <string name="trending_now">トレンド</string>
+    <string name="popular_anime">今週の人気アニメ</string>
+    <string name="top_rated">高評価アニメ</string>
+    <string name="continue_watching">視聴を続ける</string>
+    <string name="seasonal_anime">本日放送</string>
+    <string name="recently_added">新着アニメ</string>
+    <string name="ai_picks_for_you">AIおすすめ</string>
+    <string name="because_you_watched">視聴履歴からの推薦</string>
+    <string name="your_next_anime">次に見るべきアニメ</string>
+    <string name="recommended_for_you">あなたへのおすすめ</string>
+    <string name="similar_anime">類似アニメ</string>
+    <string name="hidden_gems">隠れた名作</string>
+    <string name="trending_for_you">あなた向けのトレンド</string>
+    <string name="latest_episodes">最新エピソード</string>
+    <string name="daily_challenge">デイリーチャレンジ</string>
+    <string name="personal_statistics">視聴統計</string>
+    <string name="watch_now">今すぐ見る</string>
+    <string name="add_to_watchlist">マイリストに追加</string>
+    <string name="in_watchlist">マイリスト済み</string>
+    <string name="episodes">エピソード</string>
+    <string name="search_placeholder">アニメ、キャラクター、ジャンル、スタジオを検索…</string>
+    <string name="filter_genre">ジャンル</string>
+    <string name="filter_year">放送年</string>
+    <string name="filter_status">ステータス</string>
+    <string name="filter_type">タイプ</string>
+    <string name="sync_synced">同期済み</string>
+    <string name="sync_syncing">同期中</string>
+    <string name="sync_offline">オフライン</string>
+    <string name="sync_error">同期エラー</string>
+    <string name="skip_intro">OPスキップ ⏩</string>
+    <string name="skip_outro">EDスキップ ⏩</string>
+    <string name="language_label">言語</string>
+</resources>

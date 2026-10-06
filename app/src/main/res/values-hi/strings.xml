@@ -1,0 +1,42 @@
+<resources>
+    <string name="app_name">Robiul</string>
+    <string name="nav_home">होम</string>
+    <string name="nav_browse">ब्राउज़</string>
+    <string name="nav_search">खोजें</string>
+    <string name="nav_watchlist">वॉचलिस्ट</string>
+    <string name="nav_profile">प्रोफ़ाइल</string>
+    <string name="nav_admin">एडमिन</string>
+
+    <string name="trending_now">अभी ट्रेंडिंग</string>
+    <string name="popular_anime">इस सप्ताह लोकप्रिय</string>
+    <string name="top_rated">टॉप रेटेड</string>
+    <string name="continue_watching">देखना जारी रखें</string>
+    <string name="seasonal_anime">आज प्रसारित</string>
+    <string name="recently_added">हाल ही में जोड़ा गया</string>
+    <string name="ai_picks_for_you">आपके लिए AI पसंद</string>
+    <string name="because_you_watched">क्योंकि आपने देखा</string>
+    <string name="your_next_anime">आपका अगला एनीमे</string>
+    <string name="recommended_for_you">आपके लिए अनुशंसित</string>
+    <string name="similar_anime">समान एनीमे</string>
+    <string name="hidden_gems">छुपे हुए रत्न</string>
+    <string name="trending_for_you">आपके लिए ट्रेंडिंग</string>
+    <string name="latest_episodes">नवीनतम एपिसोड</string>
+    <string name="daily_challenge">दैनिक चुनौती</string>
+    <string name="personal_statistics">व्यक्तिगत आँकड़े</string>
+    <string name="watch_now">अभी देखें</string>
+    <string name="add_to_watchlist">वॉचलिस्ट में जोड़ें</string>
+    <string name="in_watchlist">वॉचलिस्ट में है</string>
+    <string name="episodes">एपिसोड</string>
+    <string name="search_placeholder">एनीमे, पात्र, शैली, स्टूडियो खोजें…</string>
+    <string name="filter_genre">शैली</string>
+    <string name="filter_year">वर्ष</string>
+    <string name="filter_status">स्थिति</string>
+    <string name="filter_type">प्रकार</string>
+    <string name="sync_synced">सिंक हो गया</string>
+    <string name="sync_syncing">सिंक हो रहा है</string>
+    <string name="sync_offline">ऑफ़लाइन</string>
+    <string name="sync_error">सिंक त्रुटि</string>
+    <string name="skip_intro">इंट्रो स्किप ⏩</string>
+    <string name="skip_outro">आउट्रो स्किप ⏩</string>
+    <string name="language_label">भाषा</string>
+</resources>
