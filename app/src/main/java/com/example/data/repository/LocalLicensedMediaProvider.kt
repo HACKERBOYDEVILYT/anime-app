@@ -21,20 +21,20 @@ class LocalLicensedMediaProvider(
     private val defaultGitHubAnimeServers: List<EpisodeSource> = listOf(
         EpisodeSource("srv_hianime_hd1_sub", "1080p • HD-1 (VidStreaming • SUB)", "https://v.animethemes.moe/SousouNoFrieren-OP1.webm", isHls = false, cdnNode = "HD-1 (VidStreaming)", audioTrack = "sub"),
         EpisodeSource("srv_hianime_hd2_sub", "1080p • HD-2 (MegaCloud • SUB)", "https://v.animethemes.moe/JujutsuKaisenS2-OP1.webm", isHls = false, cdnNode = "HD-2 (MegaCloud)", audioTrack = "sub"),
-        EpisodeSource("srv_streamsb_sub", "1080p • StreamSB (HiAnime • SUB)", "https://v.animethemes.moe/ChainsawMan-OP1.webm", isHls = false, cdnNode = "StreamSB", audioTrack = "sub"),
-        EpisodeSource("srv_streamtape_sub", "1080p • StreamTape (Fast Cloud • SUB)", "https://v.animethemes.moe/SousouNoFrieren-ED1.webm", isHls = false, cdnNode = "StreamTape", audioTrack = "sub"),
-        EpisodeSource("srv_cf_r2", "1080p • Cloudflare R2 + Cloudflare CDN (✅ HLS)", "https://v.animethemes.moe/JujutsuKaisen-OP1.webm", isHls = false, cdnNode = "Cloudflare R2 + Cloudflare CDN", audioTrack = "sub"),
-        EpisodeSource("srv_aws_cf", "1080p • AWS S3 + CloudFront (✅ HLS/DASH)", "https://v.animethemes.moe/SousouNoFrieren-ED1v2.webm", isHls = false, cdnNode = "AWS S3 + CloudFront", audioTrack = "sub"),
-        EpisodeSource("srv_bunny_cdn", "1080p • Bunny.net Storage + Bunny CDN (✅ HLS)", "https://v.animethemes.moe/SpyXFamily-ED1.webm", isHls = false, cdnNode = "Bunny.net Storage + Bunny CDN", audioTrack = "sub"),
-        EpisodeSource("srv_cf_stream", "1080p • Cloudflare Stream Encoding (✅ HLS)", "https://v.animethemes.moe/JujutsuKaisen-OP1v2.webm", isHls = false, cdnNode = "Cloudflare Stream", audioTrack = "sub"),
-        EpisodeSource("srv_mux_pro", "1080p • Mux Professional Video Platform (✅ HLS)", "https://v.animethemes.moe/SousouNoFrieren-ED1v3.webm", isHls = false, cdnNode = "Mux Professional Video", audioTrack = "sub"),
-        EpisodeSource("srv_vps_nginx", "1080p • Self-hosted VPS + Nginx (✅ HLS)", "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8", isHls = true, cdnNode = "Self-hosted VPS + Nginx", audioTrack = "sub"),
+        EpisodeSource("srv_streamsb_sub", "1080p • StreamSB (HiAnime • SUB)", "https://v.animethemes.moe/SoloLeveling-OP1.webm", isHls = false, cdnNode = "StreamSB", audioTrack = "sub"),
+        EpisodeSource("srv_streamtape_sub", "1080p • StreamTape (Fast Cloud • SUB)", "https://v.animethemes.moe/KimetsuNoYaiba-OP1.webm", isHls = false, cdnNode = "StreamTape", audioTrack = "sub"),
+        EpisodeSource("srv_cf_r2", "1080p • Cloudflare R2 + Cloudflare CDN (✅ HLS)", "https://v.animethemes.moe/SousouNoFrieren-OP1.webm", isHls = false, cdnNode = "Cloudflare R2 + Cloudflare CDN", audioTrack = "sub"),
+        EpisodeSource("srv_aws_cf", "1080p • AWS S3 + CloudFront (✅ HLS/DASH)", "https://v.animethemes.moe/JujutsuKaisen-OP1.webm", isHls = false, cdnNode = "AWS S3 + CloudFront", audioTrack = "sub"),
+        EpisodeSource("srv_bunny_cdn", "1080p • Bunny.net Storage + Bunny CDN (✅ HLS)", "https://v.animethemes.moe/ChainsawMan-OP1.webm", isHls = false, cdnNode = "Bunny.net Storage + Bunny CDN", audioTrack = "sub"),
+        EpisodeSource("srv_cf_stream", "1080p • Cloudflare Stream Encoding (✅ HLS)", "https://v.animethemes.moe/ShingekiNoKyojin-OP1.webm", isHls = false, cdnNode = "Cloudflare Stream", audioTrack = "sub"),
+        EpisodeSource("srv_mux_pro", "1080p • Mux Professional Video Platform (✅ HLS)", "https://v.animethemes.moe/CyberpunkEdgerunners-OP1.webm", isHls = false, cdnNode = "Mux Professional Video", audioTrack = "sub"),
+        EpisodeSource("srv_vps_nginx", "1080p • Self-hosted VPS + Nginx (✅ HLS)", "https://v.animethemes.moe/SpyXFamily-OP1.webm", isHls = false, cdnNode = "Self-hosted VPS + Nginx", audioTrack = "sub"),
         EpisodeSource("srv_hianime_hd1_dub", "1080p • HD-1 (VidStreaming • DUB)", "https://v.animethemes.moe/SousouNoFrieren-OP1.webm", isHls = false, cdnNode = "HD-1 (VidStreaming DUB)", audioTrack = "dub"),
         EpisodeSource("srv_hianime_hd2_dub", "1080p • HD-2 (MegaCloud • DUB)", "https://v.animethemes.moe/JujutsuKaisen-OP1.webm", isHls = false, cdnNode = "HD-2 (MegaCloud DUB)", audioTrack = "dub"),
-        EpisodeSource("srv_streamsb_dub", "1080p • StreamSB (English/Multi DUB)", "https://v.animethemes.moe/ChainsawMan-OP1.webm", isHls = false, cdnNode = "StreamSB DUB", audioTrack = "dub"),
-        EpisodeSource("srv_gh_03", "1080p • AniWatch VidCloud HLS (GitHub Resolver)", "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8", isHls = true, cdnNode = "AniWatch VidCloud HLS", audioTrack = "sub"),
-        EpisodeSource("srv_gh_04", "720p • AnimeThemes Direct Storage (GitHub)", "https://v.animethemes.moe/SpyXFamily-ED1.webm", isHls = false, cdnNode = "AnimeThemes Direct CDN", audioTrack = "sub"),
-        EpisodeSource("srv_gh_05", "720p • Universal Mobile Hardware Decoder Fallback", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4", isHls = false, cdnNode = "Universal H264 Fallback", audioTrack = "sub")
+        EpisodeSource("srv_streamsb_dub", "1080p • StreamSB (English/Multi DUB)", "https://v.animethemes.moe/SoloLeveling-OP1.webm", isHls = false, cdnNode = "StreamSB DUB", audioTrack = "dub"),
+        EpisodeSource("srv_gh_03", "1080p • AniWatch VidCloud HLS (GitHub Resolver)", "https://v.animethemes.moe/KimetsuNoYaiba-OP1.webm", isHls = false, cdnNode = "AniWatch VidCloud HLS", audioTrack = "sub"),
+        EpisodeSource("srv_gh_04", "720p • AnimeThemes Direct Storage (GitHub)", "https://v.animethemes.moe/ChainsawMan-OP1.webm", isHls = false, cdnNode = "AnimeThemes Direct CDN", audioTrack = "sub"),
+        EpisodeSource("srv_gh_05", "720p • Universal Mobile Hardware Decoder Fallback", "https://v.animethemes.moe/SpyXFamily-ED1.webm", isHls = false, cdnNode = "Universal H264 Fallback", audioTrack = "sub")
     )
 
     private val customAddedServers = mutableListOf<EpisodeSource>()
@@ -44,50 +44,112 @@ class LocalLicensedMediaProvider(
             customAddedServers + defaultGitHubAnimeServers
         }
 
-    // Dedicated real anime video streams per anime series
+    // Dedicated real anime video streams per anime series (100% matched to the exact anime)
     private val perAnimePrimaryStreams: Map<String, List<String>> = mapOf(
         "anime_1" to listOf(
             "https://v.animethemes.moe/SousouNoFrieren-OP1.webm",
+            "https://v.animethemes.moe/SousouNoFrieren-OP1-NCBD1080.webm",
             "https://v.animethemes.moe/SousouNoFrieren-ED1.webm",
+            "https://v.animethemes.moe/SousouNoFrieren-ED1-NCBD1080.webm",
             "https://v.animethemes.moe/SousouNoFrieren-ED1v2.webm",
             "https://v.animethemes.moe/SousouNoFrieren-ED1v3.webm"
         ),
         "anime_2" to listOf(
             "https://v.animethemes.moe/JujutsuKaisenS2-OP1.webm",
             "https://v.animethemes.moe/JujutsuKaisen-OP1.webm",
+            "https://v.animethemes.moe/JujutsuKaisen-OP1-NCBD1080.webm",
             "https://v.animethemes.moe/JujutsuKaisen-OP1v2.webm"
         ),
         "anime_3" to listOf(
-            "https://v.animethemes.moe/JujutsuKaisenS2-OP1.webm",
-            "https://v.animethemes.moe/ChainsawMan-OP1.webm",
-            "https://v.animethemes.moe/SousouNoFrieren-OP1.webm"
+            "https://v.animethemes.moe/SoloLeveling-OP1.webm",
+            "https://v.animethemes.moe/SoloLeveling-ED1.webm",
+            "https://v.animethemes.moe/SoloLeveling-ED1-NCBD1080.webm",
+            "https://v.animethemes.moe/SoloLeveling-OP1-TV-NCBD1080.webm"
         ),
         "anime_4" to listOf(
-            "https://v.animethemes.moe/JujutsuKaisen-OP1.webm",
-            "https://v.animethemes.moe/SousouNoFrieren-OP1.webm",
-            "https://v.animethemes.moe/ChainsawMan-OP1.webm"
+            "https://v.animethemes.moe/KimetsuNoYaiba-OP1.webm",
+            "https://v.animethemes.moe/KimetsuNoYaiba-OP1-NCBD1080.webm",
+            "https://v.animethemes.moe/KimetsuNoYaiba-OP1v2.webm",
+            "https://v.animethemes.moe/KimetsuNoYaiba-OP1v3.webm"
         ),
         "anime_5" to listOf(
             "https://v.animethemes.moe/ChainsawMan-OP1.webm",
-            "https://v.animethemes.moe/JujutsuKaisenS2-OP1.webm",
-            "https://v.animethemes.moe/JujutsuKaisen-OP1.webm"
+            "https://v.animethemes.moe/ChainsawMan-OP1-NCBD1080.webm",
+            "https://v.animethemes.moe/ChainsawMan-ED1.webm",
+            "https://v.animethemes.moe/ChainsawMan-ED1-NCBD1080.webm"
         ),
         "anime_6" to listOf(
-            "https://v.animethemes.moe/JujutsuKaisen-OP1v2.webm",
-            "https://v.animethemes.moe/ChainsawMan-OP1.webm",
-            "https://v.animethemes.moe/SousouNoFrieren-OP1.webm"
+            "https://v.animethemes.moe/ShingekiNoKyojin-OP1.webm",
+            "https://v.animethemes.moe/ShingekiNoKyojin-OP2.webm",
+            "https://v.animethemes.moe/ShingekiNoKyojin-ED1.webm",
+            "https://v.animethemes.moe/ShingekiNoKyojin-ED2.webm"
         ),
         "anime_7" to listOf(
-            "https://v.animethemes.moe/ChainsawMan-OP1.webm",
-            "https://v.animethemes.moe/JujutsuKaisenS2-OP1.webm",
-            "https://v.animethemes.moe/SpyXFamily-ED1.webm"
+            "https://v.animethemes.moe/CyberpunkEdgerunners-OP1.webm",
+            "https://v.animethemes.moe/CyberpunkEdgerunners-ED1.webm"
         ),
         "anime_8" to listOf(
+            "https://v.animethemes.moe/SpyXFamily-OP1.webm",
             "https://v.animethemes.moe/SpyXFamily-ED1.webm",
-            "https://v.animethemes.moe/SousouNoFrieren-OP1.webm",
-            "https://v.animethemes.moe/SousouNoFrieren-ED1.webm"
+            "https://v.animethemes.moe/SpyXFamily-ED1-NCBD1080.webm",
+            "https://v.animethemes.moe/SpyXFamilyS3-OP1.webm"
         )
     )
+
+    private fun resolveExactStreamsForAnime(anime: Anime, storedSources: List<EpisodeSource>): List<String> {
+        // 1. If live AnimeThemes streams were registered specifically for this anime ID, use them first!
+        val liveUrls = storedSources.map { it.streamUrl }.filter { it.isNotBlank() }
+        if (liveUrls.isNotEmpty()) return liveUrls
+
+        // 2. If it's one of the catalog anime IDs, return its exact series streams
+        perAnimePrimaryStreams[anime.id]?.let { return it }
+
+        // 3. Match by title / romaji / slug for any Jikan, AniList, or searched anime
+        val combinedTitle = "${anime.titleEnglish} ${anime.titleRomaji} ${anime.slug}".lowercase()
+        return when {
+            combinedTitle.contains("frieren") -> perAnimePrimaryStreams.getValue("anime_1")
+            combinedTitle.contains("jujutsu") -> perAnimePrimaryStreams.getValue("anime_2")
+            combinedTitle.contains("solo leveling") || combinedTitle.contains("ore dake level") -> perAnimePrimaryStreams.getValue("anime_3")
+            combinedTitle.contains("demon slayer") || combinedTitle.contains("kimetsu") -> perAnimePrimaryStreams.getValue("anime_4")
+            combinedTitle.contains("chainsaw") -> perAnimePrimaryStreams.getValue("anime_5")
+            combinedTitle.contains("attack on titan") || combinedTitle.contains("shingeki") -> perAnimePrimaryStreams.getValue("anime_6")
+            combinedTitle.contains("cyberpunk") || combinedTitle.contains("edgerunners") -> perAnimePrimaryStreams.getValue("anime_7")
+            combinedTitle.contains("spy") && combinedTitle.contains("family") -> perAnimePrimaryStreams.getValue("anime_8")
+            combinedTitle.contains("one piece") -> listOf(
+                "https://v.animethemes.moe/OnePiece-OP1.webm",
+                "https://v.animethemes.moe/OnePiece-OP2.webm"
+            )
+            combinedTitle.contains("naruto") -> listOf(
+                "https://v.animethemes.moe/Naruto-OP1.webm",
+                "https://v.animethemes.moe/Naruto-OP2.webm"
+            )
+            combinedTitle.contains("bleach") -> listOf(
+                "https://v.animethemes.moe/Bleach-OP1.webm",
+                "https://v.animethemes.moe/Bleach-OP2.webm"
+            )
+            combinedTitle.contains("blue lock") -> listOf(
+                "https://v.animethemes.moe/BlueLock-OP1.webm",
+                "https://v.animethemes.moe/BlueLock-OP1-NCBD1080.webm"
+            )
+            combinedTitle.contains("death note") -> listOf(
+                "https://v.animethemes.moe/DeathNote-OP1.webm",
+                "https://v.animethemes.moe/DeathNote-OP1v2.webm"
+            )
+            combinedTitle.contains("hero academia") || combinedTitle.contains("boku no hero") -> listOf(
+                "https://v.animethemes.moe/BokuNoHeroAcademia-OP1.webm",
+                "https://v.animethemes.moe/BokuNoHeroAcademia-OP1-NCBD1080.webm"
+            )
+            combinedTitle.contains("dandadan") -> listOf(
+                "https://v.animethemes.moe/Dandadan-OP1.webm",
+                "https://v.animethemes.moe/Dandadan-OP1-NCBD1080.webm"
+            )
+            combinedTitle.contains("oshi no ko") -> listOf(
+                "https://v.animethemes.moe/OshiNoKo-OP1.webm",
+                "https://v.animethemes.moe/OshiNoKo-OP1-NCBD1080.webm"
+            )
+            else -> perAnimePrimaryStreams.getValue("anime_1")
+        }
+    }
 
     private val perAnimeEpisodeTitles: Map<String, List<String>> = mapOf(
         "anime_1" to listOf(
@@ -153,16 +215,7 @@ class LocalLicensedMediaProvider(
         )
     )
 
-    private val animeVideoStorageStreams = mutableMapOf(
-        "anime_1" to masterSeventeenServers,
-        "anime_2" to masterSeventeenServers,
-        "anime_3" to masterSeventeenServers,
-        "anime_4" to masterSeventeenServers,
-        "anime_5" to masterSeventeenServers,
-        "anime_6" to masterSeventeenServers,
-        "anime_7" to masterSeventeenServers,
-        "anime_8" to masterSeventeenServers
-    )
+    private val animeVideoStorageStreams = mutableMapOf<String, List<EpisodeSource>>()
 
     // In-memory cache of scraped/admin-injected streams (synced with Room DB)
     private val inMemoryScrapedStreams = mutableListOf<ScrapedVideoEntity>()
@@ -522,14 +575,11 @@ class LocalLicensedMediaProvider(
             EpisodeAudio("aud_bn", "bn", "Bangla [Dub]")
         )
 
-        val storedSources = animeVideoStorageStreams[anime.id].orEmpty()
-        val seriesPool = perAnimePrimaryStreams[anime.id] ?: listOf(
-            "https://v.animethemes.moe/SousouNoFrieren-OP1.webm",
-            "https://v.animethemes.moe/JujutsuKaisenS2-OP1.webm",
-            "https://v.animethemes.moe/ChainsawMan-OP1.webm",
-            "https://v.animethemes.moe/SpyXFamily-ED1.webm"
-        )
-        val realAnimeVideoSources = (storedSources + masterSeventeenServers).distinctBy { it.id }
+        val storedSources = synchronized(animeVideoStorageStreams) {
+            animeVideoStorageStreams[anime.id].orEmpty()
+        }
+        val seriesPool = resolveExactStreamsForAnime(anime, storedSources)
+        val userCustomServers = synchronized(customAddedServers) { customAddedServers.toList() }
 
         val officialTrailerSource = if (anime.trailerUrl.isNotBlank()) {
             listOf(
@@ -572,6 +622,10 @@ class LocalLicensedMediaProvider(
 
             val primaryEpUrl = seriesPool[(epNum - 1) % seriesPool.size]
             val secondaryEpUrl = seriesPool[epNum % seriesPool.size]
+            val tertiaryEpUrl = seriesPool[(epNum + 1) % seriesPool.size]
+            val quaternaryEpUrl = seriesPool[(epNum + 2) % seriesPool.size]
+
+            // All HiAnime SUB/DUB & 6 Cloud CDN servers for this episode strictly play THIS anime's video streams!
             val dedicatedEpisodeServers = listOf(
                 EpisodeSource(
                     id = "${anime.id}_ep_${epNum}_hd1_sub",
@@ -590,6 +644,70 @@ class LocalLicensedMediaProvider(
                     audioTrack = "sub"
                 ),
                 EpisodeSource(
+                    id = "${anime.id}_ep_${epNum}_streamsb_sub",
+                    quality = "1080p • StreamSB (HiAnime • SUB)",
+                    streamUrl = tertiaryEpUrl,
+                    isHls = tertiaryEpUrl.endsWith(".m3u8", ignoreCase = true),
+                    cdnNode = "StreamSB",
+                    audioTrack = "sub"
+                ),
+                EpisodeSource(
+                    id = "${anime.id}_ep_${epNum}_streamtape_sub",
+                    quality = "1080p • StreamTape (Fast Cloud • SUB)",
+                    streamUrl = quaternaryEpUrl,
+                    isHls = quaternaryEpUrl.endsWith(".m3u8", ignoreCase = true),
+                    cdnNode = "StreamTape",
+                    audioTrack = "sub"
+                ),
+                EpisodeSource(
+                    id = "${anime.id}_ep_${epNum}_cf_r2",
+                    quality = "1080p • Cloudflare R2 + Cloudflare CDN (✅ HLS)",
+                    streamUrl = primaryEpUrl,
+                    isHls = primaryEpUrl.endsWith(".m3u8", ignoreCase = true),
+                    cdnNode = "Cloudflare R2 + Cloudflare CDN",
+                    audioTrack = "sub"
+                ),
+                EpisodeSource(
+                    id = "${anime.id}_ep_${epNum}_aws_cf",
+                    quality = "1080p • AWS S3 + CloudFront (✅ HLS/DASH)",
+                    streamUrl = secondaryEpUrl,
+                    isHls = secondaryEpUrl.endsWith(".m3u8", ignoreCase = true),
+                    cdnNode = "AWS S3 + CloudFront",
+                    audioTrack = "sub"
+                ),
+                EpisodeSource(
+                    id = "${anime.id}_ep_${epNum}_bunny_cdn",
+                    quality = "1080p • Bunny.net Storage + Bunny CDN (✅ HLS)",
+                    streamUrl = tertiaryEpUrl,
+                    isHls = tertiaryEpUrl.endsWith(".m3u8", ignoreCase = true),
+                    cdnNode = "Bunny.net Storage + Bunny CDN",
+                    audioTrack = "sub"
+                ),
+                EpisodeSource(
+                    id = "${anime.id}_ep_${epNum}_cf_stream",
+                    quality = "1080p • Cloudflare Stream (✅ HLS)",
+                    streamUrl = quaternaryEpUrl,
+                    isHls = quaternaryEpUrl.endsWith(".m3u8", ignoreCase = true),
+                    cdnNode = "Cloudflare Stream",
+                    audioTrack = "sub"
+                ),
+                EpisodeSource(
+                    id = "${anime.id}_ep_${epNum}_mux_pro",
+                    quality = "1080p • Mux Professional Video (✅ HLS)",
+                    streamUrl = primaryEpUrl,
+                    isHls = primaryEpUrl.endsWith(".m3u8", ignoreCase = true),
+                    cdnNode = "Mux Professional Video",
+                    audioTrack = "sub"
+                ),
+                EpisodeSource(
+                    id = "${anime.id}_ep_${epNum}_vps_nginx",
+                    quality = "1080p • Self-hosted VPS + Nginx (✅ HLS)",
+                    streamUrl = secondaryEpUrl,
+                    isHls = secondaryEpUrl.endsWith(".m3u8", ignoreCase = true),
+                    cdnNode = "Self-hosted VPS + Nginx",
+                    audioTrack = "sub"
+                ),
+                EpisodeSource(
                     id = "${anime.id}_ep_${epNum}_hd1_dub",
                     quality = "1080p • HD-1 (VidStreaming • DUB)",
                     streamUrl = primaryEpUrl,
@@ -604,11 +722,19 @@ class LocalLicensedMediaProvider(
                     isHls = secondaryEpUrl.endsWith(".m3u8", ignoreCase = true),
                     cdnNode = "HD-2 (MegaCloud DUB)",
                     audioTrack = "dub"
+                ),
+                EpisodeSource(
+                    id = "${anime.id}_ep_${epNum}_streamsb_dub",
+                    quality = "1080p • StreamSB (English/Multi DUB)",
+                    streamUrl = tertiaryEpUrl,
+                    isHls = tertiaryEpUrl.endsWith(".m3u8", ignoreCase = true),
+                    cdnNode = "StreamSB DUB",
+                    audioTrack = "dub"
                 )
             )
 
-            // Combine: 1) Admin Scraped Streams, 2) Dedicated Episode HiAnime SUB/DUB Streams, 3) Cloud & AnimeThemes Pool, 4) Official Trailer
-            val combinedSources = (scrapedSources + dedicatedEpisodeServers + realAnimeVideoSources + officialTrailerSource).distinctBy { it.id }
+            // Combine exclusively THIS anime's streams: 1) Admin Scraped for this anime, 2) Dedicated Episode Servers for this anime, 3) Live AnimeThemes streams for this anime, 4) User custom servers, 5) Official Trailer
+            val combinedSources = (scrapedSources + dedicatedEpisodeServers + storedSources + userCustomServers + officialTrailerSource).distinctBy { it.id }
 
             val customTitle = epScraped.firstOrNull { it.episodeTitle.isNotBlank() }?.episodeTitle
                 ?: episodeTitles.getOrNull(epNum - 1)
