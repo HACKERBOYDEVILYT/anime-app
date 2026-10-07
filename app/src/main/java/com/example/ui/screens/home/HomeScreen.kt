@@ -299,6 +299,19 @@ fun HomeScreen(
                     )
                 }
 
+                // Continue Watching Horizontal Scroll Section at Top (Based on Local Watch History)
+                if (continueWatching.isNotEmpty()) {
+                    item {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        ContinueWatchingRow(
+                            items = continueWatching,
+                            onResumeClick = { item -> onWatchEpisodeClick(item.animeId, item.episodeNumber) },
+                            onRemoveClick = { item -> viewModel.removeContinueWatching(item) }
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+
                 // Quick Navigation Hub
                 item {
                     Row(
@@ -590,18 +603,6 @@ fun HomeScreen(
                         LiveServerVideosRow(
                             animeList = uiState.trending.take(8),
                             onPlayVideoClick = { anime: Anime -> onWatchEpisodeClick(anime.id, 1) }
-                        )
-                    }
-                }
-
-                // Continue Watching
-                if (continueWatching.isNotEmpty()) {
-                    item {
-                        Spacer(modifier = Modifier.height(14.dp))
-                        ContinueWatchingRow(
-                            items = continueWatching,
-                            onResumeClick = { item -> onWatchEpisodeClick(item.animeId, item.episodeNumber) },
-                            onRemoveClick = { item -> viewModel.removeContinueWatching(item) }
                         )
                     }
                 }

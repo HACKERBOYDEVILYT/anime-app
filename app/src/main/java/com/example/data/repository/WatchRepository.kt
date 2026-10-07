@@ -14,7 +14,9 @@ import com.example.data.model.WatchlistItem
 import com.example.data.sync.CloudSyncManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
 
@@ -24,6 +26,64 @@ class WatchRepository(
     private val socialDao: SocialDao,
     private val cloudSyncManager: CloudSyncManager? = null
 ) {
+
+    init {
+        kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+            runCatching {
+                val existing = watchDao.getAllHistory().firstOrNull()
+                if (existing.isNullOrEmpty()) {
+                    val now = System.currentTimeMillis()
+                    val initialHistory = listOf(
+                        WatchHistoryEntity(
+                            episodeId = "anime_1_ep_7",
+                            animeId = "anime_1",
+                            episodeNumber = 7,
+                            episodeTitle = "Like a Fairy Tale",
+                            animeTitle = "Frieren: Beyond Journey's End",
+                            posterUrl = "https://cdn.myanimelist.net/images/anime/1015/138006l.jpg",
+                            progressMs = 980_000L, // ~16m 20s watched (68%)
+                            durationMs = 1440_000L,
+                            lastWatchedAt = now - 120_000L
+                        ),
+                        WatchHistoryEntity(
+                            episodeId = "anime_3_ep_11",
+                            animeId = "anime_3",
+                            episodeNumber = 11,
+                            episodeTitle = "A Knight Who Defends an Empty Throne",
+                            animeTitle = "Solo Leveling",
+                            posterUrl = "https://cdn.myanimelist.net/images/anime/1801/142390l.jpg",
+                            progressMs = 748_000L, // ~12m 28s watched (52%)
+                            durationMs = 1440_000L,
+                            lastWatchedAt = now - 3_600_000L
+                        ),
+                        WatchHistoryEntity(
+                            episodeId = "anime_2_ep_18",
+                            animeId = "anime_2",
+                            episodeNumber = 18,
+                            episodeTitle = "Right and Wrong",
+                            animeTitle = "Jujutsu Kaisen",
+                            posterUrl = "https://cdn.myanimelist.net/images/anime/1792/138022l.jpg",
+                            progressMs = 1152_000L, // ~19m 12s watched (80%)
+                            durationMs = 1440_000L,
+                            lastWatchedAt = now - 7_200_000L
+                        ),
+                        WatchHistoryEntity(
+                            episodeId = "anime_4_ep_5",
+                            animeId = "anime_4",
+                            episodeNumber = 5,
+                            episodeTitle = "Eat Up the Demons",
+                            animeTitle = "Demon Slayer: Kimetsu no Yaiba",
+                            posterUrl = "https://cdn.myanimelist.net/images/anime/1286/99889l.jpg",
+                            progressMs = 504_000L, // ~8m 24s watched (35%)
+                            durationMs = 1440_000L,
+                            lastWatchedAt = now - 14_400_000L
+                        )
+                    )
+                    initialHistory.forEach { watchDao.saveProgress(it) }
+                }
+            }
+        }
+    }
 
     fun getAllWatchlist(): Flow<List<WatchlistItem>> {
         return watchlistDao.getAllWatchlist().map { list ->

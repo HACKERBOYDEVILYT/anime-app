@@ -162,7 +162,15 @@ class RetrofitMetadataProvider(
     }
 
     override suspend fun getEpisodesForAnime(animeId: String): List<Episode> = withContext(Dispatchers.IO) {
-        // Return the 17 high-speed multi-CDN servers immediately so playback starts with zero delay
+        val anime = fallbackProvider.getAnimeById(animeId)
+        if (anime != null && catalogNetworkMonitor.checkNavigatorOnLine()) {
+            runCatching {
+                val liveThemes = fetchAnimeThemesStorageStreams(anime.titleEnglish)
+                if (liveThemes.isNotEmpty()) {
+                    fallbackProvider.registerRemoteAnimeStreams(anime.id, liveThemes)
+                }
+            }
+        }
         fallbackProvider.getEpisodesForAnime(animeId)
     }
 
@@ -256,20 +264,20 @@ class RetrofitMetadataProvider(
                     val guaranteedHlsSources = listOf(
                         EpisodeSource(
                             id = "hd1_hls_at_$idInt",
-                            quality = "1080p HD-1 • VidStreaming (HLS Master)",
-                            streamUrl = "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8",
-                            isHls = true,
-                            cdnNode = "HD-1 (VidStreaming • HiAnime)"
+                            quality = "1080p HD-1 • VidStreaming (SUB)",
+                            streamUrl = extractedSources.firstOrNull()?.streamUrl ?: "https://v.animethemes.moe/SousouNoFrieren-OP1.webm",
+                            isHls = false,
+                            cdnNode = "HD-1 (VidStreaming)"
                         ),
                         EpisodeSource(
                             id = "hd2_mp4_at_$idInt",
-                            quality = "1080p HD-2 • MegaCloud (Direct MP4)",
-                            streamUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
+                            quality = "1080p HD-2 • MegaCloud (SUB)",
+                            streamUrl = extractedSources.lastOrNull()?.streamUrl ?: "https://v.animethemes.moe/JujutsuKaisenS2-OP1.webm",
                             isHls = false,
-                            cdnNode = "HD-2 (MegaCloud • AniWatch)"
+                            cdnNode = "HD-2 (MegaCloud)"
                         )
                     )
-                    val combinedAtSources = guaranteedHlsSources + extractedSources
+                    val combinedAtSources = (extractedSources + guaranteedHlsSources).distinctBy { it.id }
                     if (combinedAtSources.isNotEmpty()) {
                         fallbackProvider.registerRemoteAnimeStreams(animeId, combinedAtSources)
                         results.add(

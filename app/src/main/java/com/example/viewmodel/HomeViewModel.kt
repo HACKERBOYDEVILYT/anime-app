@@ -316,7 +316,7 @@ class HomeViewModel(
 
     fun removeContinueWatching(item: WatchHistoryItem) {
         viewModelScope.launch {
-            watchRepository.clearWatchHistory()
+            watchRepository.removeHistoryItem(item.episodeId)
         }
     }
 

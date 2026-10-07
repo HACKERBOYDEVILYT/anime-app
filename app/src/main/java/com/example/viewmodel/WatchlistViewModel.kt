@@ -2,6 +2,7 @@ package com.example.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.model.WatchHistoryItem
 import com.example.data.model.WatchStatus
 import com.example.data.model.WatchlistCollection
 import com.example.data.model.WatchlistItem
@@ -41,10 +42,23 @@ class WatchlistViewModel(
     private val _sortMode = MutableStateFlow(WatchlistSortMode.RECENT)
     val sortMode: StateFlow<WatchlistSortMode> = _sortMode.asStateFlow()
 
-    private val _isGridView = MutableStateFlow(false)
+    private val _isGridView = MutableStateFlow(true)
     val isGridView: StateFlow<Boolean> = _isGridView.asStateFlow()
 
     val customCollections: StateFlow<List<WatchlistCollection>> = gamificationRepository.customCollections
+
+    val continueWatching: StateFlow<List<WatchHistoryItem>> = watchRepository.getContinueWatching()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    fun removeContinueWatching(item: WatchHistoryItem) {
+        viewModelScope.launch {
+            watchRepository.removeHistoryItem(item.episodeId)
+        }
+    }
 
     val allWatchlist: StateFlow<List<WatchlistItem>> = watchRepository.getAllWatchlist()
         .stateIn(

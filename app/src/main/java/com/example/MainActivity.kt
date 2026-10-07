@@ -58,7 +58,7 @@ import com.example.viewmodel.WatchlistViewModel
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        runCatching { enableEdgeToEdge() }
         val container = KuroAppContainer.getInstance(this)
 
         setContent {
@@ -218,6 +218,7 @@ fun KuroStreamApp(container: KuroAppContainer) {
                     val searchViewModel = remember {
                         SearchViewModel(
                             animeRepository = container.animeRepository,
+                            watchRepository = container.watchRepository,
                             gamificationRepository = container.gamificationRepository,
                             catalogNetworkMonitor = container.catalogNetworkMonitor
                         )
@@ -226,6 +227,9 @@ fun KuroStreamApp(container: KuroAppContainer) {
                         viewModel = searchViewModel,
                         onAnimeClick = { anime ->
                             navController.navigate(Screen.Details.createRoute(anime.id))
+                        },
+                        onWatchEpisodeClick = { animeId, epNum ->
+                            navController.navigate(Screen.Player.createRoute(animeId, epNum))
                         }
                     )
                 }
@@ -242,6 +246,9 @@ fun KuroStreamApp(container: KuroAppContainer) {
                         viewModel = watchlistViewModel,
                         onAnimeIdClick = { animeId ->
                             navController.navigate(Screen.Details.createRoute(animeId))
+                        },
+                        onWatchEpisodeClick = { animeId, epNum ->
+                            navController.navigate(Screen.Player.createRoute(animeId, epNum))
                         }
                     )
                 }

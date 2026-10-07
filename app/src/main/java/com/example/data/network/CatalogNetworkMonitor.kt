@@ -67,13 +67,18 @@ class CatalogNetworkMonitor(context: Context? = null) {
         return SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
     }
 
+    @Suppress("DEPRECATION")
     private fun queryDeviceOnlineStatus(simulatedOffline: Boolean): Boolean {
         if (simulatedOffline) return false
         val cm = connectivityManager ?: return true
         return try {
-            val activeNetwork = cm.activeNetwork ?: return false
-            val capabilities = cm.getNetworkCapabilities(activeNetwork) ?: return false
-            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            val activeNetwork = cm.activeNetwork
+            val capabilities = if (activeNetwork != null) cm.getNetworkCapabilities(activeNetwork) else null
+            if (capabilities != null && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
+                true
+            } else {
+                cm.activeNetworkInfo?.isConnected == true
+            }
         } catch (_: Exception) {
             true
         }

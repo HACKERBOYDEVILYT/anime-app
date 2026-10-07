@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
@@ -70,6 +71,7 @@ import com.example.data.model.AnimeStatus
 import com.example.data.model.AnimeType
 import com.example.ui.components.AnimeGridCard
 import com.example.ui.components.CatalogNetworkNotificationBanner
+import com.example.ui.components.ContinueWatchingRow
 import com.example.ui.components.NavigatorOnlineStatusPill
 import com.example.ui.theme.BackgroundDark
 import com.example.ui.theme.CardBorder
@@ -88,9 +90,11 @@ import com.example.viewmodel.SearchViewModel
 fun SearchScreen(
     viewModel: SearchViewModel,
     onAnimeClick: (Anime) -> Unit,
+    onWatchEpisodeClick: (String, Int) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val continueWatching by viewModel.continueWatching.collectAsStateWithLifecycle()
     val recentSearches by viewModel.recentSearches.collectAsStateWithLifecycle()
     val networkState by viewModel.catalogNetworkMonitor.state.collectAsStateWithLifecycle()
     val focusManager = LocalFocusManager.current
@@ -659,8 +663,20 @@ fun SearchScreen(
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 90.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("anime_catalog_grid")
             ) {
+                if (continueWatching.isNotEmpty()) {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        ContinueWatchingRow(
+                            items = continueWatching,
+                            onResumeClick = { item -> onWatchEpisodeClick(item.animeId, item.episodeNumber) },
+                            onRemoveClick = { item -> viewModel.removeContinueWatching(item) },
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
+                }
                 items(uiState.results, key = { it.id }) { anime ->
                     AnimeGridCard(
                         anime = anime,

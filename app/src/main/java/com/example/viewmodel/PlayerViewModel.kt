@@ -163,6 +163,21 @@ class PlayerViewModel(
                     0L
                 }
 
+                val totalDurMs = (targetEp?.durationSec ?: 1440L) * 1000L
+                if (anime != null && targetEp != null) {
+                    watchRepository.saveWatchProgress(
+                        animeId = anime.id,
+                        animeTitle = anime.titleEnglish,
+                        episodeId = targetEp.id,
+                        episodeNumber = targetEp.episodeNumber,
+                        episodeTitle = targetEp.title,
+                        thumbnailUrl = targetEp.thumbnailUrl,
+                        posterUrl = anime.posterUrl,
+                        progressMs = if (initialSeek > 0L) initialSeek else 180_000L,
+                        durationMs = totalDurMs
+                    )
+                }
+
                 _uiState.update {
                     it.copy(
                         isLoading = false,
@@ -186,7 +201,7 @@ class PlayerViewModel(
                         spoilerFreeMode = prefs.spoilerFreeMode,
                         initialSeekPositionMs = initialSeek,
                         currentPositionMs = initialSeek,
-                        totalDurationMs = (targetEp?.durationSec ?: 1440L) * 1000L,
+                        totalDurationMs = totalDurMs,
                         failoverStatusMessage = null,
                         failedSourceUrls = emptySet(),
                         autoFailoverCount = 0

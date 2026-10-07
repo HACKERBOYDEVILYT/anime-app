@@ -3,13 +3,13 @@ package com.example.ui.screens.player
 import android.app.Activity
 import android.app.PictureInPictureParams
 import android.content.Context
+import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.util.Rational
 import android.view.LayoutInflater
 import android.view.ViewGroup
-import android.view.WindowManager
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -17,7 +17,6 @@ import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -26,10 +25,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -44,21 +44,26 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BrightnessMedium
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.ClosedCaption
+import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.FullscreenExit
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.HighQuality
 import androidx.compose.material.icons.filled.Lock
@@ -70,17 +75,19 @@ import androidx.compose.material.icons.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -91,7 +98,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -101,7 +107,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -113,11 +119,15 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -132,14 +142,15 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import com.example.data.repository.CommentsRepository
 import com.example.data.repository.DownloadsRepository
 import com.example.ui.components.CustomVideoProgressBar
 import com.example.ui.components.EpisodeCommentsSheet
+import com.example.ui.theme.BackgroundDark
+import com.example.ui.theme.CardBorder
 import com.example.ui.theme.CrimsonNeon
+import com.example.ui.theme.CyanGlow
+import com.example.ui.theme.StarAmber
 import com.example.ui.theme.SurfaceDark
 import com.example.ui.theme.SurfaceVariantDark
 import com.example.ui.theme.TextMuted
@@ -148,6 +159,12 @@ import com.example.ui.theme.TextSecondary
 import com.example.viewmodel.PlayerViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.Locale
+
+private val HiAnimePink = Color(0xFFFFBADE)
+private val HiAnimeDarkBg = Color(0xFF14151A)
+private val HiAnimePanelBg = Color(0xFF1C1E26)
+private val HiAnimeEpisodeIdle = Color(0xFF252833)
 
 @OptIn(UnstableApi::class)
 @ExperimentalMaterial3Api
@@ -165,57 +182,68 @@ fun VideoPlayerScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    BackHandler { onBack() }
-
-    val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager }
-    val maxVolume = remember { audioManager?.getStreamMaxVolume(AudioManager.STREAM_MUSIC) ?: 15 }
-
-    var containerSize by remember { mutableStateOf(IntSize.Zero) }
-    var currentBrightness by remember { mutableFloatStateOf(0.7f) }
-    var currentVolumePercent by remember {
-        val currentVol = audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: 10
-        mutableIntStateOf(((currentVol.toFloat() / maxVolume.toFloat()) * 100).toInt())
-    }
     var isFullscreen by remember { mutableStateOf(false) }
-    var kbdShortcutToast by remember { mutableStateOf<String?>(null) }
-    val playerFocusRequester = remember { FocusRequester() }
+    var isEpisodeGridMode by remember { mutableStateOf(true) }
+    var episodeSearchQuery by remember { mutableStateOf("") }
 
     val toggleFullscreenMode: () -> Unit = {
         isFullscreen = !isFullscreen
-        activity?.window?.let { window ->
-            val insetsController = WindowCompat.getInsetsController(window, window.decorView)
-            insetsController.systemBarsBehavior =
-                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            if (isFullscreen) {
-                insetsController.hide(WindowInsetsCompat.Type.systemBars())
-            } else {
-                insetsController.show(WindowInsetsCompat.Type.systemBars())
+        runCatching {
+            activity?.window?.let { window ->
+                val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+                insetsController.systemBarsBehavior =
+                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                if (isFullscreen) {
+                    insetsController.hide(WindowInsetsCompat.Type.systemBars())
+                } else {
+                    insetsController.show(WindowInsetsCompat.Type.systemBars())
+                }
             }
         }
-        kbdShortcutToast = if (isFullscreen) "⛶ Fullscreen Mode ON [F]" else "🗗 Fullscreen Mode OFF [F]"
     }
+
+    BackHandler {
+        if (isFullscreen) {
+            toggleFullscreenMode()
+        } else {
+            onBack()
+        }
+    }
+
+    val audioManager = remember {
+        runCatching { context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager }.getOrNull()
+    }
+    val maxVolume = remember {
+        runCatching { audioManager?.getStreamMaxVolume(AudioManager.STREAM_MUSIC)?.coerceAtLeast(1) ?: 15 }.getOrDefault(15)
+    }
+
+    var containerSize by remember { mutableStateOf(IntSize.Zero) }
+    var currentBrightness by remember { mutableFloatStateOf(0.75f) }
+    var currentVolumePercent by remember {
+        val currentVol = runCatching { audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: 10 }.getOrDefault(10)
+        mutableIntStateOf(((currentVol.toFloat() / maxVolume.toFloat()) * 100).toInt().coerceIn(0, 100))
+    }
+    var kbdShortcutToast by remember { mutableStateOf<String?>(null) }
+    val playerFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(kbdShortcutToast) {
         if (kbdShortcutToast != null) {
-            delay(1400)
+            delay(1500)
             kbdShortcutToast = null
         }
     }
 
     LaunchedEffect(Unit) {
-        try {
-            playerFocusRequester.requestFocus()
-        } catch (_: Exception) {
-        }
+        runCatching { playerFocusRequester.requestFocus() }
     }
 
-    // ExoPlayer Instance with Decoder Fallback, Safe Track Selection, Browser User-Agent & HLS/MP4 Support
+    // ExoPlayer Instance compatible across all Android versions (API 24+ through API 36)
     val exoPlayer = remember {
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
-            .setUserAgent("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36")
+            .setUserAgent("Mozilla/5.0 (Linux; Android ${Build.VERSION.RELEASE}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36")
             .setAllowCrossProtocolRedirects(true)
-            .setConnectTimeoutMs(10000)
-            .setReadTimeoutMs(15000)
+            .setConnectTimeoutMs(12000)
+            .setReadTimeoutMs(18000)
 
         val renderersFactory = DefaultRenderersFactory(context)
             .setEnableDecoderFallback(true)
@@ -247,7 +275,7 @@ fun VideoPlayerScreen(
             currentStreamUrl.contains("/embed/", ignoreCase = true)
     }
 
-    // Automatic Multi-Server Failover (17 Servers) if a stream URL fails or codec is unsupported
+    // Automatic Multi-Server Failover if a stream URL fails or codec is unsupported on device
     DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
@@ -262,6 +290,8 @@ fun VideoPlayerScreen(
                 if (playbackState == Player.STATE_READY) {
                     exoPlayer.play()
                     viewModel.setPlaying(true)
+                } else if (playbackState == Player.STATE_ENDED && uiState.autoNextEpisode) {
+                    viewModel.playNextEpisode()
                 }
             }
         }
@@ -271,8 +301,7 @@ fun VideoPlayerScreen(
         }
     }
 
-    // Watchdog Timer: If any server fails to initialize after 8.5 seconds,
-    // automatically switch to the next working server in the pool
+    // Watchdog Timer: If any server fails to initialize after 8.5 seconds, switch to next server
     LaunchedEffect(currentStreamUrl) {
         if (currentStreamUrl.isNotBlank() && !isWebEmbedOrTrailer) {
             delay(8500)
@@ -288,8 +317,8 @@ fun VideoPlayerScreen(
         }
     }
 
-    // Set Media Item when currentSource changes
-    LaunchedEffect(currentStreamUrl, isWebEmbedOrTrailer) {
+    // Set Media Item when currentSource or currentEpisode changes
+    LaunchedEffect(currentStreamUrl, uiState.currentEpisode?.id, isWebEmbedOrTrailer) {
         if (currentStreamUrl.isNotBlank() && !isWebEmbedOrTrailer) {
             val mediaItem = if (currentStreamUrl.contains(".m3u8", ignoreCase = true)) {
                 MediaItem.Builder()
@@ -300,7 +329,7 @@ fun VideoPlayerScreen(
                 MediaItem.fromUri(Uri.parse(currentStreamUrl))
             }
             exoPlayer.setMediaItem(mediaItem)
-            if (uiState.currentPositionMs > 5000L) {
+            if (uiState.currentPositionMs > 5000L && uiState.currentPositionMs < 60_000L) {
                 exoPlayer.seekTo(uiState.currentPositionMs)
             }
             exoPlayer.prepare()
@@ -313,10 +342,12 @@ fun VideoPlayerScreen(
 
     // Playback Speed
     LaunchedEffect(uiState.playbackSpeed) {
-        exoPlayer.playbackParameters = PlaybackParameters(uiState.playbackSpeed)
+        runCatching {
+            exoPlayer.playbackParameters = PlaybackParameters(uiState.playbackSpeed)
+        }
     }
 
-    // Sync ExoPlayer Position with ViewModel safely (handling C.TIME_UNSET)
+    // Sync ExoPlayer Position with ViewModel safely
     LaunchedEffect(exoPlayer) {
         while (true) {
             val currentPos = exoPlayer.currentPosition.coerceAtLeast(0L)
@@ -343,23 +374,29 @@ fun VideoPlayerScreen(
 
     DisposableEffect(exoPlayer) {
         onDispose {
-            exoPlayer.stop()
-            exoPlayer.release()
+            runCatching {
+                exoPlayer.stop()
+                exoPlayer.release()
+            }
         }
     }
 
-    // Auto-hide controls
+    // Auto-hide controls after 4.5s while playing
     LaunchedEffect(uiState.showControls, uiState.isPlaying) {
         if (uiState.showControls && uiState.isPlaying && !uiState.isLocked) {
-            delay(4000)
+            delay(4500)
             viewModel.toggleControls()
         }
     }
 
-    Box(
+    val currentEpNum = uiState.currentEpisode?.episodeNumber ?: 1
+    val currentEpTitle = uiState.currentEpisode?.title ?: "Episode $currentEpNum"
+    val totalEpisodesCount = uiState.allEpisodes.size.coerceAtLeast(1)
+
+    Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(HiAnimeDarkBg)
             .focusRequester(playerFocusRequester)
             .focusable()
             .onPreviewKeyEvent { keyEvent ->
@@ -400,7 +437,7 @@ fun VideoPlayerScreen(
                             val newVolPercent = (currentVolumePercent + 10).coerceIn(0, 100)
                             currentVolumePercent = newVolPercent
                             val targetStreamVol = ((newVolPercent / 100f) * maxVolume).toInt()
-                            audioManager?.setStreamVolume(AudioManager.STREAM_MUSIC, targetStreamVol, 0)
+                            runCatching { audioManager?.setStreamVolume(AudioManager.STREAM_MUSIC, targetStreamVol, 0) }
                             viewModel.setVolumePercent(newVolPercent)
                             kbdShortcutToast = "🔊 Volume $newVolPercent% [↑]"
                             true
@@ -409,7 +446,7 @@ fun VideoPlayerScreen(
                             val newVolPercent = (currentVolumePercent - 10).coerceIn(0, 100)
                             currentVolumePercent = newVolPercent
                             val targetStreamVol = ((newVolPercent / 100f) * maxVolume).toInt()
-                            audioManager?.setStreamVolume(AudioManager.STREAM_MUSIC, targetStreamVol, 0)
+                            runCatching { audioManager?.setStreamVolume(AudioManager.STREAM_MUSIC, targetStreamVol, 0) }
                             viewModel.setVolumePercent(newVolPercent)
                             kbdShortcutToast = "🔉 Volume $newVolPercent% [↓]"
                             true
@@ -424,754 +461,1259 @@ fun VideoPlayerScreen(
                     false
                 }
             }
-            .onGloballyPositioned { containerSize = it.size }
-            .pointerInput(uiState.isLocked) {
-                if (!uiState.isLocked) {
-                    detectTapGestures(
-                        onDoubleTap = { offset ->
-                            val width = containerSize.width.toFloat()
-                            if (width > 0) {
-                                if (offset.x < width * 0.35f) {
-                                    // Double Tap Left: Rewind 10s
-                                    val newPos = (exoPlayer.currentPosition - 10000L).coerceAtLeast(0L)
-                                    exoPlayer.seekTo(newPos)
-                                    viewModel.showSeekGestureIndicator(isForward = false, deltaSec = 10)
-                                } else if (offset.x > width * 0.65f) {
-                                    // Double Tap Right: Forward 10s
-                                    val maxDur = if (exoPlayer.duration != C.TIME_UNSET && exoPlayer.duration > 0L) {
-                                        exoPlayer.duration
-                                    } else {
-                                        uiState.totalDurationMs.coerceAtLeast(exoPlayer.currentPosition + 10000L)
-                                    }
-                                    val newPos = (exoPlayer.currentPosition + 10000L).coerceIn(0L, maxDur)
-                                    exoPlayer.seekTo(newPos)
-                                    viewModel.showSeekGestureIndicator(isForward = true, deltaSec = 10)
-                                } else {
-                                    viewModel.toggleControls()
-                                }
-                            }
-                        },
-                        onTap = {
-                            viewModel.toggleControls()
-                        }
-                    )
-                }
-            }
-            .pointerInput(uiState.isLocked) {
-                if (!uiState.isLocked) {
-                    var dragStartX = 0f
-                    var dragStartY = 0f
-                    detectDragGestures(
-                        onDragStart = { offset ->
-                            dragStartX = offset.x
-                            dragStartY = offset.y
-                        },
-                        onDrag = { change, dragAmount ->
-                            val width = containerSize.width.toFloat()
-                            val height = containerSize.height.toFloat()
-
-                            // Ignore vertical brightness/volume drag if user started dragging in top bar or bottom progress bar area
-                            if (width > 0 && height > 0 && dragStartY in (height * 0.16f)..(height * 0.72f)) {
-                                change.consume()
-                                val deltaRatio = -dragAmount.y / height // up is positive
-
-                                if (dragStartX < width * 0.5f) {
-                                    // Left Side: Brightness
-                                    currentBrightness = (currentBrightness + deltaRatio * 1.5f).coerceIn(0.05f, 1f)
-                                    activity?.window?.attributes = activity?.window?.attributes?.apply {
-                                        screenBrightness = currentBrightness
-                                    }
-                                    val percent = (currentBrightness * 100).toInt()
-                                    viewModel.setBrightnessPercent(percent)
-                                } else {
-                                    // Right Side: Volume
-                                    val deltaPercent = (deltaRatio * 150).toInt()
-                                    val newVolPercent = (currentVolumePercent + deltaPercent).coerceIn(0, 100)
-                                    currentVolumePercent = newVolPercent
-                                    val targetStreamVol = ((newVolPercent / 100f) * maxVolume).toInt()
-                                    audioManager?.setStreamVolume(AudioManager.STREAM_MUSIC, targetStreamVol, 0)
-                                    viewModel.setVolumePercent(newVolPercent)
-                                }
-                            }
-                        }
-                    )
-                }
-            }
             .testTag("video_player_container")
     ) {
-        if (isWebEmbedOrTrailer) {
-            // Official Trailer / Web Embed Stream View
-            AndroidView(
-                factory = { ctx ->
-                    WebView(ctx).apply {
-                        setBackgroundColor(android.graphics.Color.BLACK)
-                        layoutParams = FrameLayout.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT
+        // 1. HiAnime Top Navigation Header (Visible in normal mode)
+        if (!isFullscreen) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background( Color(0xFF191B24))
+                    .statusBarsPadding()
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier
+                        .size(38.dp)
+                        .testTag("player_back_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color.White
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                // HiAnime Brand Pill
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color(0xFF252836)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "h!",
+                            color = HiAnimePink,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Black
                         )
-                        settings.javaScriptEnabled = true
-                        settings.domStorageEnabled = true
-                        settings.mediaPlaybackRequiresUserGesture = false
-                        webChromeClient = WebChromeClient()
-                        webViewClient = WebViewClient()
-                        loadUrl(currentStreamUrl)
+                        Text(
+                            text = "anime",
+                            color = Color.White,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
                     }
-                },
-                update = { webView ->
-                    if (webView.url != currentStreamUrl && currentStreamUrl.isNotBlank()) {
-                        webView.loadUrl(currentStreamUrl)
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = uiState.anime?.titleEnglish ?: "Streaming Anime",
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "Episode $currentEpNum • $currentEpTitle",
+                        color = HiAnimePink,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.testTag("player_header_episode_number")
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                // Prominent Episode Number Pill Badge in Header
+                Surface(
+                    onClick = { viewModel.setShowEpisodeListSheet(true) },
+                    shape = RoundedCornerShape(8.dp),
+                    color = CrimsonNeon,
+                    modifier = Modifier.testTag("player_ep_badge_btn")
+                ) {
+                    Text(
+                        text = "EP $currentEpNum / $totalEpisodesCount",
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                    )
+                }
+            }
+        }
+
+        // 2. Video Player Stage (16:9 in Portrait/Normal Mode, FillMaxSize in Fullscreen Mode)
+        Box(
+            modifier = (if (isFullscreen) {
+                Modifier.fillMaxSize()
+            } else {
+                Modifier
+                    .fillMaxWidth()
+                    .height(240.dp)
+            })
+                .background(Color.Black)
+                .onGloballyPositioned { containerSize = it.size }
+                .pointerInput(uiState.isLocked) {
+                    if (!uiState.isLocked) {
+                        detectTapGestures(
+                            onDoubleTap = { offset ->
+                                val width = containerSize.width.toFloat()
+                                if (width > 0) {
+                                    if (offset.x < width * 0.35f) {
+                                        val newPos = (exoPlayer.currentPosition - 10000L).coerceAtLeast(0L)
+                                        exoPlayer.seekTo(newPos)
+                                        viewModel.showSeekGestureIndicator(isForward = false, deltaSec = 10)
+                                    } else if (offset.x > width * 0.65f) {
+                                        val maxDur = if (exoPlayer.duration != C.TIME_UNSET && exoPlayer.duration > 0L) {
+                                            exoPlayer.duration
+                                        } else {
+                                            uiState.totalDurationMs.coerceAtLeast(exoPlayer.currentPosition + 10000L)
+                                        }
+                                        val newPos = (exoPlayer.currentPosition + 10000L).coerceIn(0L, maxDur)
+                                        exoPlayer.seekTo(newPos)
+                                        viewModel.showSeekGestureIndicator(isForward = true, deltaSec = 10)
+                                    } else {
+                                        viewModel.toggleControls()
+                                    }
+                                }
+                            },
+                            onTap = {
+                                viewModel.toggleControls()
+                            }
+                        )
                     }
-                },
-                modifier = Modifier.fillMaxSize()
-            )
-        } else {
-            // ExoPlayer View using TextureView (exo_texture_player_view.xml) for guaranteed Compose video rendering
-            AndroidView(
-                factory = { ctx ->
-                    (LayoutInflater.from(ctx).inflate(
-                        com.example.R.layout.exo_texture_player_view,
-                        null,
-                        false
-                    ) as PlayerView).apply {
-                        player = exoPlayer
-                        useController = false
-                        keepScreenOn = true
-                        resizeMode = if (isFullscreen) {
+                }
+                .pointerInput(uiState.isLocked) {
+                    if (!uiState.isLocked) {
+                        var dragStartX = 0f
+                        var dragStartY = 0f
+                        detectDragGestures(
+                            onDragStart = { offset ->
+                                dragStartX = offset.x
+                                dragStartY = offset.y
+                            },
+                            onDrag = { change, dragAmount ->
+                                val width = containerSize.width.toFloat()
+                                val height = containerSize.height.toFloat()
+
+                                if (width > 0 && height > 0 && dragStartY in (height * 0.16f)..(height * 0.72f)) {
+                                    change.consume()
+                                    val deltaRatio = -dragAmount.y / height
+                                    if (dragStartX < width * 0.5f) {
+                                        currentBrightness = (currentBrightness + deltaRatio * 1.5f).coerceIn(0.05f, 1f)
+                                        runCatching {
+                                            activity?.window?.attributes = activity?.window?.attributes?.apply {
+                                                screenBrightness = currentBrightness
+                                            }
+                                        }
+                                        val percent = (currentBrightness * 100).toInt()
+                                        viewModel.setBrightnessPercent(percent)
+                                    } else {
+                                        val deltaPercent = (deltaRatio * 150).toInt()
+                                        val newVolPercent = (currentVolumePercent + deltaPercent).coerceIn(0, 100)
+                                        currentVolumePercent = newVolPercent
+                                        val targetStreamVol = ((newVolPercent / 100f) * maxVolume).toInt()
+                                        runCatching {
+                                            audioManager?.setStreamVolume(AudioManager.STREAM_MUSIC, targetStreamVol, 0)
+                                        }
+                                        viewModel.setVolumePercent(newVolPercent)
+                                    }
+                                }
+                            }
+                        )
+                    }
+                }
+        ) {
+            if (isWebEmbedOrTrailer) {
+                AndroidView(
+                    factory = { ctx ->
+                        WebView(ctx).apply {
+                            setBackgroundColor(android.graphics.Color.BLACK)
+                            layoutParams = FrameLayout.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                            settings.javaScriptEnabled = true
+                            settings.domStorageEnabled = true
+                            settings.mediaPlaybackRequiresUserGesture = false
+                            webChromeClient = WebChromeClient()
+                            webViewClient = WebViewClient()
+                            loadUrl(currentStreamUrl)
+                        }
+                    },
+                    update = { webView ->
+                        if (webView.url != currentStreamUrl && currentStreamUrl.isNotBlank()) {
+                            webView.loadUrl(currentStreamUrl)
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                AndroidView(
+                    factory = { ctx ->
+                        (LayoutInflater.from(ctx).inflate(
+                            com.example.R.layout.exo_texture_player_view,
+                            null,
+                            false
+                        ) as PlayerView).apply {
+                            player = exoPlayer
+                            useController = false
+                            keepScreenOn = true
+                            resizeMode = if (isFullscreen) {
+                                AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                            } else {
+                                AspectRatioFrameLayout.RESIZE_MODE_FIT
+                            }
+                            layoutParams = FrameLayout.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                        }
+                    },
+                    update = { playerView ->
+                        if (playerView.player !== exoPlayer) {
+                            playerView.player = exoPlayer
+                        }
+                        playerView.resizeMode = if (isFullscreen) {
                             AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                         } else {
                             AspectRatioFrameLayout.RESIZE_MODE_FIT
                         }
-                        layoutParams = FrameLayout.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT
-                        )
-                    }
-                },
-                update = { playerView ->
-                    if (playerView.player !== exoPlayer) {
-                        playerView.player = exoPlayer
-                    }
-                    playerView.resizeMode = if (isFullscreen) {
-                        AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                    } else {
-                        AspectRatioFrameLayout.RESIZE_MODE_FIT
-                    }
-                },
-                modifier = Modifier.fillMaxSize()
-            )
-        }
-
-        // Keyboard Shortcut Toast Overlay (Space, Arrow Keys, F Fullscreen)
-        if (kbdShortcutToast != null) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .statusBarsPadding()
-                    .padding(top = 56.dp)
-                    .background(Color(0xFF070B10).copy(alpha = 0.9f), RoundedCornerShape(20.dp))
-                    .border(1.dp, Color(0xFF00FF66), RoundedCornerShape(20.dp))
-                    .padding(horizontal = 16.dp, vertical = 7.dp)
-            ) {
-                Text(
-                    text = kbdShortcutToast ?: "",
-                    color = Color(0xFF00FF66),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.ExtraBold
-                )
-            }
-        }
-
-        // On-screen Bangla Subtitle Rendering
-        if (uiState.selectedSubtitle?.language == "bn" && uiState.isPlaying) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = if (uiState.showControls) 90.dp else 36.dp)
-                    .background(Color.Black.copy(alpha = 0.75f), RoundedCornerShape(6.dp))
-                    .padding(horizontal = 14.dp, vertical = 6.dp)
-            ) {
-                Text(
-                    text = "আমরা একসাথে পরবর্তী রোমাঞ্চকর অভিযানের জন্য প্রস্তুত...",
-                    color = Color.Yellow,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-
-        // Gesture HUD Overlay (Brightness, Volume, Seek Rewind/Forward)
-        if (uiState.gestureOverlayIcon != null) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .background(Color.Black.copy(alpha = 0.8f), RoundedCornerShape(16.dp))
-                    .border(1.dp, CrimsonNeon.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    when (uiState.gestureOverlayIcon) {
-                        "BRIGHTNESS" -> {
-                            Icon(Icons.Default.BrightnessMedium, contentDescription = null, tint = CrimsonNeon, modifier = Modifier.size(36.dp))
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(text = uiState.gestureOverlayText ?: "", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            LinearProgressIndicator(
-                                progress = { uiState.brightnessPercent / 100f },
-                                color = CrimsonNeon,
-                                trackColor = Color.DarkGray,
-                                modifier = Modifier.width(120.dp).height(6.dp).clip(RoundedCornerShape(3.dp))
-                            )
-                        }
-                        "VOLUME" -> {
-                            Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, tint = CrimsonNeon, modifier = Modifier.size(36.dp))
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(text = uiState.gestureOverlayText ?: "", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            LinearProgressIndicator(
-                                progress = { uiState.volumePercent / 100f },
-                                color = CrimsonNeon,
-                                trackColor = Color.DarkGray,
-                                modifier = Modifier.width(120.dp).height(6.dp).clip(RoundedCornerShape(3.dp))
-                            )
-                        }
-                        "FORWARD" -> {
-                            Icon(Icons.Default.FastForward, contentDescription = null, tint = CrimsonNeon, modifier = Modifier.size(44.dp))
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(text = uiState.gestureOverlayText ?: "+10s", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        }
-                        "REWIND" -> {
-                            Icon(Icons.Default.FastRewind, contentDescription = null, tint = CrimsonNeon, modifier = Modifier.size(44.dp))
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(text = uiState.gestureOverlayText ?: "-10s", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        }
-                    }
-                }
-            }
-        }
-
-        // Loading Indicator
-        if (uiState.isLoading) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = CrimsonNeon)
-            }
-        }
-
-        // Skip Intro / Outro Button Prompt
-        if ((uiState.isInIntro || uiState.isInOutro) && !uiState.isLocked) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(bottom = 110.dp, end = 20.dp)
-            ) {
-                Button(
-                    onClick = {
-                        if (uiState.isInIntro) {
-                            val targetMs = ((uiState.currentEpisode?.introEndSec ?: 180L) + 1) * 1000L
-                            exoPlayer.seekTo(targetMs)
-                            viewModel.skipIntro()
-                        } else {
-                            viewModel.skipOutro()
-                        }
                     },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Black.copy(alpha = 0.85f),
-                        contentColor = CrimsonNeon
-                    ),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.testTag("skip_intro_btn")
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+
+            // Always-Visible Corner Episode Number & Server Pill inside the Video Player
+            if (!uiState.showControls) {
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(start = 12.dp, top = if (isFullscreen) 16.dp else 10.dp)
+                        .background(Color.Black.copy(alpha = 0.68f), RoundedCornerShape(6.dp))
+                        .border(1.dp, HiAnimePink.copy(alpha = 0.45f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (uiState.isInIntro) "Skip Intro ⏩" else "Next Episode ⏭",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
+                        text = "EP $currentEpNum",
+                        color = HiAnimePink,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        text = " • ${if (uiState.isDubMode) "DUB" else "SUB"} • ${uiState.currentSource?.cdnNode?.substringBefore(" (") ?: "HD-1"}",
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
-        }
 
-        // Lock Toggle Floating Button
-        if (uiState.showControls || uiState.isLocked) {
-            IconButton(
-                onClick = { viewModel.toggleLock() },
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .padding(start = 16.dp)
-                    .background(Color.Black.copy(alpha = 0.6f), CircleShape)
-                    .testTag("player_lock_btn")
+            // Keyboard Shortcut / Server Switch Toast Overlay
+            if (kbdShortcutToast != null) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 12.dp)
+                        .background(Color(0xFF070B10).copy(alpha = 0.9f), RoundedCornerShape(20.dp))
+                        .border(1.dp, HiAnimePink, RoundedCornerShape(20.dp))
+                        .padding(horizontal = 14.dp, vertical = 5.dp)
+                ) {
+                    Text(
+                        text = kbdShortcutToast ?: "",
+                        color = HiAnimePink,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
+
+            // Gesture HUD Overlay (Brightness, Volume, Seek Rewind/Forward)
+            if (uiState.gestureOverlayIcon != null) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .background(Color.Black.copy(alpha = 0.82f), RoundedCornerShape(14.dp))
+                        .border(1.dp, CrimsonNeon.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        when (uiState.gestureOverlayIcon) {
+                            "BRIGHTNESS" -> {
+                                Icon(Icons.Default.BrightnessMedium, contentDescription = null, tint = CrimsonNeon, modifier = Modifier.size(30.dp))
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(text = uiState.gestureOverlayText ?: "", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Spacer(modifier = Modifier.height(6.dp))
+                                LinearProgressIndicator(
+                                    progress = { uiState.brightnessPercent / 100f },
+                                    color = CrimsonNeon,
+                                    trackColor = Color.DarkGray,
+                                    modifier = Modifier.width(100.dp).height(5.dp).clip(RoundedCornerShape(3.dp))
+                                )
+                            }
+                            "VOLUME" -> {
+                                Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, tint = CrimsonNeon, modifier = Modifier.size(30.dp))
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(text = uiState.gestureOverlayText ?: "", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Spacer(modifier = Modifier.height(6.dp))
+                                LinearProgressIndicator(
+                                    progress = { uiState.volumePercent / 100f },
+                                    color = CrimsonNeon,
+                                    trackColor = Color.DarkGray,
+                                    modifier = Modifier.width(100.dp).height(5.dp).clip(RoundedCornerShape(3.dp))
+                                )
+                            }
+                            "FORWARD" -> {
+                                Icon(Icons.Default.FastForward, contentDescription = null, tint = CrimsonNeon, modifier = Modifier.size(36.dp))
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(text = uiState.gestureOverlayText ?: "+10s", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            }
+                            "REWIND" -> {
+                                Icon(Icons.Default.FastRewind, contentDescription = null, tint = CrimsonNeon, modifier = Modifier.size(36.dp))
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(text = uiState.gestureOverlayText ?: "-10s", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Loading Indicator
+            if (uiState.isLoading) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = HiAnimePink)
+                }
+            }
+
+            // Skip Intro / Outro Floating Button
+            if ((uiState.isInIntro || uiState.isInOutro) && !uiState.isLocked) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(bottom = if (uiState.showControls) 82.dp else 18.dp, end = 16.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            if (uiState.isInIntro) {
+                                val targetMs = ((uiState.currentEpisode?.introEndSec ?: 89L) + 1) * 1000L
+                                exoPlayer.seekTo(targetMs)
+                                viewModel.skipIntro()
+                            } else {
+                                viewModel.skipOutro()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = HiAnimePink,
+                            contentColor = Color.Black
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = Modifier.testTag("skip_intro_btn")
+                    ) {
+                        Text(
+                            text = if (uiState.isInIntro) "Skip Intro ⏩" else "Next Episode ⏭",
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+
+            // Lock Toggle Floating Button
+            if (uiState.showControls || uiState.isLocked) {
+                IconButton(
+                    onClick = { viewModel.toggleLock() },
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .padding(start = 10.dp)
+                        .size(36.dp)
+                        .background(Color.Black.copy(alpha = 0.65f), CircleShape)
+                        .testTag("player_lock_btn")
+                ) {
+                    Icon(
+                        imageVector = if (uiState.isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
+                        contentDescription = "Lock",
+                        tint = if (uiState.isLocked) HiAnimePink else Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            // Video Player Overlay Controls
+            this@Column.AnimatedVisibility(
+                visible = uiState.showControls && !uiState.isLocked,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.fillMaxSize()
             ) {
-                Icon(
-                    imageVector = if (uiState.isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
-                    contentDescription = "Lock",
-                    tint = if (uiState.isLocked) CrimsonNeon else Color.White
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.52f))
+                ) {
+                    // Overlay Top Bar inside Video Stage
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .then(if (isFullscreen) Modifier.statusBarsPadding() else Modifier)
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (isFullscreen) {
+                            IconButton(
+                                onClick = { toggleFullscreenMode() },
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Exit Fullscreen",
+                                    tint = Color.White
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(6.dp))
+                        }
+
+                        // Episode Number Badge inside Player Overlay
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = HiAnimePink
+                        ) {
+                            Text(
+                                text = "EPISODE $currentEpNum",
+                                color = Color.Black,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Black,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        Text(
+                            text = currentEpTitle,
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        // SUB / DUB quick toggle pill
+                        Surface(
+                            onClick = { viewModel.toggleDubSub() },
+                            shape = RoundedCornerShape(14.dp),
+                            color = if (uiState.isDubMode) CrimsonNeon else SurfaceDark.copy(alpha = 0.9f)
+                        ) {
+                            Text(
+                                text = if (uiState.isDubMode) "🎙️ DUB" else "🏳️ SUB",
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+
+                        // Picture-in-Picture (PiP) guarded for all Android versions
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            IconButton(
+                                onClick = {
+                                    runCatching {
+                                        val hasPip = context.packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+                                        if (hasPip) {
+                                            val params = PictureInPictureParams.Builder()
+                                                .setAspectRatio(Rational(16, 9))
+                                                .build()
+                                            activity?.enterPictureInPictureMode(params)
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.size(34.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PictureInPictureAlt,
+                                    contentDescription = "PiP Mode",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+
+                        // Episodes Playlist Sheet Shortcut
+                        IconButton(
+                            onClick = { viewModel.setShowEpisodeListSheet(true) },
+                            modifier = Modifier
+                                .size(34.dp)
+                                .testTag("player_episodes_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PlaylistPlay,
+                                contentDescription = "Episodes",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
+                    // Center Play/Pause & Seek Controls
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = { viewModel.playPreviousEpisode() },
+                            modifier = Modifier.size(42.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.SkipPrevious,
+                                contentDescription = "Previous Episode",
+                                tint = Color.White,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        IconButton(
+                            onClick = {
+                                val newPos = (exoPlayer.currentPosition - 10000L).coerceAtLeast(0L)
+                                exoPlayer.seekTo(newPos)
+                                viewModel.showSeekGestureIndicator(isForward = false, deltaSec = 10)
+                            },
+                            modifier = Modifier.size(42.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FastRewind,
+                                contentDescription = "Rewind 10s",
+                                tint = Color.White,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(16.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .size(54.dp)
+                                .background(CrimsonNeon, CircleShape)
+                                .clickable {
+                                    if (exoPlayer.isPlaying) {
+                                        exoPlayer.pause()
+                                        viewModel.setPlaying(false)
+                                    } else {
+                                        exoPlayer.play()
+                                        viewModel.setPlaying(true)
+                                    }
+                                }
+                                .testTag("player_play_pause_btn"),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (uiState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                contentDescription = "Play/Pause",
+                                tint = Color.White,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(16.dp))
+
+                        IconButton(
+                            onClick = {
+                                val maxDur = if (exoPlayer.duration != C.TIME_UNSET && exoPlayer.duration > 0L) {
+                                    exoPlayer.duration
+                                } else {
+                                    uiState.totalDurationMs.coerceAtLeast(exoPlayer.currentPosition + 10000L)
+                                }
+                                val newPos = (exoPlayer.currentPosition + 10000L).coerceIn(0L, maxDur)
+                                exoPlayer.seekTo(newPos)
+                                viewModel.showSeekGestureIndicator(isForward = true, deltaSec = 10)
+                            },
+                            modifier = Modifier.size(42.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FastForward,
+                                contentDescription = "Forward 10s",
+                                tint = Color.White,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        IconButton(
+                            onClick = { viewModel.playNextEpisode() },
+                            modifier = Modifier.size(42.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.SkipNext,
+                                contentDescription = "Next Episode",
+                                tint = Color.White,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    }
+
+                    // Bottom Timeline & Settings Strip inside Video Stage
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .then(if (isFullscreen) Modifier.navigationBarsPadding() else Modifier)
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        CustomVideoProgressBar(
+                            exoPlayer = exoPlayer,
+                            currentPositionMs = uiState.currentPositionMs,
+                            totalDurationMs = uiState.totalDurationMs,
+                            bufferedPositionMs = uiState.bufferedPositionMs,
+                            introStartSec = uiState.currentEpisode?.introStartSec ?: 0L,
+                            introEndSec = uiState.currentEpisode?.introEndSec ?: 0L,
+                            outroStartSec = uiState.currentEpisode?.outroStartSec ?: 0L,
+                            outroEndSec = uiState.currentEpisode?.outroEndSec ?: 0L,
+                            onPositionChanged = { currentMs, durationMs, bufferedMs ->
+                                viewModel.updatePosition(currentMs, durationMs, bufferedMs)
+                            },
+                            onSeekCommitted = { targetPositionMs ->
+                                viewModel.updatePosition(targetPositionMs, uiState.totalDurationMs, uiState.bufferedPositionMs)
+                            },
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Quality & Server Pill
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .background(SurfaceDark.copy(alpha = 0.85f), RoundedCornerShape(6.dp))
+                                    .clickable { viewModel.setShowQualitySheet(true) }
+                                    .padding(horizontal = 7.dp, vertical = 3.dp)
+                                    .testTag("player_quality_btn")
+                            ) {
+                                Icon(Icons.Default.HighQuality, contentDescription = null, tint = HiAnimePink, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = uiState.currentSource?.cdnNode?.substringBefore(" (") ?: "HD-1",
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
+                                )
+                            }
+
+                            // Subtitles Pill
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .background(SurfaceDark.copy(alpha = 0.85f), RoundedCornerShape(6.dp))
+                                    .clickable { viewModel.setShowSubtitleSheet(true) }
+                                    .padding(horizontal = 7.dp, vertical = 3.dp)
+                                    .testTag("player_subtitles_btn")
+                            ) {
+                                Icon(Icons.Default.ClosedCaption, contentDescription = null, tint = HiAnimePink, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = uiState.selectedSubtitle?.label ?: "Sub: Off",
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            // Audio Pill
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .background(SurfaceDark.copy(alpha = 0.85f), RoundedCornerShape(6.dp))
+                                    .clickable { viewModel.setShowAudioSheet(true) }
+                                    .padding(horizontal = 7.dp, vertical = 3.dp)
+                                    .testTag("player_audio_btn")
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null, tint = HiAnimePink, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = uiState.selectedAudio?.language?.uppercase(Locale.US) ?: "JA",
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            // Speed Pill
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .background(SurfaceDark.copy(alpha = 0.85f), RoundedCornerShape(6.dp))
+                                    .clickable { viewModel.setShowSpeedSheet(true) }
+                                    .padding(horizontal = 7.dp, vertical = 3.dp)
+                                    .testTag("player_speed_btn")
+                            ) {
+                                Icon(Icons.Default.Speed, contentDescription = null, tint = HiAnimePink, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "${uiState.playbackSpeed}x",
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            // Fullscreen Button
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .background(
+                                        if (isFullscreen) CrimsonNeon else SurfaceDark.copy(alpha = 0.85f),
+                                        RoundedCornerShape(6.dp)
+                                    )
+                                    .clickable { toggleFullscreenMode() }
+                                    .padding(horizontal = 7.dp, vertical = 3.dp)
+                                    .testTag("player_fullscreen_btn")
+                            ) {
+                                Icon(
+                                    imageVector = if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
+                                    contentDescription = "Toggle Fullscreen",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = if (isFullscreen) "Exit" else "Full",
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
 
-        // Player Controls Overlay
-        AnimatedVisibility(
-            visible = uiState.showControls && !uiState.isLocked,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            Box(
+        // 3. HiAnime Below-Player Scrollable Dashboard (Controls Bar + "You are watching Episode X" + SUB/DUB Server Switcher + Numbered Episode Grid)
+        if (!isFullscreen) {
+            val availableServers = uiState.currentEpisode?.sources.orEmpty()
+            val subServers = remember(availableServers) {
+                availableServers.filter { !it.audioLang.equals("dub", ignoreCase = true) }
+                    .ifEmpty { availableServers }
+            }
+            val dubServers = remember(availableServers) {
+                availableServers.filter { it.audioLang.equals("dub", ignoreCase = true) }
+                    .ifEmpty { availableServers.take(3) }
+            }
+
+            Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.55f))
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .navigationBarsPadding()
+                    .padding(bottom = 24.dp)
             ) {
-                // Top Bar
-                Row(
+                // 3A. HiAnime Quick Action & Auto-Controls Bar directly under Video Player
+                LazyRow(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                        .background(Color(0xFF181A22))
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(
-                        onClick = onBack,
-                        modifier = Modifier.testTag("player_back_btn")
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
+                    item {
+                        HiAnimeToggleChip(
+                            label = "Auto Next",
+                            isEnabled = uiState.autoNextEpisode,
+                            onClick = { viewModel.toggleAutoNext() }
                         )
                     }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = uiState.anime?.titleEnglish ?: "Streaming Anime",
-                            color = Color.White,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                    item {
+                        HiAnimeToggleChip(
+                            label = "Skip Intro",
+                            isEnabled = uiState.autoSkipIntro,
+                            onClick = { viewModel.toggleAutoSkipIntro() }
                         )
-                        uiState.currentEpisode?.let { ep ->
+                    }
+                    item {
+                        HiAnimeActionChip(
+                            label = "⏮ Prev Ep",
+                            onClick = { viewModel.playPreviousEpisode() }
+                        )
+                    }
+                    item {
+                        HiAnimeActionChip(
+                            label = "Next Ep ⏭",
+                            onClick = { viewModel.playNextEpisode() }
+                        )
+                    }
+                    item {
+                        HiAnimeActionChip(
+                            label = "💬 Comments",
+                            onClick = { viewModel.setShowCommentsSheet(true) }
+                        )
+                    }
+                    item {
+                        HiAnimeActionChip(
+                            label = "🔖 Bookmark",
+                            onClick = { viewModel.setShowBookmarksNotesSheet(true) },
+                            testTag = "player_bookmarks_notes_btn"
+                        )
+                    }
+                    if (downloadsRepository != null && uiState.anime != null && uiState.currentEpisode != null) {
+                        item {
+                            HiAnimeActionChip(
+                                label = "⬇ Download Ep $currentEpNum",
+                                onClick = {
+                                    scope.launch {
+                                        downloadsRepository.startDownload(uiState.anime!!, uiState.currentEpisode!!)
+                                        snackbarHostState.showSnackbar("Downloading Ep $currentEpNum for offline watching...")
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 3B. HiAnime Signature "You are watching Episode X" & SUB / DUB Server Switcher Box
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(HiAnimePanelBg)
+                        .border(1.dp, CardBorder, RoundedCornerShape(12.dp))
+                        .testTag("player_quick_server_row")
+                ) {
+                    // Top Pink/Dark Banner: "You are watching Episode X"
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                Brush.horizontalGradient(
+                                    colors = listOf(Color(0xFF2B1C2C), Color(0xFF1F222D))
+                                )
+                            )
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "You are watching ",
+                                    color = TextSecondary,
+                                    fontSize = 12.sp
+                                )
+                                Text(
+                                    text = "Episode $currentEpNum",
+                                    color = HiAnimePink,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
                             Text(
-                                text = "Ep ${ep.episodeNumber}: ${ep.title}",
-                                color = TextSecondary,
-                                fontSize = 12.sp,
+                                text = currentEpTitle,
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
+                            Text(
+                                text = "If current server doesn't work please try other servers below.",
+                                color = TextMuted,
+                                fontSize = 11.sp
+                            )
                         }
-                    }
 
-                    // Dub vs Sub quick pill
-                    Surface(
-                        onClick = { viewModel.toggleDubSub() },
-                        shape = RoundedCornerShape(16.dp),
-                        color = if (uiState.isDubMode) CrimsonNeon else SurfaceDark
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = HiAnimePink
                         ) {
                             Text(
-                                text = if (uiState.isDubMode) "🎙️ DUB" else "🇯🇵 SUB",
-                                color = Color.White,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
+                                text = "EP $currentEpNum",
+                                color = Color.Black,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Black,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.width(6.dp))
+                    HorizontalDivider(color = CardBorder)
 
-                    // Background Audio Mode Toggle
-                    IconButton(
-                        onClick = {
-                            viewModel.toggleBackgroundAudio()
-                            scope.launch {
-                                snackbarHostState.showSnackbar(
-                                    if (!uiState.isBackgroundAudioEnabled) "Background Audio Enabled 🎧"
-                                    else "Background Audio Disabled"
-                                )
-                            }
-                        }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Headphones,
-                            contentDescription = "Background Audio",
-                            tint = if (uiState.isBackgroundAudioEnabled) CrimsonNeon else Color.White
-                        )
-                    }
-
-                    // Picture-in-Picture (PiP)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        IconButton(
-                            onClick = {
-                                val params = PictureInPictureParams.Builder()
-                                    .setAspectRatio(Rational(16, 9))
-                                    .build()
-                                activity?.enterPictureInPictureMode(params)
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.PictureInPictureAlt,
-                                contentDescription = "PiP Mode",
-                                tint = Color.White
-                            )
-                        }
-                    }
-
-                    // Cast to Smart TV / External Player Toggle
-                    IconButton(
-                        onClick = {
-                            viewModel.toggleCastToTv()
-                            scope.launch {
-                                snackbarHostState.showSnackbar(
-                                    if (!uiState.isCastingToTv) "📺 Casting to ${uiState.castDeviceName}..."
-                                    else "📱 Returned playback to local player"
-                                )
-                            }
-                        }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Tv,
-                            contentDescription = "Cast to TV",
-                            tint = if (uiState.isCastingToTv) CrimsonNeon else Color.White
-                        )
-                    }
-
-                    // Bookmarks & Episode Notes Sheet Shortcut
-                    IconButton(
-                        onClick = { viewModel.setShowBookmarksNotesSheet(true) },
-                        modifier = Modifier.testTag("player_bookmarks_notes_btn")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Bookmark,
-                            contentDescription = "Bookmarks & Episode Notes",
-                            tint = Color.White
-                        )
-                    }
-
-                    // Comments / Discussion Button
-                    IconButton(onClick = { viewModel.setShowCommentsSheet(true) }) {
-                        Icon(
-                            imageVector = Icons.Default.ChatBubble,
-                            contentDescription = "Discussion",
-                            tint = Color.White
-                        )
-                    }
-
-                    // Download Episode Offline Button
-                    if (downloadsRepository != null && uiState.anime != null && uiState.currentEpisode != null) {
-                        IconButton(
-                            onClick = {
-                                scope.launch {
-                                    downloadsRepository.startDownload(uiState.anime!!, uiState.currentEpisode!!)
-                                    snackbarHostState.showSnackbar("Downloading Ep ${uiState.currentEpisode?.episodeNumber} for offline watching...")
-                                }
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Download,
-                                contentDescription = "Download Episode",
-                                tint = Color.White
-                            )
-                        }
-                    }
-
-                    // Episodes Playlist Shortcut
-                    IconButton(
-                        onClick = { viewModel.setShowEpisodeListSheet(true) },
-                        modifier = Modifier.testTag("player_episodes_btn")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PlaylistPlay,
-                            contentDescription = "Episodes",
-                            tint = Color.White
-                        )
-                    }
-                }
-
-                // Center Play/Pause & Seek Controls
-                Row(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(
-                        onClick = { viewModel.playPreviousEpisode() },
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.SkipPrevious,
-                            contentDescription = "Previous",
-                            tint = Color.White,
-                            modifier = Modifier.size(32.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(16.dp))
-
-                    IconButton(
-                        onClick = {
-                            val newPos = (exoPlayer.currentPosition - 10000L).coerceAtLeast(0L)
-                            exoPlayer.seekTo(newPos)
-                            viewModel.showSeekGestureIndicator(isForward = false, deltaSec = 10)
-                        },
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.FastRewind,
-                            contentDescription = "Rewind 10s",
-                            tint = Color.White,
-                            modifier = Modifier.size(34.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(20.dp))
-
-                    Box(
+                    // SUB Servers Row (HiAnime Style)
+                    Row(
                         modifier = Modifier
-                            .size(64.dp)
-                            .background(CrimsonNeon, CircleShape)
-                            .clickable {
-                                if (exoPlayer.isPlaying) {
-                                    exoPlayer.pause()
-                                    viewModel.setPlaying(false)
-                                } else {
-                                    exoPlayer.play()
-                                    viewModel.setPlaying(true)
-                                }
-                            }
-                            .testTag("player_play_pause_btn"),
-                        contentAlignment = Alignment.Center
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = if (uiState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = "Play/Pause",
-                            tint = Color.White,
-                            modifier = Modifier.size(38.dp)
-                        )
-                    }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.width(62.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Subtitles,
+                                contentDescription = null,
+                                tint = HiAnimePink,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "SUB:",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
 
-                    Spacer(modifier = Modifier.width(20.dp))
-
-                    IconButton(
-                        onClick = {
-                            val maxDur = if (exoPlayer.duration != C.TIME_UNSET && exoPlayer.duration > 0L) {
-                                exoPlayer.duration
-                            } else {
-                                uiState.totalDurationMs.coerceAtLeast(exoPlayer.currentPosition + 10000L)
-                            }
-                            val newPos = (exoPlayer.currentPosition + 10000L).coerceIn(0L, maxDur)
-                            exoPlayer.seekTo(newPos)
-                            viewModel.showSeekGestureIndicator(isForward = true, deltaSec = 10)
-                        },
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.FastForward,
-                            contentDescription = "Forward 10s",
-                            tint = Color.White,
-                            modifier = Modifier.size(34.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(16.dp))
-
-                    IconButton(
-                        onClick = { viewModel.playNextEpisode() },
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.SkipNext,
-                            contentDescription = "Next",
-                            tint = Color.White,
-                            modifier = Modifier.size(32.dp)
-                        )
-                    }
-                }
-
-                // Bottom Timeline (Custom Media3 Progress Bar), Quick Server Switcher & Settings Bar
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(horizontal = 16.dp, vertical = 10.dp)
-                ) {
-                    // Quick On-Screen Video Server Switcher Row (GitHub Consumet / HiAnime / GogoCDN / VidCloud / AnimeThemes)
-                    val availableServers = uiState.currentEpisode?.sources.orEmpty()
-                    if (availableServers.isNotEmpty()) {
                         LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(vertical = 4.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 6.dp)
-                                .testTag("player_quick_server_row")
+                            modifier = Modifier.weight(1f)
                         ) {
-                            items(availableServers, key = { it.id }) { serverSource ->
-                                val isSelected = uiState.currentSource?.id == serverSource.id ||
-                                    uiState.currentSource?.streamUrl == serverSource.streamUrl
+                            items(subServers, key = { "sub_${it.id}" }) { serverSource ->
+                                val isSelected = uiState.currentSource?.id == serverSource.id
                                 Surface(
                                     onClick = {
                                         viewModel.selectSource(serverSource)
-                                        kbdShortcutToast = "⚡ Switched Server → ${serverSource.cdnNode}"
+                                        kbdShortcutToast = "⚡ SUB Server → ${serverSource.cdnNode}"
                                     },
-                                    color = if (isSelected) CrimsonNeon else Color(0xFF141824).copy(alpha = 0.88f),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.border(
-                                        width = 1.dp,
-                                        color = if (isSelected) Color.White.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.18f),
-                                        shape = RoundedCornerShape(8.dp)
-                                    )
+                                    color = if (isSelected) HiAnimePink else HiAnimeEpisodeIdle,
+                                    shape = RoundedCornerShape(6.dp)
                                 ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                                        verticalAlignment = Alignment.CenterVertically
+                                    Text(
+                                        text = serverSource.cdnNode.substringBefore(" ("),
+                                        color = if (isSelected) Color.Black else Color.White,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(color = CardBorder.copy(alpha = 0.5f))
+
+                    // DUB Servers Row (HiAnime Style)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.width(62.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Headphones,
+                                contentDescription = null,
+                                tint = CyanGlow,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "DUB:",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            items(dubServers, key = { "dub_${it.id}" }) { serverSource ->
+                                val isSelected = uiState.currentSource?.id == serverSource.id
+                                Surface(
+                                    onClick = {
+                                        viewModel.selectSource(serverSource)
+                                        kbdShortcutToast = "🎙️ DUB Server → ${serverSource.cdnNode}"
+                                    },
+                                    color = if (isSelected) HiAnimePink else HiAnimeEpisodeIdle,
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Text(
+                                        text = serverSource.cdnNode.replace(" DUB", "").substringBefore(" ("),
+                                        color = if (isSelected) Color.Black else Color.White,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // 3C. HiAnime "List of episodes:" Section with Numbered Episode Grid (1, 2, 3...)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(HiAnimePanelBg)
+                        .border(1.dp, CardBorder, RoundedCornerShape(12.dp))
+                        .padding(12.dp)
+                        .testTag("hianime_episodes_section")
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "List of episodes:",
+                                color = Color.White,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Text(
+                                text = "Playing Episode $currentEpNum of $totalEpisodesCount",
+                                color = HiAnimePink,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            // Grid vs List View Toggle
+                            Surface(
+                                onClick = { isEpisodeGridMode = true },
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (isEpisodeGridMode) HiAnimePink else HiAnimeEpisodeIdle
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.GridView,
+                                        contentDescription = "Number Grid",
+                                        tint = if (isEpisodeGridMode) Color.Black else Color.White,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "1..$totalEpisodesCount",
+                                        color = if (isEpisodeGridMode) Color.Black else Color.White,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+
+                            Surface(
+                                onClick = { isEpisodeGridMode = false },
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (!isEpisodeGridMode) HiAnimePink else HiAnimeEpisodeIdle
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.FormatListBulleted,
+                                        contentDescription = "Episode List",
+                                        tint = if (!isEpisodeGridMode) Color.Black else Color.White,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Titles",
+                                        color = if (!isEpisodeGridMode) Color.Black else Color.White,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Episode Number Search Filter ("Number of Ep")
+                    OutlinedTextField(
+                        value = episodeSearchQuery,
+                        onValueChange = { episodeSearchQuery = it },
+                        placeholder = {
+                            Text("Number of Ep (e.g. 1, 5, 12)...", color = TextMuted, fontSize = 12.sp)
+                        },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = HiAnimePink,
+                            unfocusedBorderColor = CardBorder,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedContainerColor = HiAnimeDarkBg,
+                            unfocusedContainerColor = HiAnimeDarkBg
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    val filteredEpisodes = remember(uiState.allEpisodes, episodeSearchQuery) {
+                        val q = episodeSearchQuery.trim()
+                        if (q.isEmpty()) {
+                            uiState.allEpisodes
+                        } else {
+                            uiState.allEpisodes.filter { ep ->
+                                ep.episodeNumber.toString().contains(q) ||
+                                    ep.title.contains(q, ignoreCase = true)
+                            }
+                        }
+                    }
+
+                    if (isEpisodeGridMode) {
+                        // HiAnime Numbered Episode Grid (Buttons showing 1, 2, 3, 4, 5...)
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            filteredEpisodes.chunked(5).forEach { rowEpisodes ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    rowEpisodes.forEach { ep ->
+                                        val isCurrent = ep.episodeNumber == currentEpNum
+                                        Surface(
+                                            onClick = {
+                                                viewModel.selectEpisode(ep.episodeNumber)
+                                                kbdShortcutToast = "▶ Playing Episode ${ep.episodeNumber}"
+                                            },
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = if (isCurrent) HiAnimePink else HiAnimeEpisodeIdle,
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(40.dp)
+                                                .border(
+                                                    width = if (isCurrent) 1.5.dp else 1.dp,
+                                                    color = if (isCurrent) Color.White else Color.White.copy(alpha = 0.08f),
+                                                    shape = RoundedCornerShape(6.dp)
+                                                )
+                                                .testTag("episode_grid_btn_${ep.episodeNumber}")
+                                        ) {
+                                            Box(
+                                                contentAlignment = Alignment.Center,
+                                                modifier = Modifier.fillMaxSize()
+                                            ) {
+                                                Text(
+                                                    text = if (isCurrent) "▶ ${ep.episodeNumber}" else "${ep.episodeNumber}",
+                                                    color = if (isCurrent) Color.Black else Color.White,
+                                                    fontSize = 13.sp,
+                                                    fontWeight = if (isCurrent) FontWeight.Black else FontWeight.Bold,
+                                                    textAlign = TextAlign.Center
+                                                )
+                                            }
+                                        }
+                                    }
+                                    repeat(5 - rowEpisodes.size) {
+                                        Spacer(modifier = Modifier.weight(1f).height(40.dp))
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // HiAnime Numbered Episode List with Episode Number + Title
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            filteredEpisodes.forEach { ep ->
+                                val isCurrent = ep.episodeNumber == currentEpNum
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (isCurrent) HiAnimePink.copy(alpha = 0.18f) else HiAnimeEpisodeIdle)
+                                        .border(
+                                            width = 1.dp,
+                                            color = if (isCurrent) HiAnimePink else Color.Transparent,
+                                            shape = RoundedCornerShape(8.dp)
+                                        )
+                                        .clickable {
+                                            viewModel.selectEpisode(ep.episodeNumber)
+                                            kbdShortcutToast = "▶ Playing Episode ${ep.episodeNumber}"
+                                        }
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = if (isCurrent) HiAnimePink else Color(0xFF191B24)
                                     ) {
                                         Text(
-                                            text = if (isSelected) "● ${serverSource.cdnNode}" else "▶ ${serverSource.cdnNode}",
-                                            color = Color.White,
-                                            fontSize = 11.sp,
-                                            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
-                                            maxLines = 1
+                                            text = "${ep.episodeNumber}",
+                                            color = if (isCurrent) Color.Black else HiAnimePink,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Black,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = ep.title,
+                                        color = if (isCurrent) HiAnimePink else Color.White,
+                                        fontSize = 13.sp,
+                                        fontWeight = if (isCurrent) FontWeight.ExtraBold else FontWeight.Medium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    if (isCurrent) {
+                                        Text(
+                                            text = "▶ PLAYING",
+                                            color = HiAnimePink,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Black
                                         )
                                     }
                                 }
                             }
                         }
                     }
-
-                    CustomVideoProgressBar(
-                        exoPlayer = exoPlayer,
-                        currentPositionMs = uiState.currentPositionMs,
-                        totalDurationMs = uiState.totalDurationMs,
-                        bufferedPositionMs = uiState.bufferedPositionMs,
-                        introStartSec = uiState.currentEpisode?.introStartSec ?: 0L,
-                        introEndSec = uiState.currentEpisode?.introEndSec ?: 0L,
-                        outroStartSec = uiState.currentEpisode?.outroStartSec ?: 0L,
-                        outroEndSec = uiState.currentEpisode?.outroEndSec ?: 0L,
-                        onPositionChanged = { currentMs, durationMs, bufferedMs ->
-                            viewModel.updatePosition(currentMs, durationMs, bufferedMs)
-                        },
-                        onSeekCommitted = { targetPositionMs ->
-                            viewModel.updatePosition(targetPositionMs, uiState.totalDurationMs, uiState.bufferedPositionMs)
-                        },
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-
-                    // Settings & Selectors Row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Server & Quality Selector (HiAnime HD-1 VidStreaming / AniWatch HD-2 MegaCloud / VidCloud)
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .background(SurfaceDark.copy(alpha = 0.8f), RoundedCornerShape(6.dp))
-                                .clickable { viewModel.setShowQualitySheet(true) }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                                .testTag("player_quality_btn")
-                        ) {
-                            Icon(Icons.Default.HighQuality, contentDescription = null, tint = CrimsonNeon, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "${uiState.selectedQuality} • ${uiState.currentSource?.cdnNode?.substringBefore(" (") ?: "HD-1"}",
-                                color = Color.White,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-
-                        // Subtitle Selector
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .background(SurfaceDark.copy(alpha = 0.8f), RoundedCornerShape(6.dp))
-                                .clickable { viewModel.setShowSubtitleSheet(true) }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                                .testTag("player_subtitles_btn")
-                        ) {
-                            Icon(Icons.Default.ClosedCaption, contentDescription = null, tint = CrimsonNeon, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = uiState.selectedSubtitle?.label ?: "Sub: Off",
-                                color = Color.White,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        // Audio Dub Selector
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .background(SurfaceDark.copy(alpha = 0.8f), RoundedCornerShape(6.dp))
-                                .clickable { viewModel.setShowAudioSheet(true) }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                                .testTag("player_audio_btn")
-                        ) {
-                            Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null, tint = CrimsonNeon, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = uiState.selectedAudio?.language?.uppercase() ?: "JA",
-                                color = Color.White,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        // Speed Selector
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .background(SurfaceDark.copy(alpha = 0.8f), RoundedCornerShape(6.dp))
-                                .clickable { viewModel.setShowSpeedSheet(true) }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                                .testTag("player_speed_btn")
-                        ) {
-                            Icon(Icons.Default.Speed, contentDescription = null, tint = CrimsonNeon, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = "${uiState.playbackSpeed}x", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
-
-                        // Fullscreen Toggle Button ('F' Key Shortcut)
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .background(
-                                    if (isFullscreen) CrimsonNeon.copy(alpha = 0.85f) else SurfaceDark.copy(alpha = 0.8f),
-                                    RoundedCornerShape(6.dp)
-                                )
-                                .clickable { toggleFullscreenMode() }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                                .testTag("player_fullscreen_btn")
-                        ) {
-                            Icon(
-                                imageVector = if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
-                                contentDescription = "Toggle Fullscreen (F)",
-                                tint = if (isFullscreen) Color.White else CrimsonNeon,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = if (isFullscreen) "Exit [F]" else "Full [F]",
-                                color = Color.White,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
                 }
             }
         }
+    }
 
+    Box(modifier = Modifier.fillMaxSize()) {
         SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.TopCenter))
 
         // Comments Bottom Sheet
@@ -1184,14 +1726,14 @@ fun VideoPlayerScreen(
             )
         }
 
-        // Quality Selection Sheet
+        // Quality & Server Selection Sheet
         if (uiState.showQualitySheet) {
             ModalBottomSheet(
                 onDismissRequest = { viewModel.setShowQualitySheet(false) },
                 containerColor = SurfaceDark
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(text = "Select Stream Quality", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(text = "Select Stream Server & Quality", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(10.dp))
                     uiState.currentEpisode?.sources?.forEach { src ->
                         val isSelected = uiState.currentSource?.id == src.id
@@ -1203,7 +1745,7 @@ fun VideoPlayerScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(text = src.quality, color = if (isSelected) CrimsonNeon else TextPrimary, fontWeight = FontWeight.SemiBold)
+                            Text(text = src.quality, color = if (isSelected) HiAnimePink else TextPrimary, fontWeight = FontWeight.SemiBold)
                             Text(text = src.cdnNode, color = TextMuted, fontSize = 11.sp)
                         }
                     }
@@ -1211,7 +1753,7 @@ fun VideoPlayerScreen(
             }
         }
 
-        // Subtitle Selection Sheet (With Bangla Support)
+        // Subtitle Selection Sheet
         if (uiState.showSubtitleSheet) {
             ModalBottomSheet(
                 onDismissRequest = { viewModel.setShowSubtitleSheet(false) },
@@ -1226,12 +1768,11 @@ fun VideoPlayerScreen(
                             .clickable { viewModel.selectSubtitle(null) }
                             .padding(vertical = 10.dp)
                     ) {
-                        Text(text = "Off", color = if (uiState.selectedSubtitle == null) CrimsonNeon else TextPrimary)
+                        Text(text = "Off", color = if (uiState.selectedSubtitle == null) HiAnimePink else TextPrimary)
                     }
 
                     uiState.currentEpisode?.subtitles?.forEach { sub ->
                         val isSelected = uiState.selectedSubtitle?.id == sub.id
-                        val isBangla = sub.language == "bn"
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1240,25 +1781,13 @@ fun VideoPlayerScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = sub.label,
-                                    color = if (isSelected) CrimsonNeon else TextPrimary,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                if (isBangla) {
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .background(CrimsonNeon.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
-                                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                                    ) {
-                                        Text(text = "বাংলা", color = CrimsonNeon, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                            }
+                            Text(
+                                text = sub.label,
+                                color = if (isSelected) HiAnimePink else TextPrimary,
+                                fontWeight = FontWeight.SemiBold
+                            )
                             if (isSelected) {
-                                Text(text = "✓ Active", color = CrimsonNeon, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(text = "✓ Active", color = HiAnimePink, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -1266,7 +1795,7 @@ fun VideoPlayerScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = "🎨 Subtitle Styling & Delay (${uiState.subtitleFontSizeSp}sp • Delay ${uiState.subtitleDelayMs}ms)",
-                        color = CrimsonNeon,
+                        color = HiAnimePink,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -1280,23 +1809,6 @@ fun VideoPlayerScreen(
                             ) {
                                 Text(
                                     text = "${sz}sp",
-                                    color = Color.White,
-                                    fontSize = 11.sp,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                                )
-                            }
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("#FFEE00" to "Yellow", "#FFFFFF" to "White", "#00E5FF" to "Cyan", "#00E676" to "Green").forEach { (hex, name) ->
-                            Surface(
-                                onClick = { viewModel.updateSubtitleStyling(colorHex = hex) },
-                                shape = RoundedCornerShape(6.dp),
-                                color = if (uiState.subtitleColorHex == hex) CrimsonNeon else SurfaceDark
-                            ) {
-                                Text(
-                                    text = name,
                                     color = Color.White,
                                     fontSize = 11.sp,
                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
@@ -1348,9 +1860,9 @@ fun VideoPlayerScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(text = audio.label, color = if (isSelected) CrimsonNeon else TextPrimary, fontWeight = FontWeight.SemiBold)
+                            Text(text = audio.label, color = if (isSelected) HiAnimePink else TextPrimary, fontWeight = FontWeight.SemiBold)
                             if (isSelected) {
-                                Text(text = "✓ Selected", color = CrimsonNeon, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(text = "✓ Selected", color = HiAnimePink, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -1358,7 +1870,7 @@ fun VideoPlayerScreen(
             }
         }
 
-        // Speed Selection & Sleep Timer Sheet (0.5x, 0.75x, 1x, 1.25x, 1.5x, 1.75x, 2x)
+        // Speed Selection & Sleep Timer Sheet
         if (uiState.showSpeedSheet) {
             ModalBottomSheet(
                 onDismissRequest = { viewModel.setShowSpeedSheet(false) },
@@ -1376,9 +1888,9 @@ fun VideoPlayerScreen(
                                 .padding(vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(text = "${speed}x", color = if (isSelected) CrimsonNeon else TextPrimary, fontWeight = FontWeight.SemiBold)
+                            Text(text = "${speed}x", color = if (isSelected) HiAnimePink else TextPrimary, fontWeight = FontWeight.SemiBold)
                             if (isSelected) {
-                                Text(text = "✓ Active", color = CrimsonNeon, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(text = "✓ Active", color = HiAnimePink, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -1405,7 +1917,7 @@ fun VideoPlayerScreen(
             }
         }
 
-        // Custom Bookmarks & Personal Episode Notes Sheet (Sections 11 & 12)
+        // Custom Bookmarks & Personal Episode Notes Sheet
         if (uiState.showBookmarksNotesSheet) {
             val bookmarks by viewModel.videoBookmarks.collectAsStateWithLifecycle()
             val notes by viewModel.episodeNotes.collectAsStateWithLifecycle()
@@ -1427,7 +1939,7 @@ fun VideoPlayerScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Button(
                             onClick = {
-                                viewModel.addTimestampBookmark(bookmarkLabelInput.ifBlank { "Best fight / Key scene" })
+                                viewModel.addTimestampBookmark(bookmarkLabelInput.ifBlank { "Key Scene (Ep $currentEpNum)" })
                                 bookmarkLabelInput = ""
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon)
@@ -1436,7 +1948,7 @@ fun VideoPlayerScreen(
                         }
                         Button(
                             onClick = {
-                                viewModel.addPersonalEpisodeNote(noteTextInput.ifBlank { "এই episode-এর endingটা crazy ছিল 😂" })
+                                viewModel.addPersonalEpisodeNote(noteTextInput.ifBlank { "Great scene in Episode $currentEpNum!" })
                                 noteTextInput = ""
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF21293A))
@@ -1445,7 +1957,7 @@ fun VideoPlayerScreen(
                         }
                     }
                     Spacer(modifier = Modifier.height(10.dp))
-                    Text("Saved Scene Bookmarks:", color = CrimsonNeon, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("Saved Scene Bookmarks:", color = HiAnimePink, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     bookmarks.take(4).forEach { bm ->
                         Row(
                             modifier = Modifier
@@ -1459,11 +1971,11 @@ fun VideoPlayerScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text("${bm.formattedTimestamp} — ${bm.label}", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                            Text("Jump ⏩", color = CrimsonNeon, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text("Jump ⏩", color = HiAnimePink, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("Personal Episode Notes:", color = CrimsonNeon, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("Personal Episode Notes:", color = HiAnimePink, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     notes.take(3).forEach { note ->
                         Text(
                             text = "• Ep ${note.episodeNumber}: “${note.noteText}”",
@@ -1476,17 +1988,22 @@ fun VideoPlayerScreen(
             }
         }
 
-        // Episode List Sheet
+        // Episode List Modal Sheet (also accessible from Fullscreen mode)
         if (uiState.showEpisodeListSheet) {
             ModalBottomSheet(
                 onDismissRequest = { viewModel.setShowEpisodeListSheet(false) },
                 containerColor = SurfaceDark
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(text = "Select Episode", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = "Select Episode (1 - $totalEpisodesCount)",
+                        color = TextPrimary,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                     Spacer(modifier = Modifier.height(10.dp))
-                    LazyColumn(modifier = Modifier.height(350.dp)) {
-                        items(uiState.allEpisodes) { ep ->
+                    LazyColumn(modifier = Modifier.height(360.dp)) {
+                        items(uiState.allEpisodes, key = { it.id }) { ep ->
                             val isCurrent = uiState.currentEpisode?.id == ep.id
                             Row(
                                 modifier = Modifier
@@ -1498,22 +2015,30 @@ fun VideoPlayerScreen(
                                     .padding(vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = "Ep ${ep.episodeNumber}",
-                                    color = if (isCurrent) CrimsonNeon else TextMuted,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.width(48.dp)
-                                )
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = if (isCurrent) HiAnimePink else HiAnimeEpisodeIdle,
+                                    modifier = Modifier.width(54.dp)
+                                ) {
+                                    Text(
+                                        text = "Ep ${ep.episodeNumber}",
+                                        color = if (isCurrent) Color.Black else Color.White,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.padding(vertical = 4.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
                                 Text(
                                     text = ep.title,
-                                    color = if (isCurrent) CrimsonNeon else TextPrimary,
+                                    color = if (isCurrent) HiAnimePink else TextPrimary,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     modifier = Modifier.weight(1f)
                                 )
                                 if (isCurrent) {
-                                    Text(text = "NOW PLAYING", color = CrimsonNeon, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    Text(text = "NOW PLAYING", color = HiAnimePink, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -1524,9 +2049,62 @@ fun VideoPlayerScreen(
     }
 }
 
+@Composable
+private fun HiAnimeToggleChip(
+    label: String,
+    isEnabled: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(6.dp),
+        color = Color(0xFF252833)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "$label: ",
+                color = TextSecondary,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = if (isEnabled) "ON" else "OFF",
+                color = if (isEnabled) HiAnimePink else TextMuted,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.ExtraBold
+            )
+        }
+    }
+}
+
+@Composable
+private fun HiAnimeActionChip(
+    label: String,
+    onClick: () -> Unit,
+    testTag: String? = null
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(6.dp),
+        color = Color(0xFF252833),
+        modifier = if (testTag != null) Modifier.testTag(testTag) else Modifier
+    ) {
+        Text(
+            text = label,
+            color = Color.White,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+        )
+    }
+}
+
 private fun formatTime(ms: Long): String {
-    val totalSeconds = ms / 1000L
+    val totalSeconds = (ms / 1000L).coerceAtLeast(0L)
     val minutes = totalSeconds / 60
     val seconds = totalSeconds % 60
-    return String.format("%02d:%02d", minutes, seconds)
+    return String.format(Locale.US, "%02d:%02d", minutes, seconds)
 }

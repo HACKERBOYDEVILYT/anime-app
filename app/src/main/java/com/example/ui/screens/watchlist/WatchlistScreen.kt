@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
@@ -71,6 +72,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.data.model.WatchStatus
 import com.example.data.model.WatchlistItem
+import com.example.ui.components.ContinueWatchingRow
 import com.example.ui.theme.BackgroundDark
 import com.example.ui.theme.CardBorder
 import com.example.ui.theme.CrimsonNeon
@@ -88,9 +90,11 @@ import com.example.viewmodel.WatchlistViewModel
 fun WatchlistScreen(
     viewModel: WatchlistViewModel,
     onAnimeIdClick: (String) -> Unit,
+    onWatchEpisodeClick: (String, Int) -> Unit = { animeId, _ -> onAnimeIdClick(animeId) },
     modifier: Modifier = Modifier
 ) {
     val allItems by viewModel.allWatchlist.collectAsStateWithLifecycle()
+    val continueWatching by viewModel.continueWatching.collectAsStateWithLifecycle()
     val selectedStatus by viewModel.selectedStatus.collectAsStateWithLifecycle()
     val showFavoritesOnly by viewModel.showFavoritesOnly.collectAsStateWithLifecycle()
     val selectedCollectionId by viewModel.selectedCollectionId.collectAsStateWithLifecycle()
@@ -396,6 +400,16 @@ fun WatchlistScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
+                if (continueWatching.isNotEmpty()) {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        ContinueWatchingRow(
+                            items = continueWatching,
+                            onResumeClick = { item -> onWatchEpisodeClick(item.animeId, item.episodeNumber) },
+                            onRemoveClick = { item -> viewModel.removeContinueWatching(item) },
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
+                }
                 items(filteredItems, key = { it.animeId }) { item ->
                     Card(
                         colors = CardDefaults.cardColors(containerColor = SurfaceDark),
@@ -427,6 +441,16 @@ fun WatchlistScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
+                if (continueWatching.isNotEmpty()) {
+                    item {
+                        ContinueWatchingRow(
+                            items = continueWatching,
+                            onResumeClick = { item -> onWatchEpisodeClick(item.animeId, item.episodeNumber) },
+                            onRemoveClick = { item -> viewModel.removeContinueWatching(item) },
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
+                }
                 items(filteredItems, key = { it.animeId }) { item ->
                     WatchlistCardItem(
                         item = item,

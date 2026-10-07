@@ -7,15 +7,20 @@ import com.example.data.model.AnimeSortOption
 import com.example.data.model.AnimeStatus
 import com.example.data.model.AnimeType
 import com.example.data.model.CharacterProfile
+import com.example.data.model.WatchHistoryItem
 import com.example.data.network.CatalogNetworkMonitor
 import com.example.data.repository.AnimeRepository
 import com.example.data.repository.GamificationAndSocialRepository
+import com.example.data.repository.WatchRepository
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -63,12 +68,27 @@ data class SearchUiState(
 @OptIn(FlowPreview::class)
 class SearchViewModel(
     private val animeRepository: AnimeRepository,
+    private val watchRepository: WatchRepository? = null,
     private val gamificationRepository: GamificationAndSocialRepository = GamificationAndSocialRepository(),
     val catalogNetworkMonitor: CatalogNetworkMonitor = CatalogNetworkMonitor.getInstance()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SearchUiState())
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
+
+    val continueWatching: StateFlow<List<WatchHistoryItem>> =
+        (watchRepository?.getContinueWatching() ?: flowOf(emptyList()))
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = emptyList()
+            )
+
+    fun removeContinueWatching(item: WatchHistoryItem) {
+        viewModelScope.launch {
+            watchRepository?.removeHistoryItem(item.episodeId)
+        }
+    }
 
     private val queryFlow = MutableStateFlow("")
 

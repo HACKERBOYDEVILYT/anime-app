@@ -127,6 +127,27 @@
     .stream-meta p { font-size: 11px; color: var(--text-secondary); margin-top: 3px; }
 
     .anime-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+    .continue-watching-row {
+      display: flex; overflow-x: auto; gap: 14px; padding-bottom: 10px; scroll-behavior: smooth;
+      scrollbar-width: thin; scrollbar-color: var(--crimson-neon) var(--surface-dark);
+    }
+    .continue-card {
+      flex: 0 0 240px; background: var(--surface-dark); border: 1px solid var(--border-color);
+      border-radius: 12px; overflow: hidden; cursor: pointer; transition: transform 0.2s, border-color 0.2s;
+    }
+    .continue-card.last-watched { border-color: rgba(255,42,95,0.75); }
+    .continue-card:hover { transform: translateY(-3px); border-color: var(--crimson-neon); }
+    .continue-thumb { position: relative; height: 128px; background: #000; }
+    .continue-thumb img { width: 100%; height: 100%; object-fit: cover; opacity: 0.82; }
+    .continue-badge-left {
+      position: absolute; top: 8px; left: 8px; display: flex; gap: 6px; align-items: center;
+    }
+    .continue-badge-right {
+      position: absolute; bottom: 6px; right: 8px; background: rgba(0,0,0,0.82);
+      color: var(--cyan-glow); font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px;
+    }
+    .continue-progress-track { width: 100%; height: 5px; background: #262B38; }
+    .continue-progress-fill { height: 100%; background: linear-gradient(90deg, var(--crimson-neon), var(--cyan-glow)); transition: width 0.2s ease; }
     .anime-card {
       background: var(--surface-dark); border: 1px solid var(--border-color); border-radius: 12px;
       overflow: hidden; cursor: pointer; transition: transform 0.2s, border-color 0.2s;
@@ -337,6 +358,14 @@
     </div>
     <div class="stream-row" id="liveStreamRow"></div>
 
+    <div id="continueWatchingSection">
+      <div class="section-header">
+        <div class="section-title">▶️ Continue Watching</div>
+        <div class="section-sub" id="continueWatchingSub">Based on local watch history • Resume last watched</div>
+      </div>
+      <div class="continue-watching-row" id="continueWatchingRow"></div>
+    </div>
+
     <div class="section-header">
       <div class="section-title" id="catalogSectionTitle">🔥 Trending & Crunchyroll Simulcast Catalog</div>
       <div class="section-sub" id="catalogStatus">Synced with Live APIs</div>
@@ -361,7 +390,7 @@
       <div class="video-stage" id="videoStage" onclick="toggleModalPlay()">
         <video id="modalVideo" playsinline></video>
         <div class="player-key-toast" id="playerKeyToast">▶ Playing [Space]</div>
-        <div class="bangla-sub-overlay" id="banglaSubOverlay">আমরা একসাথে পরবর্তী রোমাঞ্চকর অভিযানের জন্য প্রস্তুত...</div>
+        <div id="modalEpCornerBadge" style="position:absolute;top:12px;left:12px;background:rgba(0,0,0,0.72);border:1px solid #FFBADE;color:#FFBADE;font-size:11px;font-weight:800;padding:4px 10px;border-radius:6px;pointer-events:none;">EP 1 • SUB • HD-1</div>
       </div>
 
       <div class="custom-progress-wrap">
@@ -396,9 +425,15 @@
           <button class="chip active" onclick="selectModalServer(0)">S-01</button>
         </div>
         <div class="chip-group">
-          <button class="chip active" id="subToggleBtn" onclick="toggleBanglaSub()">🇧🇩 Bangla Sub: ON</button>
           <button class="chip" id="modalFsChip" onclick="toggleModalFullscreen()">⛶ Fullscreen [F]</button>
         </div>
+      </div>
+      <div style="padding:10px 14px;background:#14151A;border-top:1px solid var(--card-border);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:12px;font-weight:800;color:#FFBADE;" id="modalWatchingBanner">You are watching Episode 1</span>
+          <span style="font-size:11px;color:var(--text-secondary);">HiAnime Episode List (Tap Episode #):</span>
+        </div>
+        <div id="modalEpisodeGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(42px,1fr));gap:6px;max-height:110px;overflow-y:auto;"></div>
       </div>
       <div class="kbd-hint-bar">
         <div>⌨️ Shortcuts: <span class="kbd-tag">Space</span> Play/Pause • <span class="kbd-tag">←</span> / <span class="kbd-tag">→</span> Seek ±10s • <span class="kbd-tag">↑</span> / <span class="kbd-tag">↓</span> Volume • <span class="kbd-tag">F</span> Fullscreen • <span class="kbd-tag">Esc</span> Exit</div>
@@ -423,23 +458,17 @@
 
   <script>
     const UPSTREAM_SERVERS = [
-      { code: "S-01", name: "Server-01 • Google Cloud Ultra CDN #1 (1080p MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4", isHls: false },
-      { code: "S-02", name: "Server-02 • Google Cloud Ultra CDN #2 (1080p MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4", isHls: false },
-      { code: "S-03", name: "Server-03 • Google Cloud Ultra CDN #3 (1080p MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4", isHls: false },
-      { code: "S-04", name: "Server-04 • Google Cloud Ultra CDN #4 (1080p MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4", isHls: false },
-      { code: "S-05", name: "Server-05 • Google Cloud Ultra CDN #5 (1080p MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4", isHls: false },
-      { code: "S-06", name: "Server-06 • Blender Open CDN #1 (Sintel 1080p MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4", isHls: false },
-      { code: "S-07", name: "Server-07 • Blender Open CDN #2 (TearsOfSteel 1080p MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4", isHls: false },
-      { code: "S-08", name: "Server-08 • Google Shaka Cloud HLS #1 (1080p m3u8)", url: "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8", isHls: true },
-      { code: "S-09", name: "Server-09 • Blender Open CDN #3 (BigBuckBunny 1080p MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", isHls: false },
-      { code: "S-10", name: "Server-10 • Blender Open CDN #4 (ElephantsDream 1080p MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4", isHls: false },
-      { code: "S-11", name: "Server-11 • Google Cloud Edge Mirror #6 (HD MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackSeeTheWorld.mp4", isHls: false },
-      { code: "S-12", name: "Server-12 • Google Cloud Edge Mirror #7 (HD MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4", isHls: false },
-      { code: "S-13", name: "Server-13 • Google Cloud Edge Mirror #8 (HD MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WhatCarCanYouGetForAGrand.mp4", isHls: false },
-      { code: "S-14", name: "Server-14 • Apple Global Edge HLS #1 (fMP4 Master)", url: "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8", isHls: true },
-      { code: "S-15", name: "Server-15 • Apple Global Edge HLS #2 (TS Master)", url: "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_16x9/bipbop_16x9_variant.m3u8", isHls: true },
-      { code: "S-16", name: "Server-16 • W3C Global Media CDN (Direct MP4)", url: "https://media.w3.org/2010/05/sintel/trailer.mp4", isHls: false },
-      { code: "S-17", name: "Server-17 • Unified Streaming Edge HLS (1080p)", url: "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8", isHls: true }
+      { code: "HD-1", name: "HD-1 (VidStreaming • SUB 1080p)", url: "https://v.animethemes.moe/SousouNoFrieren-OP1.webm", isHls: false },
+      { code: "HD-2", name: "HD-2 (MegaCloud • SUB 1080p)", url: "https://v.animethemes.moe/JujutsuKaisenS2-OP1.webm", isHls: false },
+      { code: "SSB", name: "StreamSB (HiAnime • 1080p)", url: "https://v.animethemes.moe/ChainsawMan-OP1.webm", isHls: false },
+      { code: "STape", name: "StreamTape (Fast Cloud • 1080p)", url: "https://v.animethemes.moe/SousouNoFrieren-ED1.webm", isHls: false },
+      { code: "CF-R2", name: "Cloudflare R2 + CDN (1080p)", url: "https://v.animethemes.moe/JujutsuKaisen-OP1.webm", isHls: false },
+      { code: "AWS-CF", name: "AWS S3 + CloudFront (1080p)", url: "https://v.animethemes.moe/SousouNoFrieren-ED1v2.webm", isHls: false },
+      { code: "Bunny", name: "Bunny.net Storage + CDN (1080p)", url: "https://v.animethemes.moe/SpyXFamily-ED1.webm", isHls: false },
+      { code: "CF-Str", name: "Cloudflare Stream (1080p)", url: "https://v.animethemes.moe/JujutsuKaisen-OP1v2.webm", isHls: false },
+      { code: "Mux", name: "Mux Professional Video (1080p)", url: "https://v.animethemes.moe/SousouNoFrieren-ED1v3.webm", isHls: false },
+      { code: "DUB-1", name: "HD-1 (VidStreaming • DUB 1080p)", url: "https://v.animethemes.moe/SousouNoFrieren-OP1.webm", isHls: false },
+      { code: "DUB-2", name: "HD-2 (MegaCloud • DUB 1080p)", url: "https://v.animethemes.moe/JujutsuKaisen-OP1.webm", isHls: false }
     ];
 
     const INITIAL_CATALOG = [
@@ -453,11 +482,94 @@
 
     let heroServerIndex = 0;
     let currentModalServerIndex = 0;
+    let currentPlayingAnime = null;
     let heroHls = null;
     let modalHls = null;
     let heroWatchdog = null;
     let modalWatchdog = null;
     let banglaSubEnabled = true;
+    const WATCH_HISTORY_STORAGE_KEY = "robiul_watch_history_v1";
+
+    function getLocalWatchHistory() {
+      try {
+        const raw = localStorage.getItem(WATCH_HISTORY_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (e) {}
+      const seeded = [
+        { id: "anime_1", title: "Frieren: Beyond Journey's End", episode: 7, episodeTitle: "Like a Fairy Tale", poster: "https://cdn.myanimelist.net/images/anime/1015/138006l.jpg", progressSec: 980, durationSec: 1440, serverIdx: 0, updatedAt: Date.now() - 120000 },
+        { id: "anime_3", title: "Solo Leveling", episode: 11, episodeTitle: "A Knight Who Defends an Empty Throne", poster: "https://cdn.myanimelist.net/images/anime/1801/142390l.jpg", progressSec: 748, durationSec: 1440, serverIdx: 1, updatedAt: Date.now() - 3600000 },
+        { id: "anime_2", title: "Jujutsu Kaisen Season 2", episode: 18, episodeTitle: "Right and Wrong", poster: "https://cdn.myanimelist.net/images/anime/1792/138022l.jpg", progressSec: 1152, durationSec: 1440, serverIdx: 2, updatedAt: Date.now() - 7200000 },
+        { id: "anime_4", title: "Demon Slayer: Hashira Training Arc", episode: 5, episodeTitle: "Eat Up the Demons", poster: "https://cdn.myanimelist.net/images/anime/1286/99889l.jpg", progressSec: 504, durationSec: 1440, serverIdx: 0, updatedAt: Date.now() - 14400000 }
+      ];
+      try { localStorage.setItem(WATCH_HISTORY_STORAGE_KEY, JSON.stringify(seeded)); } catch (e) {}
+      return seeded;
+    }
+
+    function saveLocalWatchHistoryItem(title, episode, progressSec, durationSec, serverIdx, posterUrl) {
+      const history = getLocalWatchHistory();
+      const catalogMatch = INITIAL_CATALOG.find(item => item.title === title) || INITIAL_CATALOG[0];
+      const safeDur = (!durationSec || isNaN(durationSec) || durationSec <= 0) ? 1440 : Math.round(durationSec);
+      const safeProg = Math.max(30, Math.min(safeDur - 10, Math.round(progressSec || 240)));
+      const entry = {
+        id: catalogMatch.id || ("cw_" + title.replace(/\W+/g, "_").toLowerCase()),
+        title: title,
+        episode: episode || 1,
+        episodeTitle: `Episode ${episode || 1} • 1080p Stream`,
+        poster: posterUrl || catalogMatch.poster,
+        progressSec: safeProg,
+        durationSec: safeDur,
+        serverIdx: serverIdx || 0,
+        updatedAt: Date.now()
+      };
+      const filtered = history.filter(item => item.title !== title);
+      const updated = [entry, ...filtered].slice(0, 10);
+      try { localStorage.setItem(WATCH_HISTORY_STORAGE_KEY, JSON.stringify(updated)); } catch (e) {}
+      renderContinueWatching();
+    }
+
+    function renderContinueWatching() {
+      const row = document.getElementById("continueWatchingRow");
+      const section = document.getElementById("continueWatchingSection");
+      const sub = document.getElementById("continueWatchingSub");
+      if (!row || !section) return;
+      const history = getLocalWatchHistory().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      if (history.length === 0) {
+        section.style.display = "none";
+        return;
+      }
+      section.style.display = "block";
+      if (sub) sub.textContent = `${history.length} in progress • Based on local watch history`;
+      row.innerHTML = history.map((item, idx) => {
+        const dur = Math.max(1, item.durationSec || 1440);
+        const prog = Math.max(0, Math.min(dur, item.progressSec || 0));
+        const pct = Math.max(4, Math.min(99, Math.round((prog / dur) * 100)));
+        const remMin = Math.max(1, Math.round((dur - prog) / 60));
+        const safeTitle = (item.title || "").replace(/'/g, "\\'");
+        return `
+          <div class="continue-card ${idx === 0 ? 'last-watched' : ''}" onclick="openPlayerModal('${safeTitle}', ${item.episode || 1}, ${item.serverIdx || 0})">
+            <div class="continue-thumb">
+              <img src="${item.poster}" alt="${item.title}" loading="lazy" />
+              <div class="continue-badge-left">
+                ${idx === 0 ? '<span class="badge badge-crimson">LAST WATCHED</span>' : ''}
+                <span class="badge badge-cyan">EP ${item.episode || 1}</span>
+              </div>
+              <div class="stream-play-btn">▶</div>
+              <div class="continue-badge-right">${pct}% • ${remMin}m left</div>
+            </div>
+            <div class="continue-progress-track">
+              <div class="continue-progress-fill" style="width:${pct}%;"></div>
+            </div>
+            <div class="stream-meta">
+              <h4>${item.title}</h4>
+              <p>Episode ${item.episode || 1} • ${formatTimeSec(prog)} / ${formatTimeSec(dur)}</p>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
 
     function renderModalServerButtons() {
       const group = document.getElementById("serverSelectorGroup");
@@ -594,7 +706,41 @@
       document.getElementById("heroVideo").pause();
       document.getElementById("modalAnimeTitle").textContent = title;
       document.getElementById("playerModal").classList.add("active");
+      const existing = getLocalWatchHistory().find(item => item.title === title);
+      const initialProg = existing ? existing.progressSec : 240;
+      const initialDur = existing ? existing.durationSec : 1440;
+      const activeEp = ep || (existing ? existing.episode : 1);
+      currentPlayingAnime = { title: title, episode: activeEp, serverIdx: serverIdx || 0 };
+      saveLocalWatchHistoryItem(title, activeEp, initialProg, initialDur, currentPlayingAnime.serverIdx);
+      renderModalEpisodeGrid();
       selectModalServer(serverIdx || 0);
+    }
+
+    function selectModalEpisode(epNum) {
+      if (!currentPlayingAnime) currentPlayingAnime = { title: "Frieren: Beyond Journey's End", episode: epNum, serverIdx: 0 };
+      currentPlayingAnime.episode = epNum;
+      saveLocalWatchHistoryItem(currentPlayingAnime.title, epNum, 180, 1440, currentModalServerIndex);
+      renderModalEpisodeGrid();
+      selectModalServer((epNum - 1) % UPSTREAM_SERVERS.length);
+      showPlayerKeyToast(`▶ Playing Episode ${epNum}`);
+    }
+
+    function renderModalEpisodeGrid() {
+      const grid = document.getElementById("modalEpisodeGrid");
+      if (!grid) return;
+      const activeEp = currentPlayingAnime ? currentPlayingAnime.episode : 1;
+      const banner = document.getElementById("modalWatchingBanner");
+      if (banner) banner.textContent = `You are watching Episode ${activeEp}`;
+      const match = INITIAL_CATALOG.find(a => currentPlayingAnime && a.title === currentPlayingAnime.title);
+      const totalEps = Math.min(28, (match && match.episodes) ? match.episodes : 24);
+      let html = "";
+      for (let i = 1; i <= totalEps; i++) {
+        const isCurrent = i === activeEp;
+        const bg = isCurrent ? "#FFBADE" : "#252833";
+        const fg = isCurrent ? "#000000" : "#FFFFFF";
+        html += `<button onclick="selectModalEpisode(${i})" style="background:${bg};color:${fg};border:none;border-radius:6px;padding:6px 0;font-size:12px;font-weight:800;cursor:pointer;">${isCurrent ? "▶ " + i : i}</button>`;
+      }
+      grid.innerHTML = html;
     }
 
     function closePlayerModal() {
@@ -607,7 +753,10 @@
     function selectModalServer(idx) {
       currentModalServerIndex = idx % UPSTREAM_SERVERS.length;
       const srv = UPSTREAM_SERVERS[currentModalServerIndex];
-      document.getElementById("modalEpisodeSub").textContent = `Episode 1 • ${srv.name} (Auto-Failover: 17 Servers)`;
+      const epNum = currentPlayingAnime ? currentPlayingAnime.episode : 1;
+      document.getElementById("modalEpisodeSub").textContent = `Episode ${epNum} • ${srv.name}`;
+      const corner = document.getElementById("modalEpCornerBadge");
+      if (corner) corner.textContent = `EP ${epNum} • ${srv.code}`;
       renderModalServerButtons();
       attachStream(document.getElementById("modalVideo"), srv, false);
     }
@@ -860,6 +1009,7 @@
           urlDisplay.textContent = "http://127.0.0.1:8080";
         }
       }
+      renderContinueWatching();
       renderStreamsAndCatalog(INITIAL_CATALOG);
       initHeroStream();
 

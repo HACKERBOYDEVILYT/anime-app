@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- Production security: Enforce HTTPS-only by default across all external domains -->
-    <base-config cleartextTrafficPermitted="false">
+    <!-- Cross-version compatibility (Android 7.0 Nougat through Android 16): trust system & user CAs and support both HTTPS CDN and local/VPS HTTP streams -->
+    <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system" />
+            <certificates src="user" />
         </trust-anchors>
     </base-config>
 
-    <!-- Permit loopback interface only for the built-in local web portal server -->
+    <!-- Permit loopback interface for the built-in local web portal server -->
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="false">127.0.0.1</domain>
         <domain includeSubdomains="false">localhost</domain>
