@@ -38,7 +38,6 @@ import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -113,7 +112,6 @@ fun HomeScreen(
     onQuizClick: () -> Unit = {},
     onMalSyncClick: () -> Unit = {},
     onPartyClick: () -> Unit = {},
-    onRadioClick: () -> Unit = {},
     onTierListClick: () -> Unit = {},
     onQuotesClick: () -> Unit = {},
     onWebPortalClick: () -> Unit = {},
@@ -337,7 +335,6 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         QuickHubButton("Watch Party", "🎉", Icons.Default.Group, onPartyClick, Modifier.weight(1f))
-                        QuickHubButton("OST Radio", "🎵", Icons.Default.Radio, onRadioClick, Modifier.weight(1f))
                         QuickHubButton("Tier Maker", "🏆", Icons.Default.FormatListNumbered, onTierListClick, Modifier.weight(1f))
                         QuickHubButton("Quotes", "💬", Icons.Default.FormatQuote, onQuotesClick, Modifier.weight(1f))
                     }

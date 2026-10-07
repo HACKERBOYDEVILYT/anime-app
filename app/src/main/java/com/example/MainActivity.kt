@@ -39,7 +39,6 @@ import com.example.ui.screens.player.VideoPlayerScreen
 import com.example.ui.screens.profile.ProfileScreen
 import com.example.ui.screens.quiz.AnimeQuizScreen
 import com.example.ui.screens.quotes.AnimeQuotesScreen
-import com.example.ui.screens.radio.AnimeRadioScreen
 import com.example.ui.screens.schedule.ScheduleScreen
 import com.example.ui.screens.search.SearchScreen
 import com.example.ui.screens.tier.TierListScreen
@@ -177,9 +176,6 @@ fun KuroStreamApp(container: KuroAppContainer) {
                         },
                         onPartyClick = {
                             navController.navigate(Screen.WatchParty.route)
-                        },
-                        onRadioClick = {
-                            navController.navigate(Screen.AnimeRadio.route)
                         },
                         onTierListClick = {
                             navController.navigate(Screen.TierList.route)
@@ -346,14 +342,6 @@ fun KuroStreamApp(container: KuroAppContainer) {
                 composable(Screen.WatchParty.route) {
                     WatchPartyScreen(
                         watchPartyRepository = container.watchPartyRepository,
-                        onBack = { navController.popBackStack() }
-                    )
-                }
-
-                // 24/7 Anime Radio Screen
-                composable(Screen.AnimeRadio.route) {
-                    AnimeRadioScreen(
-                        radioRepository = container.radioRepository,
                         onBack = { navController.popBackStack() }
                     )
                 }

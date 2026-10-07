@@ -244,13 +244,6 @@
       padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;
     }
     .chip.active { background: var(--crimson-neon); border-color: var(--crimson-neon); color: #fff; }
-
-    .radio-dock {
-      position: fixed; bottom: 0; left: 0; right: 0; z-index: 90;
-      background: rgba(20, 22, 29, 0.96); backdrop-filter: blur(12px);
-      border-top: 1px solid rgba(0, 240, 255, 0.3); padding: 10px 20px;
-      display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
-    }
   </style>
 </head>
 <body>
@@ -439,20 +432,6 @@
         <div>⌨️ Shortcuts: <span class="kbd-tag">Space</span> Play/Pause • <span class="kbd-tag">←</span> / <span class="kbd-tag">→</span> Seek ±10s • <span class="kbd-tag">↑</span> / <span class="kbd-tag">↓</span> Volume • <span class="kbd-tag">F</span> Fullscreen • <span class="kbd-tag">Esc</span> Exit</div>
         <div id="kbdLastAction" style="color:#00FF66;">Ready</div>
       </div>
-    </div>
-  </div>
-
-  <div class="radio-dock">
-    <div style="display:flex;align-items:center;gap:10px;">
-      <span class="dot-live"></span>
-      <div>
-        <div style="font-size:12px;font-weight:800;" id="radioStationTitle">📻 LISTEN.moe • 24/7 Anime & J-Pop Radio</div>
-        <div style="font-size:10px;color:var(--text-secondary);">Direct Icecast Stream • Synchronized with Android App</div>
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <audio id="radioAudio" preload="none" src="https://listen.moe/stream"></audio>
-      <button class="btn btn-outline" onclick="toggleRadio()" id="radioPlayBtn">▶ Play 24/7 Radio</button>
     </div>
   </div>
 
@@ -922,18 +901,6 @@
         document.getElementById("bufferPctText").textContent = `Buffer ${bufPct}%`;
       }
     });
-
-    function toggleRadio() {
-      const audio = document.getElementById("radioAudio");
-      const btn = document.getElementById("radioPlayBtn");
-      if (audio.paused) {
-        audio.play();
-        btn.textContent = "⏸ Pause Radio";
-      } else {
-        audio.pause();
-        btn.textContent = "▶ Play 24/7 Radio";
-      }
-    }
 
     function copyCurrentWebUrl() {
       const urlEl = document.getElementById("currentWebUrlDisplay");

@@ -13,7 +13,6 @@ sealed class Screen(val route: String) {
     object Quiz : Screen("quiz")
     object MalSync : Screen("mal_sync")
     object WatchParty : Screen("watch_party")
-    object AnimeRadio : Screen("anime_radio")
     object TierList : Screen("tier_list")
     object Quotes : Screen("quotes")
     object WebPortal : Screen("web_portal")

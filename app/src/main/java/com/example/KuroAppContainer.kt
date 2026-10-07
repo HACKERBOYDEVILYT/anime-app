@@ -13,7 +13,6 @@ import com.example.data.repository.GamificationAndSocialRepository
 import com.example.data.repository.LocalLicensedMediaProvider
 import com.example.data.repository.MalSyncRepository
 import com.example.data.repository.QuotesRepository
-import com.example.data.repository.RadioRepository
 import com.example.data.repository.RetrofitMetadataProvider
 import com.example.data.repository.ScheduleRepository
 import com.example.data.repository.TierListRepository
@@ -85,8 +84,6 @@ class KuroAppContainer(context: Context) {
     )
 
     val quotesRepository: QuotesRepository = QuotesRepository()
-
-    val radioRepository: RadioRepository = RadioRepository()
 
     val gamificationRepository: GamificationAndSocialRepository = GamificationAndSocialRepository(
         cloudSyncManager = cloudSyncManager
