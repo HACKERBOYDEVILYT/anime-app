@@ -215,3 +215,61 @@ data class ReviewDto(
     @Json(name = "createdAt") val createdAt: Long,
     @Json(name = "likesCount") val likesCount: Int = 0
 )
+
+// ==========================================================
+// Enterprise Cloud Streaming Infrastructure & 18-Module APIs
+// ==========================================================
+
+@JsonClass(generateAdapter = true)
+data class CloudStreamingProviderDto(
+    @Json(name = "id") val id: String,
+    @Json(name = "serviceName") val serviceName: String,
+    @Json(name = "bestForPurpose") val bestForPurpose: String,
+    @Json(name = "streamingProtocol") val streamingProtocol: String,
+    @Json(name = "apiEndpoint") val apiEndpoint: String,
+    @Json(name = "streamUrl") val streamUrl: String,
+    @Json(name = "latencyMs") val latencyMs: Int,
+    @Json(name = "reliabilityScore") val reliabilityScore: Float,
+    @Json(name = "edgeRegion") val edgeRegion: String,
+    @Json(name = "isHealthy") val isHealthy: Boolean = true
+)
+
+@JsonClass(generateAdapter = true)
+data class AiAssistantRequestDto(
+    @Json(name = "prompt") val prompt: String,
+    @Json(name = "mode") val mode: String = "ASSISTANT",
+    @Json(name = "spoilerSafeEpisode") val spoilerSafeEpisode: Int = 1,
+    @Json(name = "mood") val mood: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class AiAssistantResponseDto(
+    @Json(name = "reply") val reply: String,
+    @Json(name = "model") val model: String = "gemini-3.5-flash",
+    @Json(name = "recommendedAnimeIds") val recommendedAnimeIds: List<String> = emptyList(),
+    @Json(name = "spoilerFree") val spoilerFree: Boolean = true
+)
+
+@JsonClass(generateAdapter = true)
+data class SkipTimestampsDto(
+    @Json(name = "animeId") val animeId: String,
+    @Json(name = "episodeNumber") val episodeNumber: Int,
+    @Json(name = "recapStartSec") val recapStartSec: Long = 0L,
+    @Json(name = "recapEndSec") val recapEndSec: Long = 35L,
+    @Json(name = "introStartSec") val introStartSec: Long = 85L,
+    @Json(name = "introEndSec") val introEndSec: Long = 175L,
+    @Json(name = "outroStartSec") val outroStartSec: Long = 1320L,
+    @Json(name = "outroEndSec") val outroEndSec: Long = 1410L,
+    @Json(name = "autoSkipEnabled") val autoSkipEnabled: Boolean = true
+)
+
+@JsonClass(generateAdapter = true)
+data class EnterpriseModuleStatusDto(
+    @Json(name = "moduleId") val moduleId: String,
+    @Json(name = "categoryName") val categoryName: String,
+    @Json(name = "apiEndpoint") val apiEndpoint: String,
+    @Json(name = "activeFeaturesCount") val activeFeaturesCount: Int,
+    @Json(name = "status") val status: String = "ONLINE",
+    @Json(name = "uptimePercent") val uptimePercent: Float = 99.98f
+)
+

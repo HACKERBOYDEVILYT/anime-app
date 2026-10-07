@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FormatListNumbered
 import androidx.compose.material.icons.filled.FormatQuote
@@ -112,6 +113,7 @@ fun HomeScreen(
     onQuizClick: () -> Unit = {},
     onMalSyncClick: () -> Unit = {},
     onPartyClick: () -> Unit = {},
+    onCloudApiClick: () -> Unit = {},
     onTierListClick: () -> Unit = {},
     onQuotesClick: () -> Unit = {},
     onWebPortalClick: () -> Unit = {},
@@ -334,9 +336,107 @@ fun HomeScreen(
                             .padding(horizontal = 16.dp, vertical = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
+                        QuickHubButton("Cloud & AI API", "⚡", Icons.Default.Dns, onCloudApiClick, Modifier.weight(1f))
                         QuickHubButton("Watch Party", "🎉", Icons.Default.Group, onPartyClick, Modifier.weight(1f))
                         QuickHubButton("Tier Maker", "🏆", Icons.Default.FormatListNumbered, onTierListClick, Modifier.weight(1f))
                         QuickHubButton("Quotes", "💬", Icons.Default.FormatQuote, onQuotesClick, Modifier.weight(1f))
+                    }
+                }
+
+                // 🌐 Enterprise 6 Cloud Streaming APIs & 18-Module Hub Card
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 6.dp)
+                            .border(1.dp, EmeraldSuccess.copy(alpha = 0.45f), RoundedCornerShape(14.dp))
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "🌐 6 Cloud Streaming APIs & 18 Modules",
+                                        color = TextPrimary,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
+                                    Text(
+                                        text = "Cloudflare R2 • AWS CloudFront • Bunny CDN • CF Stream • Mux • VPS Nginx",
+                                        color = EmeraldSuccess,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                                Surface(
+                                    onClick = onCloudApiClick,
+                                    color = CrimsonNeon,
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.testTag("home_open_cloud_api_hub_btn")
+                                ) {
+                                    Text(
+                                        text = "Open API Hub →",
+                                        color = Color.White,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            val streamingTableRows = listOf(
+                                Triple("Cloudflare R2 + Cloudflare CDN", "Anime video storage + delivery", "✅ HLS"),
+                                Triple("AWS S3 + CloudFront", "বড়-scale production", "✅ HLS/DASH"),
+                                Triple("Bunny.net Storage + Bunny CDN", "কম খরচে ভিডিও delivery", "✅ HLS"),
+                                Triple("Cloudflare Stream", "Video upload + encoding + streaming", "✅ HLS"),
+                                Triple("Mux", "Professional video platform", "✅ HLS"),
+                                Triple("Self-hosted VPS + Nginx", "নিজের server/control", "✅ HLS")
+                            )
+
+                            streamingTableRows.forEach { (service, purpose, proto) ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { onWatchEpisodeClick("anime_1", 1) }
+                                        .padding(vertical = 3.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = service,
+                                            color = TextPrimary,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = purpose,
+                                            color = TextSecondary,
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                    Surface(
+                                        color = EmeraldSuccess.copy(alpha = 0.16f),
+                                        shape = RoundedCornerShape(6.dp)
+                                    ) {
+                                        Text(
+                                            text = proto,
+                                            color = EmeraldSuccess,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 

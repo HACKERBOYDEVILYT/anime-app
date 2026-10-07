@@ -177,6 +177,9 @@ fun KuroStreamApp(container: KuroAppContainer) {
                         onPartyClick = {
                             navController.navigate(Screen.WatchParty.route)
                         },
+                        onCloudApiClick = {
+                            navController.navigate(Screen.Browse.route)
+                        },
                         onTierListClick = {
                             navController.navigate(Screen.TierList.route)
                         },

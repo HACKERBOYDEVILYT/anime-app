@@ -1,14 +1,19 @@
 package com.example.data.network
 
+import com.example.data.network.model.AiAssistantRequestDto
+import com.example.data.network.model.AiAssistantResponseDto
 import com.example.data.network.model.AnimeDto
 import com.example.data.network.model.ApiResponse
 import com.example.data.network.model.AuthResponse
+import com.example.data.network.model.CloudStreamingProviderDto
+import com.example.data.network.model.EnterpriseModuleStatusDto
 import com.example.data.network.model.EpisodeDto
 import com.example.data.network.model.LoginRequest
 import com.example.data.network.model.PlaybackSessionResponse
 import com.example.data.network.model.RegisterRequest
 import com.example.data.network.model.ReviewCreateRequest
 import com.example.data.network.model.ReviewDto
+import com.example.data.network.model.SkipTimestampsDto
 import com.example.data.network.model.StreamAuthorizationRequest
 import com.example.data.network.model.UserDto
 import com.example.data.network.model.WatchProgressDto
@@ -167,4 +172,72 @@ interface KuroApiService {
         @Header("Authorization") token: String? = null,
         @Path("id") reviewId: String
     ): ApiResponse<Boolean>
+
+    // =========================================================================
+    // 6 Cloud Streaming Infrastructure APIs (R2, AWS, Bunny, CF Stream, Mux, VPS)
+    // =========================================================================
+
+    @GET("api/v1/streaming/providers")
+    suspend fun getCloudStreamingProviders(): ApiResponse<List<CloudStreamingProviderDto>>
+
+    @POST("api/v1/streaming/{providerId}/authorize-hls")
+    suspend fun authorizeCloudStreamingProvider(
+        @Path("providerId") providerId: String,
+        @Body request: StreamAuthorizationRequest
+    ): ApiResponse<PlaybackSessionResponse>
+
+    @GET("api/v1/streaming/cloudflare-r2/hls")
+    suspend fun getCloudflareR2HlsManifest(
+        @Query("animeId") animeId: String,
+        @Query("episode") episode: Int = 1
+    ): ApiResponse<CloudStreamingProviderDto>
+
+    @GET("api/v1/streaming/aws-cloudfront/hls-dash")
+    suspend fun getAwsCloudFrontHlsDashManifest(
+        @Query("animeId") animeId: String,
+        @Query("episode") episode: Int = 1
+    ): ApiResponse<CloudStreamingProviderDto>
+
+    @GET("api/v1/streaming/bunny-cdn/hls")
+    suspend fun getBunnyCdnHlsManifest(
+        @Query("animeId") animeId: String,
+        @Query("episode") episode: Int = 1
+    ): ApiResponse<CloudStreamingProviderDto>
+
+    @GET("api/v1/streaming/cloudflare-stream/hls")
+    suspend fun getCloudflareStreamManifest(
+        @Query("animeId") animeId: String,
+        @Query("episode") episode: Int = 1
+    ): ApiResponse<CloudStreamingProviderDto>
+
+    @GET("api/v1/streaming/mux/hls")
+    suspend fun getMuxVideoHlsManifest(
+        @Query("animeId") animeId: String,
+        @Query("episode") episode: Int = 1
+    ): ApiResponse<CloudStreamingProviderDto>
+
+    @GET("api/v1/streaming/vps-nginx/hls")
+    suspend fun getSelfHostedVpsNginxHlsManifest(
+        @Query("animeId") animeId: String,
+        @Query("episode") episode: Int = 1
+    ): ApiResponse<CloudStreamingProviderDto>
+
+    // =========================================================================
+    // 18 Enterprise Feature Modules API Endpoints (AI, Player, Security, Admin)
+    // =========================================================================
+
+    @POST("api/v1/ai/assistant")
+    suspend fun queryAiAnimeAssistant(
+        @Body request: AiAssistantRequestDto
+    ): ApiResponse<AiAssistantResponseDto>
+
+    @GET("api/v1/player/skip-db/{animeId}/{episode}")
+    suspend fun getEpisodeSkipTimestamps(
+        @Path("animeId") animeId: String,
+        @Path("episode") episodeNumber: Int
+    ): ApiResponse<SkipTimestampsDto>
+
+    @GET("api/v1/enterprise/modules-status")
+    suspend fun getEnterpriseModulesStatus(): ApiResponse<List<EnterpriseModuleStatusDto>>
 }
+
