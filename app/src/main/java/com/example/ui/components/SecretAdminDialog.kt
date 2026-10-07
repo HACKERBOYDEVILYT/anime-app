@@ -96,7 +96,7 @@ fun SecretAdminDialog(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "Robiul [RS] • Root Gateway",
+                    text = "Robiul • Root Gateway",
                     color = TextPrimary,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold

@@ -102,50 +102,50 @@ private data class GitHubServerPreset(
 
 private val GITHUB_VIDEO_SERVER_PRESETS = listOf(
     GitHubServerPreset(
+        name = "Bunny.net Storage + Bunny CDN (robiulislam.b-cdn.net • ✅ HLS)",
+        streamUrl = "https://robiulislam.b-cdn.net/images/logo.png",
+        category = "Bunny.net Storage + CDN (✅ HLS)",
+        repoLabel = "কম খরচে ভিডিও delivery • robiulislam.b-cdn.net/images/logo.png"
+    ),
+    GitHubServerPreset(
         name = "Cloudflare R2 + Cloudflare CDN (✅ HLS)",
-        streamUrl = "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8",
+        streamUrl = "https://v.animethemes.moe/SousouNoFrieren-OP1.webm",
         category = "Cloudflare R2 + CDN (✅ HLS)",
         repoLabel = "Anime video storage + delivery • ✅ HLS"
     ),
     GitHubServerPreset(
         name = "AWS S3 + CloudFront (✅ HLS/DASH)",
-        streamUrl = "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8",
+        streamUrl = "https://v.animethemes.moe/JujutsuKaisenS2-OP1.webm",
         category = "AWS S3 + CloudFront (✅ HLS/DASH)",
         repoLabel = "বড়-scale production • ✅ HLS/DASH"
     ),
     GitHubServerPreset(
-        name = "Bunny.net Storage + Bunny CDN (✅ HLS)",
-        streamUrl = "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8",
-        category = "Bunny.net Storage + CDN (✅ HLS)",
-        repoLabel = "কম খরচে ভিডিও delivery • ✅ HLS"
-    ),
-    GitHubServerPreset(
         name = "Cloudflare Stream (✅ HLS)",
-        streamUrl = "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_16x9/bipbop_16x9_variant.m3u8",
+        streamUrl = "https://v.animethemes.moe/SoloLeveling-OP1.webm",
         category = "Cloudflare Stream (✅ HLS)",
         repoLabel = "Video upload + encoding + streaming • ✅ HLS"
     ),
     GitHubServerPreset(
         name = "Mux Professional Video (✅ HLS)",
-        streamUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+        streamUrl = "https://v.animethemes.moe/KimetsuNoYaiba-OP1.webm",
         category = "Mux Video Platform (✅ HLS)",
         repoLabel = "Professional video platform • ✅ HLS"
     ),
     GitHubServerPreset(
         name = "Self-hosted VPS + Nginx (✅ HLS)",
-        streamUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+        streamUrl = "https://v.animethemes.moe/ChainsawMan-OP1.webm",
         category = "Self-hosted VPS + Nginx (✅ HLS)",
         repoLabel = "নিজের server/control • ✅ HLS"
     ),
     GitHubServerPreset(
         name = "Consumet • HiAnime MegaCloud 1080p",
-        streamUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+        streamUrl = "https://v.animethemes.moe/ShingekiNoKyojin-OP1.webm",
         category = "GitHub Consumet Server",
         repoLabel = "github.com/consumet/api.consumet.org"
     ),
     GitHubServerPreset(
-        name = "AniWatch API • VidCloud Multi-Sub HLS",
-        streamUrl = "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8",
+        name = "AniWatch API • VidCloud Multi-Sub",
+        streamUrl = "https://v.animethemes.moe/SpyXFamily-OP1.webm",
         category = "GitHub AniWatch Server",
         repoLabel = "github.com/ghoshRitesh12/aniwatch-api"
     )
@@ -833,7 +833,7 @@ private fun CleanEpisodeStreamsTab(
     var episodeNumberText by remember { mutableStateOf("1") }
     var episodeTitle by remember { mutableStateOf("Episode 1 • 1080p HD") }
     var streamUrl by remember {
-        mutableStateOf("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4")
+        mutableStateOf("https://v.animethemes.moe/SousouNoFrieren-OP1.webm")
     }
     var serverSource by remember { mutableStateOf("HiAnime MegaCloud (Consumet)") }
     var qualityLabel by remember { mutableStateOf("1080p HD") }

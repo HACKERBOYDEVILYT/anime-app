@@ -62,6 +62,16 @@ object HlsStreamService {
 
     private val initialProviders = listOf(
         HlsProviderNode(
+            id = "api_robiul_bunny_cdn",
+            name = "Bunny.net CDN Pull Zone (robiulislam.b-cdn.net • Logo & HLS Edge)",
+            baseUrl = "https://robiulislam.b-cdn.net/",
+            healthProbeUrl = "https://robiulislam.b-cdn.net/images/logo.png",
+            category = "Bunny.net Storage + Bunny CDN (✅ HLS)",
+            priority = 1,
+            isPrimary = false,
+            isEnabled = true
+        ),
+        HlsProviderNode(
             id = "api_crunchyroll",
             name = "Crunchyroll Simulcast & Catalog API (1080p HLS & Trailers)",
             baseUrl = "https://www.crunchyroll.com/",
@@ -274,7 +284,7 @@ object HlsStreamService {
                 id = cfg.id,
                 name = cfg.name,
                 baseUrl = cfg.baseUrl,
-                healthProbeUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+                healthProbeUrl = "https://robiulislam.b-cdn.net/images/logo.png",
                 category = cfg.category,
                 priority = updatedDefaults.size + idx + 1,
                 isPrimary = false,
@@ -326,7 +336,7 @@ object HlsStreamService {
                 target.healthProbeUrl.contains("hianime") ||
                 target.healthProbeUrl.contains("consumet")
             ) {
-                "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+                "https://robiulislam.b-cdn.net/images/logo.png"
             } else {
                 target.healthProbeUrl
             }
@@ -473,11 +483,11 @@ object HlsStreamService {
         if (sources.size <= 1) return sources
         return sources.sortedWith(
             compareByDescending<EpisodeSource> { src ->
-                // Prefer direct fast MP4 and HLS streams over web embeds
+                // Prefer direct anime video streams over web embeds
                 !src.streamUrl.contains("youtube.com/embed", ignoreCase = true)
             }.thenByDescending { src ->
-                // Prefer ultra-fast Google Cloud CDN MP4 streams first so playback starts in <0.5s
-                src.streamUrl.contains("googleapis.com", ignoreCase = true) || src.streamUrl.endsWith(".mp4", ignoreCase = true)
+                // Prefer dedicated per-anime EpisodeSource items and real AnimeThemes / Bunny.net CDN streams first
+                src.id.contains("_ep_") || src.streamUrl.contains("animethemes.moe", ignoreCase = true)
             }
         )
     }

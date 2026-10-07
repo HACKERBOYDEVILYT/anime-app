@@ -250,10 +250,12 @@
 
   <header>
     <div class="brand" onclick="window.scrollTo({top:0,behavior:'smooth'})">
-      <div class="brand-logo">R<span>S</span></div>
+      <div class="brand-logo" style="position:relative;overflow:hidden;">
+        <img src="https://robiulislam.b-cdn.net/images/logo.png" alt="Robiul Bunny.net CDN Logo" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;" onerror="this.style.display='none'" />
+        <span style="position:relative;z-index:1;color:#00E5FF;font-size:16px;">▶</span>
+      </div>
       <div>
-        <div class="brand-title">ROBIUL<span>[RS]</span></div>
-        <div style="font-size:10px;color:#00FF66;font-weight:700;font-family:monospace;">&gt;_ RS_HACKER // WEB &amp; APP</div>
+        <div class="brand-title">ROBIUL</div>
       </div>
       <div class="sync-badge" id="syncBadge">
         <span class="dot-live"></span>
@@ -443,7 +445,7 @@
       { code: "STape", name: "StreamTape (Fast Cloud • 1080p)", url: "https://v.animethemes.moe/SousouNoFrieren-ED1.webm", isHls: false },
       { code: "CF-R2", name: "Cloudflare R2 + CDN (1080p)", url: "https://v.animethemes.moe/JujutsuKaisen-OP1.webm", isHls: false },
       { code: "AWS-CF", name: "AWS S3 + CloudFront (1080p)", url: "https://v.animethemes.moe/SousouNoFrieren-ED1v2.webm", isHls: false },
-      { code: "Bunny", name: "Bunny.net Storage + CDN (1080p)", url: "https://v.animethemes.moe/SpyXFamily-ED1.webm", isHls: false },
+      { code: "Bunny", name: "Bunny.net Storage + CDN (robiulislam.b-cdn.net • 1080p)", url: "https://v.animethemes.moe/SpyXFamily-ED1.webm", logoUrl: "https://robiulislam.b-cdn.net/images/logo.png", isHls: false },
       { code: "CF-Str", name: "Cloudflare Stream (1080p)", url: "https://v.animethemes.moe/JujutsuKaisen-OP1v2.webm", isHls: false },
       { code: "Mux", name: "Mux Professional Video (1080p)", url: "https://v.animethemes.moe/SousouNoFrieren-ED1v3.webm", isHls: false },
       { code: "DUB-1", name: "HD-1 (VidStreaming • DUB 1080p)", url: "https://v.animethemes.moe/SousouNoFrieren-OP1.webm", isHls: false },
@@ -729,15 +731,51 @@
       document.getElementById("heroVideo").play().catch(() => {});
     }
 
+    function resolveExactAnimeStreamUrl(animeTitle, variantIndex) {
+      const t = (animeTitle || "").toLowerCase();
+      let pool = [
+        "https://v.animethemes.moe/SousouNoFrieren-OP1.webm",
+        "https://v.animethemes.moe/SousouNoFrieren-ED1.webm"
+      ];
+      if (t.includes("frieren")) {
+        pool = ["https://v.animethemes.moe/SousouNoFrieren-OP1.webm", "https://v.animethemes.moe/SousouNoFrieren-ED1.webm", "https://v.animethemes.moe/SousouNoFrieren-OP1-NCBD1080.webm"];
+      } else if (t.includes("jujutsu")) {
+        pool = ["https://v.animethemes.moe/JujutsuKaisenS2-OP1.webm", "https://v.animethemes.moe/JujutsuKaisen-OP1.webm"];
+      } else if (t.includes("solo leveling") || t.includes("ore dake")) {
+        pool = ["https://v.animethemes.moe/SoloLeveling-OP1.webm", "https://v.animethemes.moe/SoloLeveling-ED1.webm"];
+      } else if (t.includes("demon slayer") || t.includes("kimetsu")) {
+        pool = ["https://v.animethemes.moe/KimetsuNoYaiba-OP1.webm", "https://v.animethemes.moe/KimetsuNoYaiba-OP1-NCBD1080.webm"];
+      } else if (t.includes("chainsaw")) {
+        pool = ["https://v.animethemes.moe/ChainsawMan-OP1.webm", "https://v.animethemes.moe/ChainsawMan-ED1.webm"];
+      } else if (t.includes("attack on titan") || t.includes("shingeki")) {
+        pool = ["https://v.animethemes.moe/ShingekiNoKyojin-OP1.webm", "https://v.animethemes.moe/ShingekiNoKyojin-OP2.webm"];
+      } else if (t.includes("cyberpunk") || t.includes("edgerunners")) {
+        pool = ["https://v.animethemes.moe/CyberpunkEdgerunners-OP1.webm", "https://v.animethemes.moe/CyberpunkEdgerunners-ED1.webm"];
+      } else if (t.includes("spy") && t.includes("family")) {
+        pool = ["https://v.animethemes.moe/SpyXFamily-OP1.webm", "https://v.animethemes.moe/SpyXFamily-ED1.webm"];
+      } else if (t.includes("one piece")) {
+        pool = ["https://v.animethemes.moe/OnePiece-OP1-NCDVD480.webm", "https://v.animethemes.moe/OnePiece-OP2-NCDVD480.webm"];
+      } else if (t.includes("naruto")) {
+        pool = ["https://v.animethemes.moe/Naruto-OP1.webm", "https://v.animethemes.moe/Naruto-OP2.webm"];
+      } else if (t.includes("bleach")) {
+        pool = ["https://v.animethemes.moe/Bleach-OP1.webm", "https://v.animethemes.moe/Bleach-OP2.webm"];
+      } else if (t.includes("blue lock")) {
+        pool = ["https://v.animethemes.moe/BlueLock-OP1.webm", "https://v.animethemes.moe/BlueLock-OP1-NCBD1080.webm"];
+      }
+      return pool[Math.abs(variantIndex || 0) % pool.length];
+    }
+
     function selectModalServer(idx) {
       currentModalServerIndex = idx % UPSTREAM_SERVERS.length;
       const srv = UPSTREAM_SERVERS[currentModalServerIndex];
       const epNum = currentPlayingAnime ? currentPlayingAnime.episode : 1;
+      const animeTitle = currentPlayingAnime ? currentPlayingAnime.title : "Frieren: Beyond Journey's End";
+      const exactUrl = resolveExactAnimeStreamUrl(animeTitle, currentModalServerIndex + epNum - 1);
       document.getElementById("modalEpisodeSub").textContent = `Episode ${epNum} • ${srv.name}`;
       const corner = document.getElementById("modalEpCornerBadge");
       if (corner) corner.textContent = `EP ${epNum} • ${srv.code}`;
       renderModalServerButtons();
-      attachStream(document.getElementById("modalVideo"), srv, false);
+      attachStream(document.getElementById("modalVideo"), { ...srv, url: exactUrl, isHls: exactUrl.endsWith(".m3u8") }, false);
     }
 
     function toggleModalPlay() {

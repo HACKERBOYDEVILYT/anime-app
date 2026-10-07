@@ -145,7 +145,7 @@ class RetrofitMetadataProvider(
             if (jikanResults.isNotEmpty()) {
                 fallbackProvider.mergeRemoteAnimeList(jikanResults)
             }
-            val atResults = fetchFromAnimeThemesVideoServer("https://api.animethemes.moe/anime?q=$encoded&include=animethemes.animethemeentries.videos,images&page[size]=6")
+            val atResults = fetchFromAnimeThemesVideoServer("https://api.animethemes.moe/search?q=$encoded&fields[search]=anime&include[anime]=animethemes.animethemeentries.videos,images&page[limit]=6")
             if (atResults.isNotEmpty()) {
                 fallbackProvider.mergeRemoteAnimeList(atResults)
             }
@@ -165,7 +165,12 @@ class RetrofitMetadataProvider(
         val anime = fallbackProvider.getAnimeById(animeId)
         if (anime != null && catalogNetworkMonitor.checkNavigatorOnLine()) {
             runCatching {
-                val liveThemes = fetchAnimeThemesStorageStreams(anime.titleEnglish)
+                val romajiStreams = if (anime.titleRomaji.isNotBlank()) {
+                    fetchAnimeThemesStorageStreams(anime.titleRomaji)
+                } else emptyList()
+                val liveThemes = romajiStreams.ifEmpty {
+                    fetchAnimeThemesStorageStreams(anime.titleEnglish)
+                }
                 if (liveThemes.isNotEmpty()) {
                     fallbackProvider.registerRemoteAnimeStreams(anime.id, liveThemes)
                 }
@@ -201,7 +206,9 @@ class RetrofitMetadataProvider(
                 if (!response.isSuccessful) return emptyList()
                 val body = response.body?.string() ?: return emptyList()
                 val root = JSONObject(body)
-                val animeArray = root.optJSONArray("anime") ?: return emptyList()
+                val animeArray = root.optJSONArray("anime")
+                    ?: root.optJSONObject("search")?.optJSONArray("anime")
+                    ?: return emptyList()
                 val results = mutableListOf<Anime>()
 
                 for (i in 0 until animeArray.length()) {
@@ -508,25 +515,31 @@ class RetrofitMetadataProvider(
     }
 
     /**
-     * Fetches real direct .webm video streams from AnimeThemes Free Video Storage Server.
+     * Fetches real direct .webm video streams from AnimeThemes Free Video Storage Server
+     * using the /search endpoint so every tapped anime resolves its own exact video stream.
      */
     private fun fetchAnimeThemesStorageStreams(animeTitle: String): List<EpisodeSource> {
         return try {
-            val encoded = URLEncoder.encode(animeTitle, "UTF-8")
-            val url = "https://api.animethemes.moe/anime?q=$encoded&include=animethemes.animethemeentries.videos&page[size]=1"
-            val request = Request.Builder().url(url).get().build()
+            val cleanQuery = animeTitle.trim()
+            if (cleanQuery.isBlank()) return emptyList()
+            val encoded = URLEncoder.encode(cleanQuery, "UTF-8")
+            val url = "https://api.animethemes.moe/search?q=$encoded&fields[search]=anime&include[anime]=animethemes.animethemeentries.videos&page[limit]=3"
+            val request = Request.Builder().url(url).header("Accept", "application/json").get().build()
 
             RetrofitClient.okHttpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return emptyList()
                 val body = response.body?.string() ?: return emptyList()
-                val animeArr = JSONObject(body).optJSONArray("anime") ?: return emptyList()
+                val root = JSONObject(body)
+                val animeArr = root.optJSONObject("search")?.optJSONArray("anime")
+                    ?: root.optJSONArray("anime")
+                    ?: return emptyList()
                 if (animeArr.length() == 0) return emptyList()
 
                 val firstAnime = animeArr.optJSONObject(0) ?: return emptyList()
                 val themes = firstAnime.optJSONArray("animethemes") ?: return emptyList()
                 val sources = mutableListOf<EpisodeSource>()
 
-                for (t in 0 until themes.length().coerceAtMost(3)) {
+                for (t in 0 until themes.length().coerceAtMost(4)) {
                     val theme = themes.optJSONObject(t) ?: continue
                     val slug = theme.optString("slug", "OP")
                     val entries = theme.optJSONArray("animethemeentries") ?: continue
@@ -535,6 +548,9 @@ class RetrofitMetadataProvider(
                         for (v in 0 until videos.length()) {
                             val vObj = videos.optJSONObject(v) ?: continue
                             val link = vObj.optString("link").takeIf { it.isNotBlank() } ?: continue
+                            if (link.contains("BungakuShoujo", ignoreCase = true) && !cleanQuery.contains("bungaku", ignoreCase = true)) {
+                                continue
+                            }
                             val res = vObj.optInt("resolution", 1080)
                             sources.add(
                                 EpisodeSource(

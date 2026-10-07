@@ -41,23 +41,26 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.R
+
+const val ROBIUL_BUNNY_CDN_BASE_URL = "https://robiulislam.b-cdn.net"
+const val ROBIUL_BUNNY_CDN_LOGO_URL = "https://robiulislam.b-cdn.net/images/logo.png"
 
 val HackerMatrixGreen = Color(0xFF00FF66)
 val HackerCyberCyan = Color(0xFF00E5FF)
 val HackerTerminalDark = Color(0xFF070B10)
 
 /**
- * Hacker-style "RS" Logo Emblem with generated cyber-hacker artwork,
- * glowing Matrix Green (#00FF66) & Cyber Cyan (#00E5FF) shield frame,
- * digital HUD corner brackets, and high-contrast "RS" hacker monogram.
+ * Clean Logo Emblem with Bunny.net CDN logo (https://robiulislam.b-cdn.net/images/logo.png)
+ * and clean cyber emblem fallback without overlaid RS / RS HACKER text.
  */
 @Composable
 fun RsHackerEmblem(
     size: Dp = 38.dp,
     modifier: Modifier = Modifier
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "rs_hacker_glow")
+    val infiniteTransition = rememberInfiniteTransition(label = "robiul_logo_glow")
     val pulseAlpha by infiniteTransition.animateFloat(
         initialValue = 0.55f,
         targetValue = 1.0f,
@@ -65,7 +68,7 @@ fun RsHackerEmblem(
             animation = tween(durationMillis = 1400, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "rs_pulse_alpha"
+        label = "logo_pulse_alpha"
     )
 
     val shape = RoundedCornerShape(10.dp)
@@ -88,23 +91,29 @@ fun RsHackerEmblem(
             ),
         contentAlignment = Alignment.Center
     ) {
-        // Generated Hacker RS Logo Background Art
+        // Clean graphic logo emblem fallback (no RS / RS HACKER text)
         Image(
-            painter = painterResource(id = R.drawable.img_rs_hacker_logo_1791100219170),
-            contentDescription = "Robiul RS Hacker Logo",
+            painter = painterResource(id = R.drawable.img_robiul_logo_clean_1791390770574),
+            contentDescription = "Robiul Logo",
             contentScale = ContentScale.Crop,
-            alpha = 0.45f,
             modifier = Modifier.fillMaxSize()
         )
 
-        // Dark cyber vignette + HUD corner brackets & hood shield vector
+        // Bunny.net CDN Official Logo (https://robiulislam.b-cdn.net/images/logo.png)
+        AsyncImage(
+            model = ROBIUL_BUNNY_CDN_LOGO_URL,
+            contentDescription = "Robiul Bunny.net CDN Logo",
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // Subtle HUD corner accents only (no text overlay)
         Canvas(modifier = Modifier.fillMaxSize()) {
             val w = this.size.width
             val h = this.size.height
-            val bracketLen = w * 0.22f
-            val strokeW = 1.6.dp.toPx()
+            val bracketLen = w * 0.20f
+            val strokeW = 1.4.dp.toPx()
 
-            // Top-left & bottom-right HUD terminal corner brackets
             drawLine(
                 color = HackerMatrixGreen,
                 start = Offset(strokeW, strokeW),
@@ -133,51 +142,12 @@ fun RsHackerEmblem(
                 strokeWidth = strokeW,
                 cap = StrokeCap.Round
             )
-
-            // Subtle hacker hood / shield crest silhouette at top
-            val crestPath = Path().apply {
-                moveTo(w * 0.5f, h * 0.09f)
-                lineTo(w * 0.84f, h * 0.24f)
-                lineTo(w * 0.84f, h * 0.68f)
-                lineTo(w * 0.5f, h * 0.91f)
-                lineTo(w * 0.16f, h * 0.68f)
-                lineTo(w * 0.16f, h * 0.24f)
-                close()
-            }
-            drawPath(
-                path = crestPath,
-                color = HackerMatrixGreen.copy(alpha = 0.28f),
-                style = Stroke(width = 1.dp.toPx())
-            )
-        }
-
-        // Bold Hacker Monogram "RS" in the center
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = "R",
-                color = HackerMatrixGreen,
-                fontSize = (size.value * 0.44f).sp,
-                fontWeight = FontWeight.Black,
-                fontFamily = FontFamily.Monospace,
-                letterSpacing = (-0.5).sp
-            )
-            Text(
-                text = "S",
-                color = HackerCyberCyan,
-                fontSize = (size.value * 0.44f).sp,
-                fontWeight = FontWeight.Black,
-                fontFamily = FontFamily.Monospace,
-                letterSpacing = (-0.5).sp
-            )
         }
     }
 }
 
 /**
- * Full "Robiul" Brand Header with the Hacker-style "RS" Logo Emblem.
+ * Clean "Robiul" Brand Header with Logo Emblem (without RS / RS_HACKER text).
  * Used in HomeScreen, HomeShimmerScreen, and top navigation headers.
  */
 @Composable
@@ -199,44 +169,14 @@ fun RobiulBrandHeader(
 
         Spacer(modifier = Modifier.width(10.dp))
 
-        Column {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "ROBIUL",
-                    color = Color.White,
-                    fontSize = 19.sp,
-                    fontWeight = FontWeight.Black,
-                    fontFamily = FontFamily.Monospace,
-                    letterSpacing = 1.8.sp
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Surface(
-                    color = HackerMatrixGreen.copy(alpha = 0.16f),
-                    shape = RoundedCornerShape(5.dp),
-                    modifier = Modifier.border(
-                        width = 1.dp,
-                        color = HackerMatrixGreen.copy(alpha = 0.75f),
-                        shape = RoundedCornerShape(5.dp)
-                    )
-                ) {
-                    Text(
-                        text = "[RS]",
-                        color = HackerMatrixGreen,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
-                    )
-                }
-            }
-            Text(
-                text = ">_ RS_HACKER // ROOT",
-                color = HackerMatrixGreen.copy(alpha = 0.85f),
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Monospace,
-                letterSpacing = 0.8.sp
-            )
-        }
+        Text(
+            text = "ROBIUL",
+            color = Color.White,
+            fontSize = 19.sp,
+            fontWeight = FontWeight.Black,
+            fontFamily = FontFamily.Monospace,
+            letterSpacing = 1.6.sp,
+            maxLines = 1
+        )
     }
 }

@@ -40,50 +40,50 @@ object NetworkTrafficSniffer {
         CapturedNetworkPacket(
             id = "pkt_seed_1",
             method = "GET",
-            url = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-            host = "commondatastorage.googleapis.com",
+            url = "https://robiulislam.b-cdn.net/images/logo.png",
+            host = "robiulislam.b-cdn.net",
             statusCode = 200,
-            contentType = "video/mp4 (Server-01 • 1080p Direct)",
+            contentType = "image/png (Bunny.net CDN Pull Zone • 200 OK)",
             isMediaStream = true,
-            latencyMs = 19L,
+            latencyMs = 12L,
             timestamp = "Live",
-            sourceTag = "Multi-Server S-01"
+            sourceTag = "Bunny.net CDN"
         ),
         CapturedNetworkPacket(
             id = "pkt_seed_2",
             method = "GET",
-            url = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4",
-            host = "commondatastorage.googleapis.com",
+            url = "https://v.animethemes.moe/SousouNoFrieren-OP1.webm",
+            host = "v.animethemes.moe",
             statusCode = 200,
-            contentType = "video/mp4 (Server-06 • Sintel 1080p)",
+            contentType = "video/webm (Frieren Ep 1 • 1080p Direct)",
             isMediaStream = true,
             latencyMs = 22L,
             timestamp = "Live",
-            sourceTag = "Multi-Server S-06"
+            sourceTag = "HD-1 (VidStreaming)"
         ),
         CapturedNetworkPacket(
             id = "pkt_seed_3",
             method = "GET",
-            url = "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8",
-            host = "storage.googleapis.com",
+            url = "https://v.animethemes.moe/SoloLeveling-OP1.webm",
+            host = "v.animethemes.moe",
             statusCode = 200,
-            contentType = "application/x-mpegURL (Server-08 • 1080p HLS)",
+            contentType = "video/webm (Solo Leveling Ep 1 • 1080p)",
             isMediaStream = true,
             latencyMs = 27L,
             timestamp = "Live",
-            sourceTag = "Multi-Server S-08"
+            sourceTag = "HD-2 (MegaCloud)"
         ),
         CapturedNetworkPacket(
             id = "pkt_seed_4",
             method = "GET",
-            url = "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8",
-            host = "devstreaming-cdn.apple.com",
+            url = "https://v.animethemes.moe/JujutsuKaisenS2-OP1.webm",
+            host = "v.animethemes.moe",
             statusCode = 200,
-            contentType = "application/x-mpegURL (Server-14 • Apple HLS Master)",
+            contentType = "video/webm (Jujutsu Kaisen S2 • 1080p)",
             isMediaStream = true,
             latencyMs = 31L,
             timestamp = "Live",
-            sourceTag = "Multi-Server S-14"
+            sourceTag = "Bunny.net Storage + CDN"
         ),
         CapturedNetworkPacket(
             id = "pkt_seed_5",

@@ -324,11 +324,11 @@ class GamificationAndSocialRepository(
     // 9. Anime Trailers & Clips
     val animeClips: List<AnimeClipItem> = listOf(
         AnimeClipItem("clip_1", "anime_1", "Frieren: Beyond Journey's End", "Official Main Trailer (1080p)", "Trailer", "02:15", "https://cdn.myanimelist.net/images/anime/1015/138006l.jpg", "https://v.animethemes.moe/SousouNoFrieren-OP1-NCBD1080.webm", "840K views"),
-        AnimeClipItem("clip_2", "anime_2", "Jujutsu Kaisen Season 2", "Shibuya Incident Teaser PV", "Teaser", "01:45", "https://cdn.myanimelist.net/images/anime/1792/138022l.jpg", "https://v.animethemes.moe/JujutsuKaisenS2-OP2-NCBD1080.webm", "1.2M views"),
-        AnimeClipItem("clip_3", "anime_3", "Solo Leveling", "Creditless Opening Preview (LEveL)", "Opening", "01:30", "https://cdn.myanimelist.net/images/anime/1801/142390l.jpg", "https://v.animethemes.moe/OreDakeLevelUpNaKen-OP1-NCBD1080.webm", "950K views"),
-        AnimeClipItem("clip_4", "anime_4", "Demon Slayer", "Hashira Character PV • Infinity Castle", "Character PV", "02:05", "https://cdn.myanimelist.net/images/anime/1286/99889l.jpg", "https://v.animethemes.moe/KimetsuNoYaibaHashiraGeikoHen-OP1.webm", "1.5M views"),
-        AnimeClipItem("clip_5", "anime_1", "Frieren: Beyond Journey's End", "Anytime Anywhere Creditless Ending", "Ending", "01:30", "https://cdn.myanimelist.net/images/anime/1015/138006l.jpg", "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8", "620K views"),
-        AnimeClipItem("clip_6", "anime_2", "Jujutsu Kaisen", "Anime Expo Special Production News Clip", "News Clip", "03:10", "https://cdn.myanimelist.net/images/anime/1792/138022l.jpg", "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8", "410K views")
+        AnimeClipItem("clip_2", "anime_2", "Jujutsu Kaisen Season 2", "Shibuya Incident Teaser PV", "Teaser", "01:45", "https://cdn.myanimelist.net/images/anime/1792/138022l.jpg", "https://v.animethemes.moe/JujutsuKaisenS2-OP1.webm", "1.2M views"),
+        AnimeClipItem("clip_3", "anime_3", "Solo Leveling", "Creditless Opening Preview (LEveL)", "Opening", "01:30", "https://cdn.myanimelist.net/images/anime/1801/142390l.jpg", "https://v.animethemes.moe/SoloLeveling-OP1.webm", "950K views"),
+        AnimeClipItem("clip_4", "anime_4", "Demon Slayer", "Hashira Character PV • Infinity Castle", "Character PV", "02:05", "https://cdn.myanimelist.net/images/anime/1286/99889l.jpg", "https://v.animethemes.moe/KimetsuNoYaiba-OP1.webm", "1.5M views"),
+        AnimeClipItem("clip_5", "anime_1", "Frieren: Beyond Journey's End", "Anytime Anywhere Creditless Ending", "Ending", "01:30", "https://cdn.myanimelist.net/images/anime/1015/138006l.jpg", "https://v.animethemes.moe/SousouNoFrieren-ED1.webm", "620K views"),
+        AnimeClipItem("clip_6", "anime_2", "Jujutsu Kaisen", "Anime Expo Special Production News Clip", "News Clip", "03:10", "https://cdn.myanimelist.net/images/anime/1792/138022l.jpg", "https://v.animethemes.moe/JujutsuKaisen-OP1.webm", "410K views")
     )
 
     // 10. Anime News Center

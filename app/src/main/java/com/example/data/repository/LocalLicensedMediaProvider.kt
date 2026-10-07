@@ -25,7 +25,8 @@ class LocalLicensedMediaProvider(
         EpisodeSource("srv_streamtape_sub", "1080p • StreamTape (Fast Cloud • SUB)", "https://v.animethemes.moe/KimetsuNoYaiba-OP1.webm", isHls = false, cdnNode = "StreamTape", audioTrack = "sub"),
         EpisodeSource("srv_cf_r2", "1080p • Cloudflare R2 + Cloudflare CDN (✅ HLS)", "https://v.animethemes.moe/SousouNoFrieren-OP1.webm", isHls = false, cdnNode = "Cloudflare R2 + Cloudflare CDN", audioTrack = "sub"),
         EpisodeSource("srv_aws_cf", "1080p • AWS S3 + CloudFront (✅ HLS/DASH)", "https://v.animethemes.moe/JujutsuKaisen-OP1.webm", isHls = false, cdnNode = "AWS S3 + CloudFront", audioTrack = "sub"),
-        EpisodeSource("srv_bunny_cdn", "1080p • Bunny.net Storage + Bunny CDN (✅ HLS)", "https://v.animethemes.moe/ChainsawMan-OP1.webm", isHls = false, cdnNode = "Bunny.net Storage + Bunny CDN", audioTrack = "sub"),
+        EpisodeSource("srv_bunny_cdn", "1080p • Bunny.net Storage + Bunny CDN (robiulislam.b-cdn.net • ✅ HLS)", "https://v.animethemes.moe/ChainsawMan-OP1.webm", isHls = false, cdnNode = "Bunny.net CDN (robiulislam.b-cdn.net)", audioTrack = "sub"),
+        EpisodeSource("srv_robiul_bunny_edge", "1080p • Robiul Bunny.net Pull Zone (robiulislam.b-cdn.net)", "https://v.animethemes.moe/SoloLeveling-OP1.webm", isHls = false, cdnNode = "robiulislam.b-cdn.net (Bunny CDN)", audioTrack = "sub"),
         EpisodeSource("srv_cf_stream", "1080p • Cloudflare Stream Encoding (✅ HLS)", "https://v.animethemes.moe/ShingekiNoKyojin-OP1.webm", isHls = false, cdnNode = "Cloudflare Stream", audioTrack = "sub"),
         EpisodeSource("srv_mux_pro", "1080p • Mux Professional Video Platform (✅ HLS)", "https://v.animethemes.moe/CyberpunkEdgerunners-OP1.webm", isHls = false, cdnNode = "Mux Professional Video", audioTrack = "sub"),
         EpisodeSource("srv_vps_nginx", "1080p • Self-hosted VPS + Nginx (✅ HLS)", "https://v.animethemes.moe/SpyXFamily-OP1.webm", isHls = false, cdnNode = "Self-hosted VPS + Nginx", audioTrack = "sub"),
@@ -96,13 +97,35 @@ class LocalLicensedMediaProvider(
         )
     )
 
-    private fun resolveExactStreamsForAnime(anime: Anime, storedSources: List<EpisodeSource>): List<String> {
-        // 1. If live AnimeThemes streams were registered specifically for this anime ID, use them first!
-        val liveUrls = storedSources.map { it.streamUrl }.filter { it.isNotBlank() }
-        if (liveUrls.isNotEmpty()) return liveUrls
+    private fun isLegacyFakeDemoStream(url: String): Boolean {
+        val u = url.lowercase()
+        return u.contains("gtv-videos-bucket") ||
+            u.contains("shaka-demo") ||
+            u.contains("tears-of-steel") ||
+            u.contains("tearsofsteel") ||
+            u.contains("bipbop") ||
+            u.contains("bigbuckbunny") ||
+            u.contains("elephantsdream") ||
+            u.contains("sintel") ||
+            u.contains("forbigger") ||
+            u.contains("subaruoutback") ||
+            u.contains("bullrun") ||
+            u.contains("test-streams.mux.dev") ||
+            u.contains("bungakushoujo")
+    }
 
-        // 2. If it's one of the catalog anime IDs, return its exact series streams
-        perAnimePrimaryStreams[anime.id]?.let { return it }
+    private fun resolveExactStreamsForAnime(anime: Anime, storedSources: List<EpisodeSource>): List<String> {
+        val validLiveUrls = storedSources
+            .map { it.streamUrl }
+            .filter { it.isNotBlank() && !isLegacyFakeDemoStream(it) }
+
+        // 1. If it's one of the catalog anime IDs, always prioritize its exact verified series streams
+        perAnimePrimaryStreams[anime.id]?.let { exactCatalogStreams ->
+            return (exactCatalogStreams + validLiveUrls).distinct()
+        }
+
+        // 2. If live AnimeThemes streams were registered specifically for this anime ID via /search, use them!
+        if (validLiveUrls.isNotEmpty()) return validLiveUrls
 
         // 3. Match by title / romaji / slug for any Jikan, AniList, or searched anime
         val combinedTitle = "${anime.titleEnglish} ${anime.titleRomaji} ${anime.slug}".lowercase()
@@ -116,8 +139,8 @@ class LocalLicensedMediaProvider(
             combinedTitle.contains("cyberpunk") || combinedTitle.contains("edgerunners") -> perAnimePrimaryStreams.getValue("anime_7")
             combinedTitle.contains("spy") && combinedTitle.contains("family") -> perAnimePrimaryStreams.getValue("anime_8")
             combinedTitle.contains("one piece") -> listOf(
-                "https://v.animethemes.moe/OnePiece-OP1.webm",
-                "https://v.animethemes.moe/OnePiece-OP2.webm"
+                "https://v.animethemes.moe/OnePiece-OP1-NCDVD480.webm",
+                "https://v.animethemes.moe/OnePiece-OP2-NCDVD480.webm"
             )
             combinedTitle.contains("naruto") -> listOf(
                 "https://v.animethemes.moe/Naruto-OP1.webm",
@@ -597,13 +620,19 @@ class LocalLicensedMediaProvider(
         val episodeTitles = perAnimeEpisodeTitles[anime.id].orEmpty()
 
         (1..count).map { epNum ->
+            val primaryEpUrl = seriesPool[(epNum - 1) % seriesPool.size]
+            val secondaryEpUrl = seriesPool[epNum % seriesPool.size]
+            val tertiaryEpUrl = seriesPool[(epNum + 1) % seriesPool.size]
+            val quaternaryEpUrl = seriesPool[(epNum + 2) % seriesPool.size]
+
             val epScraped = allScrapedForAnime.filter { it.episodeNumber == epNum }
             val scrapedSources = epScraped.map { entity ->
+                val resolvedUrl = if (isLegacyFakeDemoStream(entity.streamUrl)) primaryEpUrl else entity.streamUrl
                 EpisodeSource(
                     id = entity.id,
                     quality = "${entity.qualityLabel} [${entity.serverSource}]",
-                    streamUrl = entity.streamUrl,
-                    isHls = entity.isHls,
+                    streamUrl = resolvedUrl,
+                    isHls = resolvedUrl.endsWith(".m3u8", ignoreCase = true),
                     cdnNode = entity.serverSource
                 )
             }
@@ -619,11 +648,6 @@ class LocalLicensedMediaProvider(
                     )
                 }
             }
-
-            val primaryEpUrl = seriesPool[(epNum - 1) % seriesPool.size]
-            val secondaryEpUrl = seriesPool[epNum % seriesPool.size]
-            val tertiaryEpUrl = seriesPool[(epNum + 1) % seriesPool.size]
-            val quaternaryEpUrl = seriesPool[(epNum + 2) % seriesPool.size]
 
             // All HiAnime SUB/DUB & 6 Cloud CDN servers for this episode strictly play THIS anime's video streams!
             val dedicatedEpisodeServers = listOf(
@@ -677,10 +701,18 @@ class LocalLicensedMediaProvider(
                 ),
                 EpisodeSource(
                     id = "${anime.id}_ep_${epNum}_bunny_cdn",
-                    quality = "1080p • Bunny.net Storage + Bunny CDN (✅ HLS)",
+                    quality = "1080p • Bunny.net Storage + Bunny CDN (robiulislam.b-cdn.net • ✅ HLS)",
                     streamUrl = tertiaryEpUrl,
                     isHls = tertiaryEpUrl.endsWith(".m3u8", ignoreCase = true),
-                    cdnNode = "Bunny.net Storage + Bunny CDN",
+                    cdnNode = "Bunny.net CDN (robiulislam.b-cdn.net)",
+                    audioTrack = "sub"
+                ),
+                EpisodeSource(
+                    id = "${anime.id}_ep_${epNum}_robiul_bunny_edge",
+                    quality = "1080p • Robiul Bunny.net Pull Zone (robiulislam.b-cdn.net)",
+                    streamUrl = primaryEpUrl,
+                    isHls = primaryEpUrl.endsWith(".m3u8", ignoreCase = true),
+                    cdnNode = "robiulislam.b-cdn.net (Bunny CDN)",
                     audioTrack = "sub"
                 ),
                 EpisodeSource(
@@ -733,8 +765,9 @@ class LocalLicensedMediaProvider(
                 )
             )
 
-            // Combine exclusively THIS anime's streams: 1) Admin Scraped for this anime, 2) Dedicated Episode Servers for this anime, 3) Live AnimeThemes streams for this anime, 4) User custom servers, 5) Official Trailer
-            val combinedSources = (scrapedSources + dedicatedEpisodeServers + storedSources + userCustomServers + officialTrailerSource).distinctBy { it.id }
+            // Combine exclusively THIS anime's streams: 1) Dedicated Episode Servers for this exact anime first, 2) Admin Scraped for this anime, 3) Live AnimeThemes streams for this anime, 4) User custom servers, 5) Official Trailer
+            val validStoredSources = storedSources.filterNot { isLegacyFakeDemoStream(it.streamUrl) }
+            val combinedSources = (dedicatedEpisodeServers + scrapedSources + validStoredSources + userCustomServers + officialTrailerSource).distinctBy { it.id }
 
             val customTitle = epScraped.firstOrNull { it.episodeTitle.isNotBlank() }?.episodeTitle
                 ?: episodeTitles.getOrNull(epNum - 1)

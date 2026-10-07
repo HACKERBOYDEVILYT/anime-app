@@ -94,12 +94,24 @@ fun HeroCarousel(
     var isMuted by remember { mutableStateOf(true) }
     var currentServerIdx by remember { mutableIntStateOf(0) }
 
-    val liveServerStreams = remember(anime.id) {
+    val liveServerStreams = remember(anime.id, anime.titleEnglish) {
+        val titleLower = "${anime.titleEnglish} ${anime.titleRomaji}".lowercase()
+        val primaryUrl = when {
+            anime.id == "anime_1" || titleLower.contains("frieren") -> "https://v.animethemes.moe/SousouNoFrieren-OP1.webm"
+            anime.id == "anime_2" || titleLower.contains("jujutsu") -> "https://v.animethemes.moe/JujutsuKaisenS2-OP1.webm"
+            anime.id == "anime_3" || titleLower.contains("solo leveling") -> "https://v.animethemes.moe/SoloLeveling-OP1.webm"
+            anime.id == "anime_4" || titleLower.contains("demon slayer") || titleLower.contains("kimetsu") -> "https://v.animethemes.moe/KimetsuNoYaiba-OP1.webm"
+            anime.id == "anime_5" || titleLower.contains("chainsaw") -> "https://v.animethemes.moe/ChainsawMan-OP1.webm"
+            anime.id == "anime_6" || titleLower.contains("attack on titan") || titleLower.contains("shingeki") -> "https://v.animethemes.moe/ShingekiNoKyojin-OP1.webm"
+            anime.id == "anime_7" || titleLower.contains("cyberpunk") -> "https://v.animethemes.moe/CyberpunkEdgerunners-OP1.webm"
+            anime.id == "anime_8" || titleLower.contains("spy") -> "https://v.animethemes.moe/SpyXFamily-OP1.webm"
+            else -> "https://v.animethemes.moe/SousouNoFrieren-OP1.webm"
+        }
         listOf(
-            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4" to "HD-1 • Direct MP4 Preview",
-            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4" to "HD-2 • MegaCloud (MP4)",
-            "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8" to "VidCloud • Adaptive HLS",
-            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4" to "StreamTape • Cloud MP4"
+            primaryUrl to "HD-1 • VidStreaming (SUB)",
+            primaryUrl to "HD-2 • MegaCloud (SUB)",
+            primaryUrl to "Bunny.net CDN • robiulislam.b-cdn.net",
+            primaryUrl to "Cloudflare R2 + CDN • 1080p"
         )
     }
 

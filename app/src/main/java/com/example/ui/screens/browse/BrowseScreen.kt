@@ -130,14 +130,14 @@ val ENTERPRISE_CLOUD_STREAMING_APIS = listOf(
     ),
     CloudStreamingServiceSpec(
         id = "bunny_storage_cdn",
-        serviceName = "Bunny.net Storage + Bunny CDN",
-        bestForPurpose = "কম খরচে ভিডিও delivery",
+        serviceName = "Bunny.net Storage + Bunny CDN (robiulislam.b-cdn.net)",
+        bestForPurpose = "কম খরচে ভিডিও delivery • robiulislam.b-cdn.net/images/logo.png",
         streamingProtocol = "✅ HLS",
-        apiEndpoint = "GET /api/v1/streaming/bunny-cdn/hls",
+        apiEndpoint = "https://robiulislam.b-cdn.net/images/logo.png",
         streamUrl = "https://v.animethemes.moe/ChainsawMan-OP1.webm",
-        latencyMs = 16,
-        reliabilityScore = 99.8f,
-        edgeRegion = "Singapore / Mumbai Edge"
+        latencyMs = 15,
+        reliabilityScore = 99.9f,
+        edgeRegion = "Bunny.net Edge (robiulislam.b-cdn.net)"
     ),
     CloudStreamingServiceSpec(
         id = "cloudflare_stream",
@@ -327,7 +327,7 @@ fun BrowseScreen(
                 onWatchEpisodeClick = onWatchEpisodeClick
             )
             1 -> CloudStreamingInfrastructureTab(
-                onPlayStream = { onWatchEpisodeClick("anime_1", 1) },
+                onPlayStream = { targetAnimeId -> onWatchEpisodeClick(targetAnimeId, 1) },
                 onRegisterServer = onAddStreamingServer
             )
             2 -> MangaExpansionTab()
@@ -805,7 +805,7 @@ private fun AiSmartFeaturesTab(
 
 @Composable
 private fun CloudStreamingInfrastructureTab(
-    onPlayStream: () -> Unit,
+    onPlayStream: (String) -> Unit,
     onRegisterServer: (String, String, String) -> Unit
 ) {
     val context = LocalContext.current
@@ -922,6 +922,51 @@ private fun CloudStreamingInfrastructureTab(
                             colors = SwitchDefaults.colors(checkedTrackColor = CyanAccent)
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Dedicated Bunny.net CDN Pull Zone Banner (https://robiulislam.b-cdn.net/images/logo.png)
+                    Surface(
+                        color = SurfaceVariantDark,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, EmeraldSuccess.copy(alpha = 0.55f), RoundedCornerShape(10.dp))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            AsyncImage(
+                                model = "https://robiulislam.b-cdn.net/images/logo.png",
+                                contentDescription = "Bunny.net CDN Logo",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.Black)
+                                    .border(1.dp, EmeraldSuccess, RoundedCornerShape(8.dp))
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "⚡ Bunny.net CDN Active • robiulislam.b-cdn.net",
+                                    color = EmeraldSuccess,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                                Text(
+                                    text = "https://robiulislam.b-cdn.net/images/logo.png",
+                                    color = CyanAccent,
+                                    fontSize = 10.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1006,7 +1051,16 @@ private fun CloudStreamingInfrastructureTab(
                             onClick = {
                                 activeServerId = spec.id
                                 onRegisterServer(spec.serviceName, spec.streamUrl, spec.streamingProtocol)
-                                onPlayStream()
+                                val targetAnimeId = when (spec.id) {
+                                    "cf_r2_cdn" -> "anime_1"
+                                    "aws_s3_cloudfront" -> "anime_2"
+                                    "bunny_storage_cdn" -> "anime_5"
+                                    "cloudflare_stream" -> "anime_3"
+                                    "mux_video" -> "anime_8"
+                                    "vps_nginx_hls" -> "anime_4"
+                                    else -> "anime_1"
+                                }
+                                onPlayStream(targetAnimeId)
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon),
                             shape = RoundedCornerShape(8.dp),

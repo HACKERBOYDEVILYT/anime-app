@@ -111,7 +111,7 @@ class DownloadsRepository(
     ) = withContext(Dispatchers.IO) {
         val itemId = "${anime.id}_ep_${episode.episodeNumber}"
         val streamUrl = episode.sources.firstOrNull()?.streamUrl
-            ?: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+            ?: "https://v.animethemes.moe/SousouNoFrieren-OP1.webm"
         val totalBytes = bytesForQuality(quality)
         val item = DownloadEntity(
             downloadId = itemId,
@@ -142,7 +142,7 @@ class DownloadsRepository(
         val items = episodes.mapIndexed { idx, episode ->
             val itemId = "${anime.id}_ep_${episode.episodeNumber}"
             val streamUrl = episode.sources.firstOrNull()?.streamUrl
-                ?: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+                ?: "https://v.animethemes.moe/SousouNoFrieren-OP1.webm"
             DownloadEntity(
                 downloadId = itemId,
                 animeId = anime.id,
