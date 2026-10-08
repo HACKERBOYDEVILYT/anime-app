@@ -151,8 +151,15 @@ class PlayerViewModel(
                         ?: targetEp?.subtitles?.firstOrNull()
                 }
 
-                val defaultSource = targetEp?.sources?.find { it.quality == prefs.defaultQuality }
-                    ?: targetEp?.sources?.firstOrNull()
+                val validSources = targetEp?.sources?.filter {
+                    it.streamUrl.isNotBlank() &&
+                        !it.streamUrl.contains("youtube.com", ignoreCase = true) &&
+                        !it.streamUrl.contains("youtu.be", ignoreCase = true) &&
+                        !it.streamUrl.contains("/embed/", ignoreCase = true)
+                }.orEmpty()
+                val defaultSource = validSources.find { it.quality == prefs.defaultQuality }
+                    ?: validSources.firstOrNull()
+                val isVideoAvailable = defaultSource != null
 
                 val savedProgress = watchRepository.getEpisodeProgress(animeId, episodeNumber)
                 val initialSeek = if (savedProgress != null && savedProgress.progressPositionMs > 5_000L &&
@@ -164,7 +171,7 @@ class PlayerViewModel(
                 }
 
                 val totalDurMs = (targetEp?.durationSec ?: 1440L) * 1000L
-                if (anime != null && targetEp != null) {
+                if (anime != null && targetEp != null && isVideoAvailable) {
                     watchRepository.saveWatchProgress(
                         animeId = anime.id,
                         animeTitle = anime.titleEnglish,
@@ -181,11 +188,12 @@ class PlayerViewModel(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
+                        isPlaying = isVideoAvailable,
                         anime = anime,
                         episodes = episodes,
-                        currentEpisode = targetEp,
+                        currentEpisode = targetEp?.copy(sources = validSources),
                         currentSource = defaultSource,
-                        currentQuality = defaultSource?.quality ?: "1080p",
+                        currentQuality = defaultSource?.quality ?: "Unavailable",
                         currentAudio = defaultAudio,
                         currentSubtitle = defaultSub,
                         autoNextEpisode = prefs.autoPlayNext,
@@ -202,7 +210,7 @@ class PlayerViewModel(
                         initialSeekPositionMs = initialSeek,
                         currentPositionMs = initialSeek,
                         totalDurationMs = totalDurMs,
-                        failoverStatusMessage = null,
+                        failoverStatusMessage = if (isVideoAvailable) null else "Video not available right now",
                         failedSourceUrls = emptySet(),
                         autoFailoverCount = 0
                     )
@@ -268,8 +276,11 @@ class PlayerViewModel(
         val ep = _uiState.value.currentEpisode ?: return null
         val updatedFailed = _uiState.value.failedSourceUrls + failedUrl
         val nextCandidate = ep.sources.firstOrNull { src ->
-            src.url.isNotBlank() && src.url !in updatedFailed
-        } ?: ep.sources.firstOrNull { src -> src.url != failedUrl }
+            src.url.isNotBlank() &&
+                src.url !in updatedFailed &&
+                !src.url.contains("youtube.com", ignoreCase = true) &&
+                !src.url.contains("youtu.be", ignoreCase = true)
+        }
 
         if (nextCandidate != null) {
             _uiState.update {
@@ -279,6 +290,16 @@ class PlayerViewModel(
                     failedSourceUrls = updatedFailed,
                     autoFailoverCount = it.autoFailoverCount + 1,
                     failoverStatusMessage = "⚡ Auto-Switched to ${nextCandidate.cdnNode} (${nextCandidate.quality})"
+                )
+            }
+        } else {
+            _uiState.update {
+                it.copy(
+                    currentSource = null,
+                    isPlaying = false,
+                    currentQuality = "Unavailable",
+                    failedSourceUrls = updatedFailed,
+                    failoverStatusMessage = "Video not available right now"
                 )
             }
         }

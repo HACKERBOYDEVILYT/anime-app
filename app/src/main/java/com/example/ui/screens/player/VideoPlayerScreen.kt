@@ -57,6 +57,7 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BrightnessMedium
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.ClosedCaption
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FastForward
@@ -335,8 +336,10 @@ fun VideoPlayerScreen(
             exoPlayer.prepare()
             exoPlayer.playWhenReady = true
             exoPlayer.play()
-        } else if (isWebEmbedOrTrailer) {
-            exoPlayer.pause()
+        } else {
+            exoPlayer.stop()
+            exoPlayer.clearMediaItems()
+            viewModel.setPlaying(false)
         }
     }
 
@@ -636,30 +639,39 @@ fun VideoPlayerScreen(
                     }
                 }
         ) {
-            if (isWebEmbedOrTrailer) {
-                AndroidView(
-                    factory = { ctx ->
-                        WebView(ctx).apply {
-                            setBackgroundColor(android.graphics.Color.BLACK)
-                            layoutParams = FrameLayout.LayoutParams(
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                ViewGroup.LayoutParams.MATCH_PARENT
-                            )
-                            settings.javaScriptEnabled = true
-                            settings.domStorageEnabled = true
-                            settings.mediaPlaybackRequiresUserGesture = false
-                            webChromeClient = WebChromeClient()
-                            webViewClient = WebViewClient()
-                            loadUrl(currentStreamUrl)
-                        }
-                    },
-                    update = { webView ->
-                        if (webView.url != currentStreamUrl && currentStreamUrl.isNotBlank()) {
-                            webView.loadUrl(currentStreamUrl)
-                        }
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
+            if (currentStreamUrl.isBlank() || isWebEmbedOrTrailer || uiState.currentEpisode?.sources.isNullOrEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(0xFF0E1017))
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CloudOff,
+                            contentDescription = "Video not available right now",
+                            tint = HiAnimePink,
+                            modifier = Modifier.size(44.dp)
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = "Video not available right now",
+                            color = Color.White,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "${uiState.anime?.titleEnglish ?: "This anime"} is not available on the streaming server yet.",
+                            color = TextSecondary,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
             } else {
                 AndroidView(
                     factory = { ctx ->
@@ -1364,107 +1376,130 @@ fun VideoPlayerScreen(
 
                     HorizontalDivider(color = CardBorder)
 
-                    // SUB Servers Row (HiAnime Style)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    if (availableServers.isEmpty()) {
                         Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 14.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.width(62.dp)
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Subtitles,
+                                imageVector = Icons.Default.CloudOff,
                                 contentDescription = null,
                                 tint = HiAnimePink,
-                                modifier = Modifier.size(15.dp)
+                                modifier = Modifier.size(18.dp)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "SUB:",
-                                color = Color.White,
-                                fontSize = 12.sp,
+                                text = "Video not available right now",
+                                color = HiAnimePink,
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.ExtraBold
                             )
                         }
-
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.weight(1f)
+                    } else {
+                        // SUB Servers Row (HiAnime Style)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            items(subServers, key = { "sub_${it.id}" }) { serverSource ->
-                                val isSelected = uiState.currentSource?.id == serverSource.id
-                                Surface(
-                                    onClick = {
-                                        viewModel.selectSource(serverSource)
-                                        kbdShortcutToast = "⚡ SUB Server → ${serverSource.cdnNode}"
-                                    },
-                                    color = if (isSelected) HiAnimePink else HiAnimeEpisodeIdle,
-                                    shape = RoundedCornerShape(6.dp)
-                                ) {
-                                    Text(
-                                        text = serverSource.cdnNode.substringBefore(" ("),
-                                        color = if (isSelected) Color.Black else Color.White,
-                                        fontSize = 11.sp,
-                                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                                    )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.width(62.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Subtitles,
+                                    contentDescription = null,
+                                    tint = HiAnimePink,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "SUB:",
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
+
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                items(subServers, key = { "sub_${it.id}" }) { serverSource ->
+                                    val isSelected = uiState.currentSource?.id == serverSource.id
+                                    Surface(
+                                        onClick = {
+                                            viewModel.selectSource(serverSource)
+                                            kbdShortcutToast = "⚡ SUB Server → ${serverSource.cdnNode}"
+                                        },
+                                        color = if (isSelected) HiAnimePink else HiAnimeEpisodeIdle,
+                                        shape = RoundedCornerShape(6.dp)
+                                    ) {
+                                        Text(
+                                            text = serverSource.cdnNode.substringBefore(" ("),
+                                            color = if (isSelected) Color.Black else Color.White,
+                                            fontSize = 11.sp,
+                                            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    HorizontalDivider(color = CardBorder.copy(alpha = 0.5f))
+                        HorizontalDivider(color = CardBorder.copy(alpha = 0.5f))
 
-                    // DUB Servers Row (HiAnime Style)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                        // DUB Servers Row (HiAnime Style)
                         Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.width(62.dp)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Headphones,
-                                contentDescription = null,
-                                tint = CyanGlow,
-                                modifier = Modifier.size(15.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "DUB:",
-                                color = Color.White,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.width(62.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Headphones,
+                                    contentDescription = null,
+                                    tint = CyanGlow,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "DUB:",
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
 
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            items(dubServers, key = { "dub_${it.id}" }) { serverSource ->
-                                val isSelected = uiState.currentSource?.id == serverSource.id
-                                Surface(
-                                    onClick = {
-                                        viewModel.selectSource(serverSource)
-                                        kbdShortcutToast = "🎙️ DUB Server → ${serverSource.cdnNode}"
-                                    },
-                                    color = if (isSelected) HiAnimePink else HiAnimeEpisodeIdle,
-                                    shape = RoundedCornerShape(6.dp)
-                                ) {
-                                    Text(
-                                        text = serverSource.cdnNode.replace(" DUB", "").substringBefore(" ("),
-                                        color = if (isSelected) Color.Black else Color.White,
-                                        fontSize = 11.sp,
-                                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                                    )
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                items(dubServers, key = { "dub_${it.id}" }) { serverSource ->
+                                    val isSelected = uiState.currentSource?.id == serverSource.id
+                                    Surface(
+                                        onClick = {
+                                            viewModel.selectSource(serverSource)
+                                            kbdShortcutToast = "🎙️ DUB Server → ${serverSource.cdnNode}"
+                                        },
+                                        color = if (isSelected) HiAnimePink else HiAnimeEpisodeIdle,
+                                        shape = RoundedCornerShape(6.dp)
+                                    ) {
+                                        Text(
+                                            text = serverSource.cdnNode.replace(" DUB", "").substringBefore(" ("),
+                                            color = if (isSelected) Color.Black else Color.White,
+                                            fontSize = 11.sp,
+                                            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                        )
+                                    }
                                 }
                             }
                         }

@@ -117,26 +117,33 @@ class LocalLicensedMediaProvider(
     private fun resolveExactStreamsForAnime(anime: Anime, storedSources: List<EpisodeSource>): List<String> {
         val validLiveUrls = storedSources
             .map { it.streamUrl }
-            .filter { it.isNotBlank() && !isLegacyFakeDemoStream(it) }
+            .filter {
+                it.isNotBlank() &&
+                    !isLegacyFakeDemoStream(it) &&
+                    !it.contains("youtube.com", ignoreCase = true) &&
+                    !it.contains("youtu.be", ignoreCase = true) &&
+                    !it.contains("/embed/", ignoreCase = true)
+            }
 
         // 1. If it's one of the catalog anime IDs, always prioritize its exact verified series streams
         perAnimePrimaryStreams[anime.id]?.let { exactCatalogStreams ->
             return (exactCatalogStreams + validLiveUrls).distinct()
         }
 
-        // 2. If live AnimeThemes streams were registered specifically for this anime ID via /search, use them!
+        // 2. If live AnimeThemes streams were registered specifically for this anime ID via verified /search, use them!
         if (validLiveUrls.isNotEmpty()) return validLiveUrls
 
-        // 3. Match by title / romaji / slug for any Jikan, AniList, or searched anime
+        // 3. Strictly match by title / romaji / slug ONLY if the server actually has that exact anime's video stream.
+        // If the anime is not on the server, return emptyList() so the player shows "Video not available right now".
         val combinedTitle = "${anime.titleEnglish} ${anime.titleRomaji} ${anime.slug}".lowercase()
         return when {
-            combinedTitle.contains("frieren") -> perAnimePrimaryStreams.getValue("anime_1")
-            combinedTitle.contains("jujutsu") -> perAnimePrimaryStreams.getValue("anime_2")
+            combinedTitle.contains("frieren") || combinedTitle.contains("sousou no frieren") -> perAnimePrimaryStreams.getValue("anime_1")
+            combinedTitle.contains("jujutsu kaisen") -> perAnimePrimaryStreams.getValue("anime_2")
             combinedTitle.contains("solo leveling") || combinedTitle.contains("ore dake level") -> perAnimePrimaryStreams.getValue("anime_3")
-            combinedTitle.contains("demon slayer") || combinedTitle.contains("kimetsu") -> perAnimePrimaryStreams.getValue("anime_4")
-            combinedTitle.contains("chainsaw") -> perAnimePrimaryStreams.getValue("anime_5")
-            combinedTitle.contains("attack on titan") || combinedTitle.contains("shingeki") -> perAnimePrimaryStreams.getValue("anime_6")
-            combinedTitle.contains("cyberpunk") || combinedTitle.contains("edgerunners") -> perAnimePrimaryStreams.getValue("anime_7")
+            combinedTitle.contains("demon slayer") || combinedTitle.contains("kimetsu no yaiba") -> perAnimePrimaryStreams.getValue("anime_4")
+            combinedTitle.contains("chainsaw man") || combinedTitle.contains("chainsaw-man") -> perAnimePrimaryStreams.getValue("anime_5")
+            combinedTitle.contains("attack on titan") || combinedTitle.contains("shingeki no kyojin") -> perAnimePrimaryStreams.getValue("anime_6")
+            combinedTitle.contains("cyberpunk") && combinedTitle.contains("edgerunners") -> perAnimePrimaryStreams.getValue("anime_7")
             combinedTitle.contains("spy") && combinedTitle.contains("family") -> perAnimePrimaryStreams.getValue("anime_8")
             combinedTitle.contains("one piece") -> listOf(
                 "https://v.animethemes.moe/OnePiece-OP1-NCDVD480.webm",
@@ -162,7 +169,7 @@ class LocalLicensedMediaProvider(
                 "https://v.animethemes.moe/BokuNoHeroAcademia-OP1.webm",
                 "https://v.animethemes.moe/BokuNoHeroAcademia-OP1-NCBD1080.webm"
             )
-            combinedTitle.contains("dandadan") -> listOf(
+            combinedTitle.contains("dandadan") || combinedTitle.contains("dan da dan") -> listOf(
                 "https://v.animethemes.moe/Dandadan-OP1.webm",
                 "https://v.animethemes.moe/Dandadan-OP1-NCBD1080.webm"
             )
@@ -170,7 +177,7 @@ class LocalLicensedMediaProvider(
                 "https://v.animethemes.moe/OshiNoKo-OP1.webm",
                 "https://v.animethemes.moe/OshiNoKo-OP1-NCBD1080.webm"
             )
-            else -> perAnimePrimaryStreams.getValue("anime_1")
+            else -> emptyList()
         }
     }
 
@@ -520,9 +527,19 @@ class LocalLicensedMediaProvider(
         catalog.sortedByDescending { it.releaseYear }
     }
 
+    private fun normalizeSearchText(input: String): String {
+        return input.lowercase()
+            .replace("é", "e")
+            .replace("ū", "u")
+            .replace("ō", "o")
+            .replace("×", "x")
+            .replace(Regex("[^a-z0-9\\u3040-\\u30ff\\u4e00-\\u9faf]+"), " ")
+            .trim()
+    }
+
     override suspend fun getAnimeById(id: String): Anime? = withContext(Dispatchers.IO) {
         synchronized(catalog) {
-            catalog.find { it.id == id || it.slug == id } ?: catalog.firstOrNull()
+            catalog.find { it.id == id || it.slug == id }
         }
     }
 
@@ -534,23 +551,41 @@ class LocalLicensedMediaProvider(
         status: String?,
         sortBy: String
     ): List<Anime> = withContext(Dispatchers.IO) {
-        var results = catalog.toList()
+        var results = synchronized(catalog) { catalog.toList() }
 
         if (query.isNotBlank()) {
-            val q = query.trim().lowercase()
-            results = results.filter {
-                it.titleEnglish.lowercase().contains(q) ||
-                it.titleRomaji.lowercase().contains(q) ||
-                it.titleJapanese.lowercase().contains(q) ||
-                it.studio.lowercase().contains(q) ||
-                it.genres.any { g -> g.lowercase().contains(q) } ||
-                it.tags.any { t -> t.lowercase().contains(q) } ||
-                it.characters.any { c -> c.name.lowercase().contains(q) }
+            val qRaw = query.trim().lowercase()
+            val qNorm = normalizeSearchText(qRaw)
+            val qTokens = qNorm.split(" ").filter { it.isNotBlank() }
+
+            results = results.filter { anime ->
+                val searchableRaw = buildString {
+                    append(anime.titleEnglish).append(' ')
+                    append(anime.titleRomaji).append(' ')
+                    append(anime.titleJapanese).append(' ')
+                    append(anime.slug).append(' ')
+                    append(anime.studio).append(' ')
+                    anime.genres.forEach { append(it).append(' ') }
+                    anime.tags.forEach { append(it).append(' ') }
+                    anime.producers.forEach { append(it).append(' ') }
+                    anime.characters.forEach { append(it.name).append(' ').append(it.voiceActor).append(' ') }
+                }.lowercase()
+                val searchableNorm = normalizeSearchText(searchableRaw)
+                val compactSearchable = searchableNorm.replace(" ", "")
+                val compactQuery = qNorm.replace(" ", "")
+
+                searchableRaw.contains(qRaw) ||
+                    (qNorm.isNotBlank() && searchableNorm.contains(qNorm)) ||
+                    (compactQuery.length >= 2 && compactSearchable.contains(compactQuery)) ||
+                    (qTokens.isNotEmpty() && qTokens.all { token -> searchableNorm.contains(token) })
             }
         }
 
         if (!genre.isNullOrBlank() && genre != "All") {
-            results = results.filter { it.genres.any { g -> g.equals(genre, ignoreCase = true) } }
+            results = results.filter { anime ->
+                anime.genres.any { g -> g.equals(genre, ignoreCase = true) || g.contains(genre, ignoreCase = true) } ||
+                    anime.tags.any { t -> t.equals(genre, ignoreCase = true) }
+            }
         }
 
         if (year != null && year > 0) {
@@ -568,20 +603,28 @@ class LocalLicensedMediaProvider(
         when (sortBy) {
             "RATING" -> results.sortedByDescending { it.rating }
             "NEWEST" -> results.sortedByDescending { it.releaseYear }
-            "A_Z" -> results.sortedBy { it.titleEnglish }
+            "A_Z", "TITLE_AZ" -> results.sortedBy { it.titleEnglish }
             else -> results.sortedByDescending { it.score }
         }
     }
 
     override suspend fun getEpisodesForAnime(animeId: String): List<Episode> = withContext(Dispatchers.IO) {
-        val anime = getAnimeById(animeId) ?: catalog.first()
+        val anime = getAnimeById(animeId) ?: return@withContext emptyList()
 
-        // Fetch any scraped / admin-injected streams from Room DB & memory
+        // Fetch any scraped / admin-injected streams from Room DB & memory specifically for this anime
         val dbScraped = adminScrapedDao?.getScrapedVideosForAnime(anime.id).orEmpty()
         val memScraped = synchronized(inMemoryScrapedStreams) {
             inMemoryScrapedStreams.filter { it.animeId == anime.id }
         }
-        val allScrapedForAnime = (dbScraped + memScraped).distinctBy { it.id }
+        val allScrapedForAnime = (dbScraped + memScraped)
+            .filter {
+                it.streamUrl.isNotBlank() &&
+                    !isLegacyFakeDemoStream(it.streamUrl) &&
+                    !it.streamUrl.contains("youtube.com", ignoreCase = true) &&
+                    !it.streamUrl.contains("youtu.be", ignoreCase = true) &&
+                    !it.streamUrl.contains("/embed/", ignoreCase = true)
+            }
+            .distinctBy { it.id }
 
         val maxScrapedEp = allScrapedForAnime.maxOfOrNull { it.episodeNumber } ?: 0
         val count = maxOf(anime.episodesCount.coerceIn(1, 28), maxScrapedEp)
@@ -602,37 +645,16 @@ class LocalLicensedMediaProvider(
             animeVideoStorageStreams[anime.id].orEmpty()
         }
         val seriesPool = resolveExactStreamsForAnime(anime, storedSources)
-        val userCustomServers = synchronized(customAddedServers) { customAddedServers.toList() }
-
-        val officialTrailerSource = if (anime.trailerUrl.isNotBlank()) {
-            listOf(
-                EpisodeSource(
-                    id = "trailer_${anime.id}",
-                    quality = "Official Trailer [HD Embed]",
-                    streamUrl = anime.trailerUrl,
-                    isHls = false,
-                    cdnNode = "Official Trailer",
-                    audioTrack = "sub"
-                )
-            )
-        } else emptyList()
-
         val episodeTitles = perAnimeEpisodeTitles[anime.id].orEmpty()
 
         (1..count).map { epNum ->
-            val primaryEpUrl = seriesPool[(epNum - 1) % seriesPool.size]
-            val secondaryEpUrl = seriesPool[epNum % seriesPool.size]
-            val tertiaryEpUrl = seriesPool[(epNum + 1) % seriesPool.size]
-            val quaternaryEpUrl = seriesPool[(epNum + 2) % seriesPool.size]
-
             val epScraped = allScrapedForAnime.filter { it.episodeNumber == epNum }
             val scrapedSources = epScraped.map { entity ->
-                val resolvedUrl = if (isLegacyFakeDemoStream(entity.streamUrl)) primaryEpUrl else entity.streamUrl
                 EpisodeSource(
                     id = entity.id,
                     quality = "${entity.qualityLabel} [${entity.serverSource}]",
-                    streamUrl = resolvedUrl,
-                    isHls = resolvedUrl.endsWith(".m3u8", ignoreCase = true),
+                    streamUrl = entity.streamUrl,
+                    isHls = entity.streamUrl.endsWith(".m3u8", ignoreCase = true),
                     cdnNode = entity.serverSource
                 )
             }
@@ -649,125 +671,141 @@ class LocalLicensedMediaProvider(
                 }
             }
 
-            // All HiAnime SUB/DUB & 6 Cloud CDN servers for this episode strictly play THIS anime's video streams!
-            val dedicatedEpisodeServers = listOf(
-                EpisodeSource(
-                    id = "${anime.id}_ep_${epNum}_hd1_sub",
-                    quality = "1080p • HD-1 (VidStreaming • SUB)",
-                    streamUrl = primaryEpUrl,
-                    isHls = primaryEpUrl.endsWith(".m3u8", ignoreCase = true),
-                    cdnNode = "HD-1 (VidStreaming)",
-                    audioTrack = "sub"
-                ),
-                EpisodeSource(
-                    id = "${anime.id}_ep_${epNum}_hd2_sub",
-                    quality = "1080p • HD-2 (MegaCloud • SUB)",
-                    streamUrl = secondaryEpUrl,
-                    isHls = secondaryEpUrl.endsWith(".m3u8", ignoreCase = true),
-                    cdnNode = "HD-2 (MegaCloud)",
-                    audioTrack = "sub"
-                ),
-                EpisodeSource(
-                    id = "${anime.id}_ep_${epNum}_streamsb_sub",
-                    quality = "1080p • StreamSB (HiAnime • SUB)",
-                    streamUrl = tertiaryEpUrl,
-                    isHls = tertiaryEpUrl.endsWith(".m3u8", ignoreCase = true),
-                    cdnNode = "StreamSB",
-                    audioTrack = "sub"
-                ),
-                EpisodeSource(
-                    id = "${anime.id}_ep_${epNum}_streamtape_sub",
-                    quality = "1080p • StreamTape (Fast Cloud • SUB)",
-                    streamUrl = quaternaryEpUrl,
-                    isHls = quaternaryEpUrl.endsWith(".m3u8", ignoreCase = true),
-                    cdnNode = "StreamTape",
-                    audioTrack = "sub"
-                ),
-                EpisodeSource(
-                    id = "${anime.id}_ep_${epNum}_cf_r2",
-                    quality = "1080p • Cloudflare R2 + Cloudflare CDN (✅ HLS)",
-                    streamUrl = primaryEpUrl,
-                    isHls = primaryEpUrl.endsWith(".m3u8", ignoreCase = true),
-                    cdnNode = "Cloudflare R2 + Cloudflare CDN",
-                    audioTrack = "sub"
-                ),
-                EpisodeSource(
-                    id = "${anime.id}_ep_${epNum}_aws_cf",
-                    quality = "1080p • AWS S3 + CloudFront (✅ HLS/DASH)",
-                    streamUrl = secondaryEpUrl,
-                    isHls = secondaryEpUrl.endsWith(".m3u8", ignoreCase = true),
-                    cdnNode = "AWS S3 + CloudFront",
-                    audioTrack = "sub"
-                ),
-                EpisodeSource(
-                    id = "${anime.id}_ep_${epNum}_bunny_cdn",
-                    quality = "1080p • Bunny.net Storage + Bunny CDN (robiulislam.b-cdn.net • ✅ HLS)",
-                    streamUrl = tertiaryEpUrl,
-                    isHls = tertiaryEpUrl.endsWith(".m3u8", ignoreCase = true),
-                    cdnNode = "Bunny.net CDN (robiulislam.b-cdn.net)",
-                    audioTrack = "sub"
-                ),
-                EpisodeSource(
-                    id = "${anime.id}_ep_${epNum}_robiul_bunny_edge",
-                    quality = "1080p • Robiul Bunny.net Pull Zone (robiulislam.b-cdn.net)",
-                    streamUrl = primaryEpUrl,
-                    isHls = primaryEpUrl.endsWith(".m3u8", ignoreCase = true),
-                    cdnNode = "robiulislam.b-cdn.net (Bunny CDN)",
-                    audioTrack = "sub"
-                ),
-                EpisodeSource(
-                    id = "${anime.id}_ep_${epNum}_cf_stream",
-                    quality = "1080p • Cloudflare Stream (✅ HLS)",
-                    streamUrl = quaternaryEpUrl,
-                    isHls = quaternaryEpUrl.endsWith(".m3u8", ignoreCase = true),
-                    cdnNode = "Cloudflare Stream",
-                    audioTrack = "sub"
-                ),
-                EpisodeSource(
-                    id = "${anime.id}_ep_${epNum}_mux_pro",
-                    quality = "1080p • Mux Professional Video (✅ HLS)",
-                    streamUrl = primaryEpUrl,
-                    isHls = primaryEpUrl.endsWith(".m3u8", ignoreCase = true),
-                    cdnNode = "Mux Professional Video",
-                    audioTrack = "sub"
-                ),
-                EpisodeSource(
-                    id = "${anime.id}_ep_${epNum}_vps_nginx",
-                    quality = "1080p • Self-hosted VPS + Nginx (✅ HLS)",
-                    streamUrl = secondaryEpUrl,
-                    isHls = secondaryEpUrl.endsWith(".m3u8", ignoreCase = true),
-                    cdnNode = "Self-hosted VPS + Nginx",
-                    audioTrack = "sub"
-                ),
-                EpisodeSource(
-                    id = "${anime.id}_ep_${epNum}_hd1_dub",
-                    quality = "1080p • HD-1 (VidStreaming • DUB)",
-                    streamUrl = primaryEpUrl,
-                    isHls = primaryEpUrl.endsWith(".m3u8", ignoreCase = true),
-                    cdnNode = "HD-1 (VidStreaming DUB)",
-                    audioTrack = "dub"
-                ),
-                EpisodeSource(
-                    id = "${anime.id}_ep_${epNum}_hd2_dub",
-                    quality = "1080p • HD-2 (MegaCloud • DUB)",
-                    streamUrl = secondaryEpUrl,
-                    isHls = secondaryEpUrl.endsWith(".m3u8", ignoreCase = true),
-                    cdnNode = "HD-2 (MegaCloud DUB)",
-                    audioTrack = "dub"
-                ),
-                EpisodeSource(
-                    id = "${anime.id}_ep_${epNum}_streamsb_dub",
-                    quality = "1080p • StreamSB (English/Multi DUB)",
-                    streamUrl = tertiaryEpUrl,
-                    isHls = tertiaryEpUrl.endsWith(".m3u8", ignoreCase = true),
-                    cdnNode = "StreamSB DUB",
-                    audioTrack = "dub"
-                )
-            )
+            // Strictly include servers ONLY if this exact anime has video streams on the server.
+            // If seriesPool is empty and scrapedSources is empty, combinedSources is emptyList()
+            // so the player shows "Video not available right now" instead of any unrelated/fake video.
+            val combinedSources = if (seriesPool.isNotEmpty()) {
+                val primaryEpUrl = seriesPool[(epNum - 1) % seriesPool.size]
+                val secondaryEpUrl = seriesPool[epNum % seriesPool.size]
+                val tertiaryEpUrl = seriesPool[(epNum + 1) % seriesPool.size]
+                val quaternaryEpUrl = seriesPool[(epNum + 2) % seriesPool.size]
 
-            // Combine exclusively THIS anime's streams: 1) Dedicated Episode Servers for this exact anime first, 2) Admin Scraped for this anime, 3) Live AnimeThemes streams for this anime, 4) User custom servers, 5) Official Trailer
-            val validStoredSources = storedSources.filterNot { isLegacyFakeDemoStream(it.streamUrl) }
-            val combinedSources = (dedicatedEpisodeServers + scrapedSources + validStoredSources + userCustomServers + officialTrailerSource).distinctBy { it.id }
+                val dedicatedEpisodeServers = listOf(
+                    EpisodeSource(
+                        id = "${anime.id}_ep_${epNum}_hd1_sub",
+                        quality = "1080p • HD-1 (VidStreaming • SUB)",
+                        streamUrl = primaryEpUrl,
+                        isHls = primaryEpUrl.endsWith(".m3u8", ignoreCase = true),
+                        cdnNode = "HD-1 (VidStreaming)",
+                        audioTrack = "sub"
+                    ),
+                    EpisodeSource(
+                        id = "${anime.id}_ep_${epNum}_hd2_sub",
+                        quality = "1080p • HD-2 (MegaCloud • SUB)",
+                        streamUrl = secondaryEpUrl,
+                        isHls = secondaryEpUrl.endsWith(".m3u8", ignoreCase = true),
+                        cdnNode = "HD-2 (MegaCloud)",
+                        audioTrack = "sub"
+                    ),
+                    EpisodeSource(
+                        id = "${anime.id}_ep_${epNum}_streamsb_sub",
+                        quality = "1080p • StreamSB (HiAnime • SUB)",
+                        streamUrl = tertiaryEpUrl,
+                        isHls = tertiaryEpUrl.endsWith(".m3u8", ignoreCase = true),
+                        cdnNode = "StreamSB",
+                        audioTrack = "sub"
+                    ),
+                    EpisodeSource(
+                        id = "${anime.id}_ep_${epNum}_streamtape_sub",
+                        quality = "1080p • StreamTape (Fast Cloud • SUB)",
+                        streamUrl = quaternaryEpUrl,
+                        isHls = quaternaryEpUrl.endsWith(".m3u8", ignoreCase = true),
+                        cdnNode = "StreamTape",
+                        audioTrack = "sub"
+                    ),
+                    EpisodeSource(
+                        id = "${anime.id}_ep_${epNum}_cf_r2",
+                        quality = "1080p • Cloudflare R2 + Cloudflare CDN (✅ HLS)",
+                        streamUrl = primaryEpUrl,
+                        isHls = primaryEpUrl.endsWith(".m3u8", ignoreCase = true),
+                        cdnNode = "Cloudflare R2 + Cloudflare CDN",
+                        audioTrack = "sub"
+                    ),
+                    EpisodeSource(
+                        id = "${anime.id}_ep_${epNum}_aws_cf",
+                        quality = "1080p • AWS S3 + CloudFront (✅ HLS/DASH)",
+                        streamUrl = secondaryEpUrl,
+                        isHls = secondaryEpUrl.endsWith(".m3u8", ignoreCase = true),
+                        cdnNode = "AWS S3 + CloudFront",
+                        audioTrack = "sub"
+                    ),
+                    EpisodeSource(
+                        id = "${anime.id}_ep_${epNum}_bunny_cdn",
+                        quality = "1080p • Bunny.net Storage + Bunny CDN (robiulislam.b-cdn.net • ✅ HLS)",
+                        streamUrl = tertiaryEpUrl,
+                        isHls = tertiaryEpUrl.endsWith(".m3u8", ignoreCase = true),
+                        cdnNode = "Bunny.net CDN (robiulislam.b-cdn.net)",
+                        audioTrack = "sub"
+                    ),
+                    EpisodeSource(
+                        id = "${anime.id}_ep_${epNum}_robiul_bunny_edge",
+                        quality = "1080p • Robiul Bunny.net Pull Zone (robiulislam.b-cdn.net)",
+                        streamUrl = primaryEpUrl,
+                        isHls = primaryEpUrl.endsWith(".m3u8", ignoreCase = true),
+                        cdnNode = "robiulislam.b-cdn.net (Bunny CDN)",
+                        audioTrack = "sub"
+                    ),
+                    EpisodeSource(
+                        id = "${anime.id}_ep_${epNum}_cf_stream",
+                        quality = "1080p • Cloudflare Stream (✅ HLS)",
+                        streamUrl = quaternaryEpUrl,
+                        isHls = quaternaryEpUrl.endsWith(".m3u8", ignoreCase = true),
+                        cdnNode = "Cloudflare Stream",
+                        audioTrack = "sub"
+                    ),
+                    EpisodeSource(
+                        id = "${anime.id}_ep_${epNum}_mux_pro",
+                        quality = "1080p • Mux Professional Video (✅ HLS)",
+                        streamUrl = primaryEpUrl,
+                        isHls = primaryEpUrl.endsWith(".m3u8", ignoreCase = true),
+                        cdnNode = "Mux Professional Video",
+                        audioTrack = "sub"
+                    ),
+                    EpisodeSource(
+                        id = "${anime.id}_ep_${epNum}_vps_nginx",
+                        quality = "1080p • Self-hosted VPS + Nginx (✅ HLS)",
+                        streamUrl = secondaryEpUrl,
+                        isHls = secondaryEpUrl.endsWith(".m3u8", ignoreCase = true),
+                        cdnNode = "Self-hosted VPS + Nginx",
+                        audioTrack = "sub"
+                    ),
+                    EpisodeSource(
+                        id = "${anime.id}_ep_${epNum}_hd1_dub",
+                        quality = "1080p • HD-1 (VidStreaming • DUB)",
+                        streamUrl = primaryEpUrl,
+                        isHls = primaryEpUrl.endsWith(".m3u8", ignoreCase = true),
+                        cdnNode = "HD-1 (VidStreaming DUB)",
+                        audioTrack = "dub"
+                    ),
+                    EpisodeSource(
+                        id = "${anime.id}_ep_${epNum}_hd2_dub",
+                        quality = "1080p • HD-2 (MegaCloud • DUB)",
+                        streamUrl = secondaryEpUrl,
+                        isHls = secondaryEpUrl.endsWith(".m3u8", ignoreCase = true),
+                        cdnNode = "HD-2 (MegaCloud DUB)",
+                        audioTrack = "dub"
+                    ),
+                    EpisodeSource(
+                        id = "${anime.id}_ep_${epNum}_streamsb_dub",
+                        quality = "1080p • StreamSB (English/Multi DUB)",
+                        streamUrl = tertiaryEpUrl,
+                        isHls = tertiaryEpUrl.endsWith(".m3u8", ignoreCase = true),
+                        cdnNode = "StreamSB DUB",
+                        audioTrack = "dub"
+                    )
+                )
+
+                val validStoredSources = storedSources.filter {
+                    it.streamUrl.isNotBlank() &&
+                        !isLegacyFakeDemoStream(it.streamUrl) &&
+                        !it.streamUrl.contains("youtube.com", ignoreCase = true) &&
+                        !it.streamUrl.contains("youtu.be", ignoreCase = true) &&
+                        !it.streamUrl.contains("/embed/", ignoreCase = true)
+                }
+                (dedicatedEpisodeServers + scrapedSources + validStoredSources).distinctBy { it.id }
+            } else {
+                scrapedSources.distinctBy { it.id }
+            }
 
             val customTitle = epScraped.firstOrNull { it.episodeTitle.isNotBlank() }?.episodeTitle
                 ?: episodeTitles.getOrNull(epNum - 1)
@@ -800,30 +838,46 @@ class LocalLicensedMediaProvider(
     }
 
     override suspend fun getAllGenres(): List<String> = listOf(
-        "All", "Action", "Adventure", "Comedy", "Dark Fantasy", "Drama", "Fantasy",
-        "Horror", "Mystery", "Psychological", "Sci-Fi", "Slice of Life", "Supernatural"
+        "All", "Action", "Adventure", "Comedy", "Dark Fantasy", "Drama", "Ecchi", "Fantasy",
+        "Horror", "Isekai", "Mecha", "Music", "Mystery", "Psychological", "Romance",
+        "Sci-Fi", "Seinen", "Shoujo", "Shounen", "Slice of Life", "Sports", "Supernatural", "Suspense", "Thriller"
     )
 
     override suspend fun getAllStudios(): List<String> = listOf(
-        "All", "Madhouse", "MAPPA", "ufotable", "A-1 Pictures", "Studio Trigger", "Wit Studio", "CloverWorks"
+        "All", "Madhouse", "MAPPA", "ufotable", "A-1 Pictures", "Studio Trigger", "Wit Studio",
+        "CloverWorks", "Toei Animation", "Bones", "Sunrise", "Kyoto Animation", "Production I.G", "Pierrot", "Science SARU"
     )
 
-    // Sync live multi-API anime into catalog without losing admin-added items
+    // Sync live multi-API anime (Jikan v4 + AniList GraphQL + AnimeThemes) into catalog without losing items
     fun mergeRemoteAnimeList(remoteList: List<Anime>) {
         synchronized(catalog) {
             remoteList.forEach { remote ->
-                val existingIdx = catalog.indexOfFirst {
-                    it.id == remote.id || it.titleEnglish.equals(remote.titleEnglish, ignoreCase = true)
+                val normEn = normalizeSearchText(remote.titleEnglish)
+                val normRo = normalizeSearchText(remote.titleRomaji)
+                val existingIdx = catalog.indexOfFirst { item ->
+                    item.id == remote.id ||
+                        (normEn.isNotBlank() && normalizeSearchText(item.titleEnglish) == normEn) ||
+                        (normRo.isNotBlank() && normalizeSearchText(item.titleRomaji) == normRo)
                 }
                 if (existingIdx != -1) {
                     val current = catalog[existingIdx]
                     catalog[existingIdx] = current.copy(
+                        titleRomaji = remote.titleRomaji.ifBlank { current.titleRomaji },
+                        titleJapanese = remote.titleJapanese.ifBlank { current.titleJapanese },
                         posterUrl = remote.posterUrl.ifBlank { current.posterUrl },
                         bannerUrl = remote.bannerUrl.ifBlank { current.bannerUrl },
                         trailerUrl = remote.trailerUrl.ifBlank { current.trailerUrl },
                         description = remote.description.ifBlank { current.description },
                         rating = if (remote.rating > 0f) remote.rating else current.rating,
-                        score = if (remote.score > 0) remote.score else current.score
+                        score = if (remote.score > 0) remote.score else current.score,
+                        type = if (current.type == AnimeType.TV && remote.type != AnimeType.TV) remote.type else current.type,
+                        status = remote.status,
+                        episodesCount = if (remote.episodesCount > 0) maxOf(current.episodesCount, remote.episodesCount) else current.episodesCount,
+                        releaseYear = if (remote.releaseYear > 1950) remote.releaseYear else current.releaseYear,
+                        studio = if (current.studio == "Anime Studio" && remote.studio.isNotBlank()) remote.studio else current.studio,
+                        genres = (current.genres + remote.genres).distinct(),
+                        tags = (current.tags + remote.tags).distinct(),
+                        characters = if (current.characters.isEmpty()) remote.characters else (current.characters + remote.characters).distinctBy { it.name }
                     )
                 } else {
                     catalog.add(remote)

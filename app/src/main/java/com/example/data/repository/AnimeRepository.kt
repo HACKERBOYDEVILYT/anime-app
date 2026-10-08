@@ -34,6 +34,7 @@ class AnimeRepository(
     ): List<Anime> = metadataProvider.searchAnime(query, genre, year, type, status, sortBy)
 
     suspend fun filterCatalog(
+        query: String = "",
         genre: String? = null,
         year: Int? = null,
         season: String? = null,
@@ -42,7 +43,7 @@ class AnimeRepository(
         sort: AnimeSortOption = AnimeSortOption.POPULARITY
     ): List<Anime> {
         val base = metadataProvider.searchAnime(
-            query = "",
+            query = query,
             genre = genre,
             year = year,
             type = type?.name,
@@ -54,8 +55,11 @@ class AnimeRepository(
         } else {
             base.filter { it.season.contains(season, ignoreCase = true) }
         }
+        if (query.isNotBlank()) {
+            return seasonFiltered
+        }
         return when (sort) {
-            AnimeSortOption.POPULARITY -> seasonFiltered.sortedByDescending { it.isPopular }
+            AnimeSortOption.POPULARITY -> seasonFiltered.sortedByDescending { it.score }
             AnimeSortOption.RATING -> seasonFiltered.sortedByDescending { it.rating }
             AnimeSortOption.NEWEST -> seasonFiltered.sortedByDescending { it.releaseYear }
             AnimeSortOption.TITLE_AZ -> seasonFiltered.sortedBy { it.titleEnglish }

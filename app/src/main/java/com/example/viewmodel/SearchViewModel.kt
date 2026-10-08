@@ -282,7 +282,10 @@ class SearchViewModel(
             _uiState.update { it.copy(isSearching = true, error = null) }
             val isOnline = catalogNetworkMonitor.verifyConnectionBeforeCatalogFetch("Search Catalog API")
 
+            val rawQuery = state.query.trim()
+            val q = rawQuery.lowercase()
             val baseFiltered = animeRepository.filterCatalog(
+                query = rawQuery,
                 genre = state.selectedGenre,
                 year = state.selectedYear,
                 season = state.selectedSeason,
@@ -291,7 +294,6 @@ class SearchViewModel(
                 sort = state.sortOption
             )
 
-            val q = state.query.trim().lowercase()
             val allCharacters = gamificationRepository.characters.value
             val matchedChars = if (q.isEmpty()) {
                 emptyList()
@@ -308,21 +310,14 @@ class SearchViewModel(
                 baseFiltered
             } else {
                 val charAnimeIds = matchedChars.map { it.animeId }.toSet()
-                baseFiltered.filter { anime ->
-                    anime.titleEnglish.lowercase().contains(q) ||
-                        anime.titleJapanese.lowercase().contains(q) ||
-                        anime.synopsis.lowercase().contains(q) ||
-                        anime.studio.lowercase().contains(q) ||
-                        anime.season.lowercase().contains(q) ||
-                        anime.releaseYear.toString().contains(q) ||
-                        anime.genres.any { it.lowercase().contains(q) } ||
-                        anime.tags.any { it.lowercase().contains(q) } ||
-                        anime.characters.any { c ->
-                            c.name.lowercase().contains(q) || c.voiceActor.lowercase().contains(q)
-                        } ||
-                        anime.id in charAnimeIds ||
-                        q.startsWith("ep") || q.contains("episode")
+                val extraCharAnimes = if (charAnimeIds.isNotEmpty()) {
+                    animeRepository.getAllCatalog().filter { anime ->
+                        anime.id in charAnimeIds && baseFiltered.none { it.id == anime.id }
+                    }
+                } else {
+                    emptyList()
                 }
+                baseFiltered + extraCharAnimes
             }
 
             val fullyFiltered = searched.filter { anime ->

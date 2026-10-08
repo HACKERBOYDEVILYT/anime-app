@@ -733,10 +733,7 @@
 
     function resolveExactAnimeStreamUrl(animeTitle, variantIndex) {
       const t = (animeTitle || "").toLowerCase();
-      let pool = [
-        "https://v.animethemes.moe/SousouNoFrieren-OP1.webm",
-        "https://v.animethemes.moe/SousouNoFrieren-ED1.webm"
-      ];
+      let pool = [];
       if (t.includes("frieren")) {
         pool = ["https://v.animethemes.moe/SousouNoFrieren-OP1.webm", "https://v.animethemes.moe/SousouNoFrieren-ED1.webm", "https://v.animethemes.moe/SousouNoFrieren-OP1-NCBD1080.webm"];
       } else if (t.includes("jujutsu")) {
@@ -762,6 +759,7 @@
       } else if (t.includes("blue lock")) {
         pool = ["https://v.animethemes.moe/BlueLock-OP1.webm", "https://v.animethemes.moe/BlueLock-OP1-NCBD1080.webm"];
       }
+      if (!pool.length) return "";
       return pool[Math.abs(variantIndex || 0) % pool.length];
     }
 
@@ -769,13 +767,25 @@
       currentModalServerIndex = idx % UPSTREAM_SERVERS.length;
       const srv = UPSTREAM_SERVERS[currentModalServerIndex];
       const epNum = currentPlayingAnime ? currentPlayingAnime.episode : 1;
-      const animeTitle = currentPlayingAnime ? currentPlayingAnime.title : "Frieren: Beyond Journey's End";
+      const animeTitle = currentPlayingAnime ? currentPlayingAnime.title : "";
       const exactUrl = resolveExactAnimeStreamUrl(animeTitle, currentModalServerIndex + epNum - 1);
-      document.getElementById("modalEpisodeSub").textContent = `Episode ${epNum} • ${srv.name}`;
       const corner = document.getElementById("modalEpCornerBadge");
-      if (corner) corner.textContent = `EP ${epNum} • ${srv.code}`;
       renderModalServerButtons();
-      attachStream(document.getElementById("modalVideo"), { ...srv, url: exactUrl, isHls: exactUrl.endsWith(".m3u8") }, false);
+      const v = document.getElementById("modalVideo");
+      if (!exactUrl) {
+        if (v) {
+          v.pause();
+          v.removeAttribute("src");
+          v.load();
+        }
+        document.getElementById("modalEpisodeSub").textContent = "Video not available right now";
+        if (corner) corner.textContent = "Video not available right now";
+        showPlayerKeyToast("Video not available right now");
+        return;
+      }
+      document.getElementById("modalEpisodeSub").textContent = `Episode ${epNum} • ${srv.name}`;
+      if (corner) corner.textContent = `EP ${epNum} • ${srv.code}`;
+      attachStream(v, { ...srv, url: exactUrl, isHls: exactUrl.endsWith(".m3u8") }, false);
     }
 
     function toggleModalPlay() {
@@ -1134,27 +1144,69 @@
         );
         return;
       }
-      document.getElementById("catalogStatus").textContent = `Searching "${q}"...`;
+      document.getElementById("catalogStatus").textContent = `Searching Jikan v4 + Anime GraphQL for "${q}"...`;
       try {
-        const r = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(q)}&limit=12`);
-        if (!r.ok) {
-          throw new Error(`HTTP ${r.status} during catalog search`);
-        }
-        const json = await r.json();
-        if (json.data) {
-          const results = json.data.map(a => ({
-            id: "search_" + a.mal_id,
-            title: a.title_english || a.title,
-            studio: (a.studios && a.studios[0]) ? a.studios[0].name : "Anime",
+        const jikanPromise = fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(q)}&limit=25`).then(r => r.ok ? r.json() : { data: [] }).catch(() => ({ data: [] }));
+        const gqlQuery = `
+          query ($search: String) {
+            Page(page: 1, perPage: 25) {
+              media(search: $search, type: ANIME, sort: [SEARCH_MATCH, POPULARITY_DESC]) {
+                id
+                idMal
+                title { english romaji native }
+                format
+                episodes
+                averageScore
+                coverImage { extraLarge large }
+              }
+            }
+          }
+        `;
+        const gqlPromise = fetch("https://graphql.anilist.co", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify({ query: gqlQuery, variables: { search: q } })
+        }).then(r => r.ok ? r.json() : {}).catch(() => ({}));
+
+        const [jikanJson, gqlJson] = await Promise.all([jikanPromise, gqlPromise]);
+        const jikanList = Array.isArray(jikanJson.data) ? jikanJson.data : [];
+        const gqlList = (gqlJson && gqlJson.data && gqlJson.data.Page && Array.isArray(gqlJson.data.Page.media)) ? gqlJson.data.Page.media : [];
+
+        const merged = new Map();
+        jikanList.forEach(a => {
+          const title = a.title_english || a.title || "Anime";
+          const key = a.mal_id ? `mal_${a.mal_id}` : title.toLowerCase();
+          merged.set(key, {
+            id: "search_" + (a.mal_id || title),
+            title: title,
+            studio: (a.studios && a.studios[0]) ? a.studios[0].name : (a.type || "Anime"),
             score: a.score || "8.5",
             episodes: a.episodes || 12,
-            poster: a.images?.jpg?.large_image_url || a.images?.jpg?.image_url
-          }));
-          document.getElementById("catalogSectionTitle").textContent = `🔍 Search Results for "${q}"`;
-          document.getElementById("catalogStatus").textContent = `${results.length} results found`;
-          renderStreamsAndCatalog(results);
-          hideFetchErrorNotification();
-        }
+            poster: a.images?.jpg?.large_image_url || a.images?.jpg?.image_url || ""
+          });
+        });
+
+        gqlList.forEach(m => {
+          const titleObj = m.title || {};
+          const title = titleObj.english || titleObj.romaji || titleObj.native || "Anime";
+          const key = m.idMal ? `mal_${m.idMal}` : title.toLowerCase();
+          if (!merged.has(key)) {
+            merged.set(key, {
+              id: "gql_" + m.id,
+              title: title,
+              studio: m.format || "Anime",
+              score: m.averageScore ? (m.averageScore / 10).toFixed(1) : "8.4",
+              episodes: m.episodes || 12,
+              poster: (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large)) || ""
+            });
+          }
+        });
+
+        const results = Array.from(merged.values());
+        document.getElementById("catalogSectionTitle").textContent = `🔍 Jikan + GraphQL Search Results for "${q}"`;
+        document.getElementById("catalogStatus").textContent = `${results.length} results found`;
+        renderStreamsAndCatalog(results);
+        hideFetchErrorNotification();
       } catch (e) {
         updateOfflineIndicator(`search catalog results for "${q}"`);
         showFetchErrorNotification(

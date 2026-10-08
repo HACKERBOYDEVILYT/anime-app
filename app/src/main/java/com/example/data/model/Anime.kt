@@ -5,13 +5,41 @@ enum class AnimeType(val displayName: String) {
     MOVIE("Movie"),
     OVA("OVA"),
     ONA("ONA"),
-    SPECIAL("Special")
+    SPECIAL("Special"),
+    MUSIC("Music");
+
+    companion object {
+        fun fromApiString(raw: String?): AnimeType {
+            return when (raw?.trim()?.uppercase()) {
+                "TV", "TV_SHORT" -> TV
+                "MOVIE" -> MOVIE
+                "OVA" -> OVA
+                "ONA" -> ONA
+                "SPECIAL", "TV SPECIAL", "TV_SPECIAL", "CM", "PV" -> SPECIAL
+                "MUSIC" -> MUSIC
+                else -> TV
+            }
+        }
+    }
 }
 
 enum class AnimeStatus(val displayName: String) {
     RELEASING("Ongoing"),
     FINISHED("Completed"),
-    NOT_YET_RELEASED("Upcoming")
+    NOT_YET_RELEASED("Upcoming");
+
+    companion object {
+        fun fromApiString(raw: String?, isAiring: Boolean = false): AnimeStatus {
+            if (isAiring) return RELEASING
+            val normalized = raw?.trim()?.uppercase() ?: return FINISHED
+            return when {
+                normalized.contains("AIRING") && !normalized.contains("FINISHED") && !normalized.contains("NOT YET") -> RELEASING
+                normalized == "RELEASING" || normalized == "ONGOING" || normalized == "HIATUS" -> RELEASING
+                normalized.contains("NOT YET") || normalized == "NOT_YET_RELEASED" || normalized == "UPCOMING" || normalized == "UNRELEASED" -> NOT_YET_RELEASED
+                else -> FINISHED
+            }
+        }
+    }
 }
 
 enum class AnimeSortOption(val displayName: String) {
