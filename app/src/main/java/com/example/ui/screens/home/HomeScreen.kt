@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
@@ -336,6 +337,7 @@ fun HomeScreen(
                             .padding(horizontal = 16.dp, vertical = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
+                        QuickHubButton("Admin Panel", "🛡️", Icons.Default.Security, onAdminClick, Modifier.weight(1f))
                         QuickHubButton("Cloud & AI API", "⚡", Icons.Default.Dns, onCloudApiClick, Modifier.weight(1f))
                         QuickHubButton("Watch Party", "🎉", Icons.Default.Group, onPartyClick, Modifier.weight(1f))
                         QuickHubButton("Tier Maker", "🏆", Icons.Default.FormatListNumbered, onTierListClick, Modifier.weight(1f))

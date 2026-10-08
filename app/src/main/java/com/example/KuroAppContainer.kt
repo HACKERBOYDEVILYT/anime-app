@@ -91,7 +91,8 @@ class KuroAppContainer(context: Context) {
 
     val appUpdateRepository: AppUpdateRepository = AppUpdateRepository(
         context = context,
-        mediaProvider = mediaProvider
+        mediaProvider = mediaProvider,
+        adminRepository = adminRepository
     )
 
     companion object {

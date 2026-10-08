@@ -1,12 +1,12 @@
 {
   "appName": "Robiul",
-  "versionCode": 2,
-  "versionName": "1.1.0",
+  "versionCode": 3,
+  "versionName": "1.2.0",
   "commitSha": "main-latest",
-  "publishedAt": "2026-10-05T00:00:00Z",
+  "publishedAt": "2026-10-08T00:00:00Z",
   "forceUpdate": false,
   "repositorySlug": "robiul/robiul-rs",
   "apkDownloadUrl": "/download/Robiul-Release.apk",
   "webPortalUrl": "http://127.0.0.1:8080",
-  "changelog": "• Robiul [RS] Hacker Edition Android App & Live Web Streaming Portal\n• 17 Auto-Failover 1080p Streaming Servers (S-01 to S-17)\n• Fixed Admin Panel API Status, HTTP Catcher & Live Website 404 Error"
+  "changelog": "• Added Live Website Admin Panel (🛡️ Admin Panel button & Logo click)\n• Real-time 2-Way Sync between Website & Android App Admin Panel\n• Bunny.net CDN, Paid Server API & HTML / Iframe Embed Player\n• Dual-Engine Jikan v4 + Anime GraphQL Search"
 }

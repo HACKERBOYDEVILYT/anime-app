@@ -231,13 +231,14 @@
       padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;
     }
     .chip.active { background: var(--crimson-neon); border-color: var(--crimson-neon); color: #fff; }
-
-    /* Live 24/7 Anime Radio Bar */
-    .radio-dock {
-      position: fixed; bottom: 0; left: 0; right: 0; z-index: 90;
-      background: rgba(20, 22, 29, 0.96); backdrop-filter: blur(12px);
-      border-top: 1px solid rgba(0, 240, 255, 0.3); padding: 10px 20px;
-      display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+    .admin-input {
+      width: 100%; background: var(--surface-variant); border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 8px; padding: 9px 12px; color: var(--text-primary); font-size: 12px; outline: none; margin-top: 6px;
+    }
+    .admin-input:focus { border-color: var(--cyan-glow); }
+    .admin-card {
+      background: rgba(20, 22, 29, 0.95); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px; padding: 14px; margin-bottom: 12px;
     }
   </style>
 </head>
@@ -245,20 +246,23 @@
 
   <!-- Top Unified Navigation Header -->
   <header>
-    <div class="brand" onclick="window.scrollTo({top:0,behavior:'smooth'})">
-      <div class="brand-logo">R<span>S</span></div>
+    <div class="brand" onclick="openWebAdminModal()" title="Click to open Admin Panel">
+      <div class="brand-logo" style="position:relative;overflow:hidden;">
+        <img id="headerBunnyLogoImg" src="https://robiulislam.b-cdn.net/images/logo.png" alt="Robiul Bunny.net CDN Logo" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;" onerror="this.style.display='none'" />
+        <span style="position:relative;z-index:1;color:#00E5FF;font-size:16px;">▶</span>
+      </div>
       <div>
-        <div class="brand-title">ROBIUL<span>[RS]</span></div>
-        <div style="font-size:10px;color:#00FF66;font-weight:700;font-family:monospace;">&gt;_ RS_HACKER // WEB &amp; APP</div>
+        <div class="brand-title">ROBIUL</div>
       </div>
       <div class="sync-badge" id="syncBadge">
         <span class="dot-live"></span>
-        <span id="syncStatusText">Robiul App &amp; Web Synced • v1.1.0</span>
+        <span id="syncStatusText">Robiul App &amp; Web Live • v1.2.0</span>
       </div>
     </div>
 
     <div class="header-actions">
-      <input type="text" id="searchInput" class="search-box" placeholder="Search anime (Jikan / Crunchyroll)..." onkeydown="if(event.key==='Enter') searchAnime()" />
+      <input type="text" id="searchInput" class="search-box" placeholder="Search anime (Jikan + GraphQL)..." onkeydown="if(event.key==='Enter') searchAnime()" />
+      <button class="btn" style="background:#FF7A00;color:#fff;box-shadow:0 4px 14px rgba(255,122,0,0.4);" onclick="openWebAdminModal()">🛡️ Admin Panel</button>
       <button class="btn btn-outline" onclick="syncCrunchyrollWeb()">⚡ Crunchyroll Simulcast</button>
       <a id="apkDownloadBtn" href="./download/Robiul-Release.apk" download="Robiul-Release.apk" onclick="if(window.KuroStreamBridge && window.KuroStreamBridge.releaseApkFromWeb){window.KuroStreamBridge.releaseApkFromWeb(); return false;}" class="btn btn-primary">
         📲 Download Robiul-Release.apk
@@ -339,8 +343,9 @@
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn" style="background:#FF7A00;color:#fff;" onclick="openWebAdminModal()">🛡️ Open Admin Panel</button>
         <button class="btn btn-outline" onclick="copyCurrentWebUrl()">🔗 Copy Website Link</button>
-        <a id="bannerApkLink" href="./download/Robiul-Release.apk" download="Robiul-Release.apk" onclick="if(window.KuroStreamBridge && window.KuroStreamBridge.releaseApkFromWeb){window.KuroStreamBridge.releaseApkFromWeb(); return false;}" class="btn btn-primary">⬇️ Robiul-Release.apk (<span id="versionLabel">v1.1.0</span>)</a>
+        <a id="bannerApkLink" href="./download/Robiul-Release.apk" download="Robiul-Release.apk" onclick="if(window.KuroStreamBridge && window.KuroStreamBridge.releaseApkFromWeb){window.KuroStreamBridge.releaseApkFromWeb(); return false;}" class="btn btn-primary">⬇️ Robiul-Release.apk (<span id="versionLabel">v1.2.0</span>)</a>
       </div>
     </div>
 
@@ -375,8 +380,15 @@
 
       <div class="video-stage" id="videoStage" onclick="toggleModalPlay()">
         <video id="modalVideo" playsinline></video>
+        <div id="modalHtmlEmbedStage" style="display:none;position:absolute;inset:0;width:100%;height:100%;background:#000;z-index:5;" onclick="event.stopPropagation()"></div>
+        <div id="modalUnavailableOverlay" style="display:none;position:absolute;inset:0;background:rgba(8,10,15,0.96);z-index:10;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;" onclick="event.stopPropagation()">
+          <div style="font-size:38px;margin-bottom:10px;">📡</div>
+          <div style="font-size:20px;font-weight:900;color:#FF2A5F;margin-bottom:6px;">Video not available right now</div>
+          <div style="font-size:12px;color:#A0AAB8;max-width:440px;margin-bottom:16px;">This anime does not have an active stream on the server yet. You can add a Bunny.net CDN, Paid Server API, or HTML / Iframe embed from the Admin Panel.</div>
+          <button class="btn" style="background:#FF7A00;color:#fff;" onclick="closePlayerModal(); openWebAdminModal(1);">🛡️ Add Stream in Admin Panel</button>
+        </div>
         <div class="player-key-toast" id="playerKeyToast">▶ Playing [Space]</div>
-        <div class="bangla-sub-overlay" id="banglaSubOverlay">আমরা একসাথে পরবর্তী রোমাঞ্চকর অভিযানের জন্য প্রস্তুত...</div>
+        <div id="modalEpCornerBadge" style="position:absolute;top:12px;left:12px;background:rgba(0,0,0,0.72);border:1px solid #FFBADE;color:#FFBADE;font-size:11px;font-weight:800;padding:4px 10px;border-radius:6px;pointer-events:none;z-index:12;">EP 1 • SUB • HD-1</div>
       </div>
 
       <!-- Custom Progress Bar UI Component (Playback Time + Total Duration + Buffer) -->
@@ -416,6 +428,13 @@
           <button class="chip" id="modalFsChip" onclick="toggleModalFullscreen()">⛶ Fullscreen [F]</button>
         </div>
       </div>
+      <div style="padding:10px 14px;background:#14151A;border-top:1px solid var(--border-color);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:12px;font-weight:800;color:#FFBADE;" id="modalWatchingBanner">You are watching Episode 1</span>
+          <span style="font-size:11px;color:var(--text-secondary);">HiAnime Episode List (Tap Episode #):</span>
+        </div>
+        <div id="modalEpisodeGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(42px,1fr));gap:6px;max-height:110px;overflow-y:auto;"></div>
+      </div>
       <div class="kbd-hint-bar">
         <div>⌨️ Shortcuts: <span class="kbd-tag">Space</span> Play/Pause • <span class="kbd-tag">←</span> / <span class="kbd-tag">→</span> Seek ±10s • <span class="kbd-tag">↑</span> / <span class="kbd-tag">↓</span> Volume • <span class="kbd-tag">F</span> Fullscreen • <span class="kbd-tag">Esc</span> Exit</div>
         <div id="kbdLastAction" style="color:#00FF66;">Ready</div>
@@ -423,40 +442,184 @@
     </div>
   </div>
 
-  <!-- Bottom 24/7 Anime Radio Dock -->
-  <div class="radio-dock">
-    <div style="display:flex;align-items:center;gap:10px;">
-      <span class="dot-live"></span>
-      <div>
-        <div style="font-size:12px;font-weight:800;" id="radioStationTitle">📻 LISTEN.moe • 24/7 Anime & J-Pop Radio</div>
-        <div style="font-size:10px;color:var(--text-secondary);">Direct Icecast Stream • Synchronized with Android App</div>
+  <!-- Full-Featured Website Admin Panel Modal (Synced Live with Android App) -->
+  <div class="player-modal" id="webAdminModal" style="z-index:250;">
+    <div class="player-box" style="max-width:960px;max-height:92vh;display:flex;flex-direction:column;border-color:#FF7A00;">
+      <div class="player-header" style="background:#10131C;border-bottom:1px solid rgba(255,122,0,0.35);">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <img id="adminModalLogoImg" src="https://robiulislam.b-cdn.net/images/logo.png" alt="Bunny CDN" style="width:36px;height:36px;border-radius:8px;border:1.5px solid #FF7A00;object-fit:contain;background:#070B10;" onerror="this.style.display='none'" />
+          <div>
+            <div style="font-size:16px;font-weight:900;color:#fff;">🛡️ Robiul Website &amp; App Admin Panel</div>
+            <div style="font-size:11px;color:#FF7A00;font-family:monospace;" id="adminSyncSubtitle">🐰 Bunny.net CDN • Paid Server API • HTML / Iframe • Episode Streams</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button class="btn btn-outline" onclick="openNativeAdminFromWebModal()" style="border-color:#00E676;color:#00E676;">📱 App Admin</button>
+          <button class="btn btn-outline" onclick="loadLiveCatalogAndVersion(); showAdminToast('🔄 Synced Website & App!');">🔄 Sync Now</button>
+          <button class="btn btn-primary" onclick="closeWebAdminModal()">✕ Close</button>
+        </div>
       </div>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <audio id="radioAudio" preload="none" src="https://listen.moe/stream"></audio>
-      <button class="btn btn-outline" onclick="toggleRadio()" id="radioPlayBtn">▶ Play 24/7 Radio</button>
+
+      <div id="webAdminToast" style="display:none;background:rgba(0,230,118,0.16);border-bottom:1px solid #00E676;color:#00E676;padding:8px 16px;font-size:12px;font-weight:800;font-family:monospace;"></div>
+
+      <div style="display:flex;gap:8px;padding:10px 16px;background:#0D0F16;border-bottom:1px solid var(--border-color);overflow-x:auto;">
+        <button class="chip active" id="adminTabBtn0" onclick="switchWebAdminTab(0)">🐰 Paid CDN • API • HTML</button>
+        <button class="chip" id="adminTabBtn1" onclick="switchWebAdminTab(1)">🎬 Episode Streams</button>
+        <button class="chip" id="adminTabBtn2" onclick="switchWebAdminTab(2)">📚 Anime Catalog</button>
+      </div>
+
+      <div style="padding:16px;overflow-y:auto;flex:1;">
+        <div id="webAdminTab0">
+          <div class="admin-card" style="border-color:rgba(255,122,0,0.45);">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+              <div>
+                <div style="font-size:14px;font-weight:900;color:#fff;">🐰 Bunny.net &amp; All Paid Servers Hub (CDN • API • HTML)</div>
+                <div style="font-size:11px;color:var(--text-secondary);">Active Pull Zone: <span id="adminActiveBunnyBase" style="color:#00F0FF;font-family:monospace;">https://robiulislam.b-cdn.net</span></div>
+              </div>
+              <span class="badge" style="background:rgba(0,230,118,0.18);color:#00E676;border:1px solid #00E676;">LIVE SYNC</span>
+            </div>
+
+            <div style="font-size:11px;font-weight:800;color:#00F0FF;margin-bottom:6px;">1. Select Integration Mode:</div>
+            <div class="chip-group" style="margin-bottom:12px;">
+              <button class="chip active" id="srvModeBtn_CDN" onclick="setWebServerMode('CDN')">🌐 CDN URL</button>
+              <button class="chip" id="srvModeBtn_API" onclick="setWebServerMode('API')">🔑 Paid API</button>
+              <button class="chip" id="srvModeBtn_HTML" onclick="setWebServerMode('HTML')">📄 HTML / Iframe</button>
+            </div>
+
+            <div style="font-size:11px;font-weight:800;color:#FFB800;margin-bottom:6px;">2. Paid Server Presets (1-Click Fill):</div>
+            <div class="chip-group" style="margin-bottom:12px;">
+              <button class="chip" onclick="fillWebServerPreset('bunny_cdn')">🐰 Bunny.net CDN</button>
+              <button class="chip" onclick="fillWebServerPreset('bunny_embed')">🐰 Bunny Iframe</button>
+              <button class="chip" onclick="fillWebServerPreset('cf_stream')">☁️ Cloudflare Stream</button>
+              <button class="chip" onclick="fillWebServerPreset('mux')">🎞️ Mux Video</button>
+              <button class="chip" onclick="fillWebServerPreset('aws')">🚀 AWS CloudFront</button>
+              <button class="chip" onclick="fillWebServerPreset('vidsrc')">🔥 VidSrc / Filemoon</button>
+              <button class="chip" onclick="fillWebServerPreset('html_video')">📄 Custom &lt;video&gt; HTML</button>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div>
+                <label style="font-size:11px;color:var(--text-secondary);font-weight:700;">Paid Server / CDN Name</label>
+                <input id="webSrvNameInput" class="admin-input" value="Robiul Bunny.net CDN (robiulislam.b-cdn.net)" />
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--text-secondary);font-weight:700;">Paid API Key / Token (Optional)</label>
+                <input id="webSrvKeyInput" class="admin-input" placeholder="AccessKey / Bearer Token..." />
+              </div>
+            </div>
+
+            <div style="margin-top:10px;">
+              <label id="webSrvPayloadLabel" style="font-size:11px;color:#00F0FF;font-weight:700;">CDN Pull Zone / Direct Stream URL (.m3u8 / .mp4 / .b-cdn.net)</label>
+              <textarea id="webSrvPayloadInput" class="admin-input" rows="3" style="font-family:monospace;">https://robiulislam.b-cdn.net</textarea>
+            </div>
+
+            <div style="margin-top:10px;display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+              <div style="flex:1;min-width:220px;">
+                <label style="font-size:11px;color:var(--text-secondary);font-weight:700;">Bunny.net / Custom Logo URL</label>
+                <input id="webBunnyLogoInput" class="admin-input" value="https://robiulislam.b-cdn.net/images/logo.png" />
+              </div>
+              <button class="btn btn-outline" onclick="saveBunnyLogoFromWebModal()">🖼️ Update Website &amp; App Logo</button>
+            </div>
+
+            <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
+              <button class="btn" style="background:#FF7A00;color:#fff;flex:1;" onclick="savePaidServerFromWebModal()">➕ Save Paid Server / CDN / HTML to Website &amp; App</button>
+            </div>
+          </div>
+
+          <div style="font-size:13px;font-weight:800;margin:12px 0 8px;color:#00F0FF;">🌐 Active Paid Servers, CDNs &amp; HTML Players (<span id="webServersCount">0</span>)</div>
+          <div id="webAdminServersList"></div>
+        </div>
+
+        <div id="webAdminTab1" style="display:none;">
+          <div class="admin-card" style="border-color:rgba(0,240,255,0.45);">
+            <div style="font-size:14px;font-weight:900;color:#fff;margin-bottom:4px;">🎬 Inject Episode Stream (CDN URL • Paid API • HTML / Iframe)</div>
+            <div style="font-size:11px;color:var(--text-secondary);margin-bottom:10px;">Any stream saved here plays immediately on both the Website and the Android App!</div>
+
+            <div class="chip-group" style="margin-bottom:10px;">
+              <button class="chip" onclick="document.getElementById('webStreamUrlInput').value='https://robiulislam.b-cdn.net/anime/episode-1/playlist.m3u8'">🐰 Bunny.net HLS</button>
+              <button class="chip" onclick="document.getElementById('webStreamUrlInput').value='<iframe src=&quot;https://iframe.mediadelivery.net/embed/library_id/video_id?autoplay=true&quot; allowfullscreen style=&quot;width:100%;height:100%;border:0;&quot;></iframe>'">📄 Bunny Iframe HTML</button>
+              <button class="chip" onclick="document.getElementById('webStreamUrlInput').value='<iframe src=&quot;https://vidsrc.xyz/embed/anime/frieren/1&quot; allowfullscreen style=&quot;width:100%;height:100%;border:0;&quot;></iframe>'">🔥 VidSrc / Filemoon Iframe</button>
+              <button class="chip" onclick="document.getElementById('webStreamUrlInput').value='https://v.animethemes.moe/SousouNoFrieren-OP1.webm'">🎞️ Direct 1080p WebM</button>
+            </div>
+
+            <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;">
+              <div>
+                <label style="font-size:11px;color:var(--text-secondary);font-weight:700;">Anime Title (Select or Type Any Anime)</label>
+                <input id="webStreamAnimeTitle" class="admin-input" list="webCatalogTitlesList" value="Frieren: Beyond Journey's End" placeholder="e.g. Solo Leveling, Naruto..." />
+                <datalist id="webCatalogTitlesList"></datalist>
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--text-secondary);font-weight:700;">Episode #</label>
+                <input id="webStreamEpNum" type="number" class="admin-input" value="1" min="1" />
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--text-secondary);font-weight:700;">Server Label</label>
+                <input id="webStreamServerName" class="admin-input" value="Bunny.net CDN • 1080p" />
+              </div>
+            </div>
+
+            <div style="margin-top:10px;">
+              <label style="font-size:11px;color:#00F0FF;font-weight:700;">Direct Stream URL (.m3u8 / .mp4) OR Raw &lt;iframe&gt; / &lt;video&gt; HTML Code</label>
+              <textarea id="webStreamUrlInput" class="admin-input" rows="3" style="font-family:monospace;" placeholder="https://robiulislam.b-cdn.net/anime/ep1.m3u8 or <iframe src='...'></iframe>">https://v.animethemes.moe/SousouNoFrieren-OP1.webm</textarea>
+            </div>
+
+            <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
+              <button class="btn btn-primary" style="flex:1;" onclick="saveEpisodeStreamFromWebModal()">💾 Save Episode Stream to Website &amp; App</button>
+              <button class="btn btn-outline" onclick="testAndPlayWebAdminStream()">▶ Test &amp; Play Now</button>
+            </div>
+          </div>
+
+          <div style="font-size:13px;font-weight:800;margin:12px 0 8px;color:#00E676;">🎬 Active Episode Streams (<span id="webStreamsCount">0</span>)</div>
+          <div id="webAdminStreamsList"></div>
+        </div>
+
+        <div id="webAdminTab2" style="display:none;">
+          <div class="admin-card" style="border-color:rgba(138,43,226,0.45);">
+            <div style="font-size:14px;font-weight:900;color:#fff;margin-bottom:4px;">📚 Add New Anime to Website &amp; App Catalog</div>
+            <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-top:8px;">
+              <div>
+                <label style="font-size:11px;color:var(--text-secondary);font-weight:700;">Anime Title</label>
+                <input id="webNewAnimeTitle" class="admin-input" placeholder="e.g. Dandadan" />
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--text-secondary);font-weight:700;">Studio / Type</label>
+                <input id="webNewAnimeStudio" class="admin-input" value="Science SARU" />
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--text-secondary);font-weight:700;">Episodes</label>
+                <input id="webNewAnimeEps" type="number" class="admin-input" value="12" />
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;">
+              <div>
+                <label style="font-size:11px;color:var(--text-secondary);font-weight:700;">Poster Image URL</label>
+                <input id="webNewAnimePoster" class="admin-input" value="https://cdn.myanimelist.net/images/anime/1015/138006l.jpg" />
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--text-secondary);font-weight:700;">Episode 1 Stream URL or &lt;iframe&gt; HTML (Optional)</label>
+                <input id="webNewAnimeStream" class="admin-input" placeholder="https://robiulislam.b-cdn.net/anime/ep1.m3u8" />
+              </div>
+            </div>
+            <button class="btn btn-primary" style="margin-top:12px;width:100%;" onclick="addNewAnimeFromWebModal()">➕ Add Anime to Website &amp; App</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
   <script>
     const UPSTREAM_SERVERS = [
-      { code: "S-01", name: "Server-01 • Google Cloud Ultra CDN #1 (1080p MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4", isHls: false },
-      { code: "S-02", name: "Server-02 • Google Cloud Ultra CDN #2 (1080p MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4", isHls: false },
-      { code: "S-03", name: "Server-03 • Google Cloud Ultra CDN #3 (1080p MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4", isHls: false },
-      { code: "S-04", name: "Server-04 • Google Cloud Ultra CDN #4 (1080p MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4", isHls: false },
-      { code: "S-05", name: "Server-05 • Google Cloud Ultra CDN #5 (1080p MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4", isHls: false },
-      { code: "S-06", name: "Server-06 • Blender Open CDN #1 (Sintel 1080p MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4", isHls: false },
-      { code: "S-07", name: "Server-07 • Blender Open CDN #2 (TearsOfSteel 1080p MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4", isHls: false },
-      { code: "S-08", name: "Server-08 • Google Shaka Cloud HLS #1 (1080p m3u8)", url: "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8", isHls: true },
-      { code: "S-09", name: "Server-09 • Blender Open CDN #3 (BigBuckBunny 1080p MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", isHls: false },
-      { code: "S-10", name: "Server-10 • Blender Open CDN #4 (ElephantsDream 1080p MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4", isHls: false },
-      { code: "S-11", name: "Server-11 • Google Cloud Edge Mirror #6 (HD MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackSeeTheWorld.mp4", isHls: false },
-      { code: "S-12", name: "Server-12 • Google Cloud Edge Mirror #7 (HD MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4", isHls: false },
-      { code: "S-13", name: "Server-13 • Google Cloud Edge Mirror #8 (HD MP4)", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WhatCarCanYouGetForAGrand.mp4", isHls: false },
-      { code: "S-14", name: "Server-14 • Apple Global Edge HLS #1 (fMP4 Master)", url: "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8", isHls: true },
-      { code: "S-15", name: "Server-15 • Apple Global Edge HLS #2 (TS Master)", url: "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_16x9/bipbop_16x9_variant.m3u8", isHls: true },
-      { code: "S-16", name: "Server-16 • W3C Global Media CDN (Direct MP4)", url: "https://media.w3.org/2010/05/sintel/trailer.mp4", isHls: false },
-      { code: "S-17", name: "Server-17 • Unified Streaming Edge HLS (1080p)", url: "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8", isHls: true }
+      { code: "HD-1", name: "HD-1 (VidStreaming • SUB 1080p)", url: "https://v.animethemes.moe/SousouNoFrieren-OP1.webm", isHls: false },
+      { code: "HD-2", name: "HD-2 (MegaCloud • SUB 1080p)", url: "https://v.animethemes.moe/JujutsuKaisenS2-OP1.webm", isHls: false },
+      { code: "SSB", name: "StreamSB (HiAnime • 1080p)", url: "https://v.animethemes.moe/ChainsawMan-OP1.webm", isHls: false },
+      { code: "STape", name: "StreamTape (Fast Cloud • 1080p)", url: "https://v.animethemes.moe/SousouNoFrieren-ED1.webm", isHls: false },
+      { code: "CF-R2", name: "Cloudflare R2 + CDN (1080p)", url: "https://v.animethemes.moe/JujutsuKaisen-OP1.webm", isHls: false },
+      { code: "AWS-CF", name: "AWS S3 + CloudFront (1080p)", url: "https://v.animethemes.moe/SousouNoFrieren-ED1v2.webm", isHls: false },
+      { code: "Bunny", name: "Bunny.net Storage + CDN (robiulislam.b-cdn.net • 1080p)", url: "https://v.animethemes.moe/SpyXFamily-ED1.webm", logoUrl: "https://robiulislam.b-cdn.net/images/logo.png", isHls: false },
+      { code: "CF-Str", name: "Cloudflare Stream (1080p)", url: "https://v.animethemes.moe/JujutsuKaisen-OP1v2.webm", isHls: false },
+      { code: "Mux", name: "Mux Professional Video (1080p)", url: "https://v.animethemes.moe/SousouNoFrieren-ED1v3.webm", isHls: false },
+      { code: "DUB-1", name: "HD-1 (VidStreaming • DUB 1080p)", url: "https://v.animethemes.moe/SousouNoFrieren-OP1.webm", isHls: false },
+      { code: "DUB-2", name: "HD-2 (MegaCloud • DUB 1080p)", url: "https://v.animethemes.moe/JujutsuKaisen-OP1.webm", isHls: false }
     ];
 
     const INITIAL_CATALOG = [
@@ -470,11 +633,64 @@
 
     let heroServerIndex = 0;
     let currentModalServerIndex = 0;
+    let currentPlayingAnime = null;
     let heroHls = null;
     let modalHls = null;
     let heroWatchdog = null;
     let modalWatchdog = null;
     let banglaSubEnabled = true;
+    const WEB_ADMIN_SERVERS_KEY = "robiul_admin_servers_v1";
+    const WEB_ADMIN_STREAMS_KEY = "robiul_admin_streams_v1";
+    const WEB_ADMIN_CATALOG_KEY = "robiul_admin_catalog_v1";
+    const WEB_BUNNY_LOGO_KEY = "robiul_bunny_logo_v1";
+    let adminServersList = [];
+    let adminEpisodeStreamsList = [];
+    let adminCustomCatalogList = [];
+    let currentWebServerMode = "CDN";
+
+    function loadPersistedWebAdminState() {
+      try {
+        const s = localStorage.getItem(WEB_ADMIN_SERVERS_KEY);
+        if (s) adminServersList = JSON.parse(s) || [];
+      } catch (e) {}
+      try {
+        const st = localStorage.getItem(WEB_ADMIN_STREAMS_KEY);
+        if (st) adminEpisodeStreamsList = JSON.parse(st) || [];
+      } catch (e) {}
+      try {
+        const c = localStorage.getItem(WEB_ADMIN_CATALOG_KEY);
+        if (c) adminCustomCatalogList = JSON.parse(c) || [];
+      } catch (e) {}
+      try {
+        const logo = localStorage.getItem(WEB_BUNNY_LOGO_KEY);
+        if (logo) applyBunnyLogoOnWeb(logo);
+      } catch (e) {}
+    }
+
+    function applyBunnyLogoOnWeb(logoUrl, baseUrl) {
+      if (!logoUrl) return;
+      try { localStorage.setItem(WEB_BUNNY_LOGO_KEY, logoUrl); } catch (e) {}
+      const hImg = document.getElementById("headerBunnyLogoImg");
+      if (hImg) { hImg.style.display = "block"; hImg.src = logoUrl; }
+      const aImg = document.getElementById("adminModalLogoImg");
+      if (aImg) { aImg.style.display = "block"; aImg.src = logoUrl; }
+      const lInput = document.getElementById("webBunnyLogoInput");
+      if (lInput) lInput.value = logoUrl;
+      if (baseUrl) {
+        const bEl = document.getElementById("adminActiveBunnyBase");
+        if (bEl) bEl.textContent = baseUrl;
+      }
+    }
+
+    function getCombinedServersForPlayer() {
+      const customMapped = (adminServersList || []).filter(s => s.isEnabled !== false).map((s, idx) => ({
+        code: "ADM-" + (idx + 1),
+        name: s.name || "Paid Server",
+        url: s.baseUrl || "",
+        isHls: (s.baseUrl || "").toLowerCase().includes(".m3u8")
+      }));
+      return [...customMapped, ...UPSTREAM_SERVERS];
+    }
 
     function renderModalServerButtons() {
       const group = document.getElementById("serverSelectorGroup");
@@ -612,6 +828,7 @@
       document.getElementById("heroVideo").pause();
       document.getElementById("modalAnimeTitle").textContent = title;
       document.getElementById("playerModal").classList.add("active");
+      currentPlayingAnime = { title: title, episode: ep || 1, serverIdx: serverIdx || 0 };
       selectModalServer(serverIdx || 0);
     }
 
@@ -622,12 +839,118 @@
       document.getElementById("heroVideo").play().catch(() => {});
     }
 
+    function resolveExactAnimeStreamUrl(animeTitle, variantIndex) {
+      const t = (animeTitle || "").toLowerCase();
+      let pool = [];
+      if (t.includes("frieren")) {
+        pool = ["https://v.animethemes.moe/SousouNoFrieren-OP1.webm", "https://v.animethemes.moe/SousouNoFrieren-ED1.webm", "https://v.animethemes.moe/SousouNoFrieren-OP1-NCBD1080.webm"];
+      } else if (t.includes("jujutsu")) {
+        pool = ["https://v.animethemes.moe/JujutsuKaisenS2-OP1.webm", "https://v.animethemes.moe/JujutsuKaisen-OP1.webm"];
+      } else if (t.includes("solo leveling") || t.includes("ore dake")) {
+        pool = ["https://v.animethemes.moe/SoloLeveling-OP1.webm", "https://v.animethemes.moe/SoloLeveling-ED1.webm"];
+      } else if (t.includes("demon slayer") || t.includes("kimetsu")) {
+        pool = ["https://v.animethemes.moe/KimetsuNoYaiba-OP1.webm", "https://v.animethemes.moe/KimetsuNoYaiba-OP1-NCBD1080.webm"];
+      } else if (t.includes("chainsaw")) {
+        pool = ["https://v.animethemes.moe/ChainsawMan-OP1.webm", "https://v.animethemes.moe/ChainsawMan-ED1.webm"];
+      } else if (t.includes("attack on titan") || t.includes("shingeki")) {
+        pool = ["https://v.animethemes.moe/ShingekiNoKyojin-OP1.webm", "https://v.animethemes.moe/ShingekiNoKyojin-OP2.webm"];
+      } else if (t.includes("cyberpunk") || t.includes("edgerunners")) {
+        pool = ["https://v.animethemes.moe/CyberpunkEdgerunners-OP1.webm", "https://v.animethemes.moe/CyberpunkEdgerunners-ED1.webm"];
+      } else if (t.includes("spy") && t.includes("family")) {
+        pool = ["https://v.animethemes.moe/SpyXFamily-OP1.webm", "https://v.animethemes.moe/SpyXFamily-ED1.webm"];
+      } else if (t.includes("one piece")) {
+        pool = ["https://v.animethemes.moe/OnePiece-OP1-NCDVD480.webm", "https://v.animethemes.moe/OnePiece-OP2-NCDVD480.webm"];
+      } else if (t.includes("naruto")) {
+        pool = ["https://v.animethemes.moe/Naruto-OP1.webm", "https://v.animethemes.moe/Naruto-OP2.webm"];
+      } else if (t.includes("bleach")) {
+        pool = ["https://v.animethemes.moe/Bleach-OP1.webm", "https://v.animethemes.moe/Bleach-OP2.webm"];
+      } else if (t.includes("blue lock")) {
+        pool = ["https://v.animethemes.moe/BlueLock-OP1.webm", "https://v.animethemes.moe/BlueLock-OP1-NCBD1080.webm"];
+      }
+      if (!pool.length) return "";
+      return pool[Math.abs(variantIndex || 0) % pool.length];
+    }
+
     function selectModalServer(idx) {
-      currentModalServerIndex = idx % UPSTREAM_SERVERS.length;
-      const srv = UPSTREAM_SERVERS[currentModalServerIndex];
-      document.getElementById("modalEpisodeSub").textContent = `Episode 1 • ${srv.name} (Auto-Failover: 17 Servers)`;
-      renderModalServerButtons();
-      attachStream(document.getElementById("modalVideo"), srv, false);
+      const allServers = getCombinedServersForPlayer();
+      currentModalServerIndex = idx % allServers.length;
+      const srv = allServers[currentModalServerIndex];
+      const epNum = currentPlayingAnime ? currentPlayingAnime.episode : 1;
+      const animeTitle = currentPlayingAnime ? currentPlayingAnime.title : "";
+
+      const normTitle = (animeTitle || "").trim().toLowerCase();
+      const matchedAdminStream = (adminEpisodeStreamsList || []).find(st =>
+        (st.animeTitle || "").trim().toLowerCase() === normTitle && Number(st.episodeNumber) === Number(epNum)
+      ) || (adminEpisodeStreamsList || []).find(st =>
+        (st.animeTitle || "").trim().toLowerCase() === normTitle
+      );
+
+      const isCustomServerDirect = srv.code && srv.code.startsWith("ADM-") && srv.url && (
+        srv.url.trim().startsWith("<") ||
+        srv.url.includes(".m3u8") ||
+        srv.url.includes(".mp4") ||
+        srv.url.includes(".webm") ||
+        srv.url.includes("/embed/") ||
+        srv.url.includes("mediadelivery.net") ||
+        srv.url.includes("cloudflarestream.com") ||
+        srv.url.includes("vidsrc") ||
+        srv.url.includes("filemoon")
+      );
+
+      const candidatePayload = matchedAdminStream
+        ? matchedAdminStream.streamUrl
+        : (isCustomServerDirect ? srv.url : resolveExactAnimeStreamUrl(animeTitle, currentModalServerIndex + epNum - 1));
+
+      const activeServerName = matchedAdminStream ? (matchedAdminStream.serverName || srv.name) : srv.name;
+      const corner = document.getElementById("modalEpCornerBadge");
+      const htmlStage = document.getElementById("modalHtmlEmbedStage");
+      const unavailOverlay = document.getElementById("modalUnavailableOverlay");
+      const v = document.getElementById("modalVideo");
+
+      const group = document.getElementById("serverSelectorGroup");
+      if (group) {
+        group.innerHTML = allServers.map((sItem, sIdx) =>
+          `<button class="chip ${sIdx === currentModalServerIndex ? 'active' : ''}" onclick="selectModalServer(${sIdx})" title="${sItem.name}">${sItem.code}</button>`
+        ).join("");
+      }
+
+      if (!candidatePayload || !candidatePayload.trim()) {
+        if (v) { v.pause(); v.removeAttribute("src"); v.load(); }
+        if (htmlStage) { htmlStage.style.display = "none"; htmlStage.innerHTML = ""; }
+        if (unavailOverlay) unavailOverlay.style.display = "flex";
+        document.getElementById("modalEpisodeSub").textContent = "Video not available right now";
+        if (corner) corner.textContent = "Video not available right now";
+        showPlayerKeyToast("Video not available right now");
+        return;
+      }
+
+      if (unavailOverlay) unavailOverlay.style.display = "none";
+      const trimmed = candidatePayload.trim();
+      const isHtmlOrEmbed = trimmed.startsWith("<") ||
+        trimmed.toLowerCase().includes("<iframe") ||
+        trimmed.toLowerCase().includes("<video") ||
+        trimmed.toLowerCase().includes("mediadelivery.net/embed") ||
+        trimmed.toLowerCase().includes("cloudflarestream.com") ||
+        trimmed.toLowerCase().includes("vidsrc") ||
+        trimmed.toLowerCase().includes("filemoon") ||
+        trimmed.toLowerCase().includes("streamwish") ||
+        trimmed.toLowerCase().includes("dood") ||
+        (trimmed.toLowerCase().includes("/embed/") && !trimmed.toLowerCase().includes("youtube.com"));
+
+      document.getElementById("modalEpisodeSub").textContent = `Episode ${epNum} • ${activeServerName}`;
+      if (corner) corner.textContent = `EP ${epNum} • ${srv.code}`;
+
+      if (isHtmlOrEmbed && htmlStage) {
+        if (v) { v.pause(); v.removeAttribute("src"); v.load(); }
+        htmlStage.style.display = "block";
+        htmlStage.innerHTML = trimmed.startsWith("<")
+          ? trimmed
+          : `<iframe src="${trimmed}" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen style="width:100%;height:100%;border:0;"></iframe>`;
+        return;
+      }
+
+      if (htmlStage) { htmlStage.style.display = "none"; htmlStage.innerHTML = ""; }
+      attachStream(v, { ...srv, url: trimmed, isHls: trimmed.toLowerCase().includes(".m3u8") }, false);
     }
 
     function toggleModalPlay() {
@@ -870,9 +1193,47 @@
       loadLiveCatalogAndVersion();
     });
 
-    // Fetch Live Jikan / Crunchyroll Producer API + Sync with Android App Bridge or version.json
+    function applyUnifiedPayloadToWeb(data) {
+      if (!data) return;
+      if (data.bunnyCdnLogoUrl) {
+        applyBunnyLogoOnWeb(data.bunnyCdnLogoUrl, data.bunnyCdnBaseUrl);
+      }
+      if (Array.isArray(data.servers)) {
+        adminServersList = data.servers;
+        try { localStorage.setItem(WEB_ADMIN_SERVERS_KEY, JSON.stringify(adminServersList)); } catch (e) {}
+      }
+      if (Array.isArray(data.episodeStreams)) {
+        adminEpisodeStreamsList = data.episodeStreams;
+        try { localStorage.setItem(WEB_ADMIN_STREAMS_KEY, JSON.stringify(adminEpisodeStreamsList)); } catch (e) {}
+      }
+      if (Array.isArray(data.anime) && data.anime.length > 0) {
+        adminCustomCatalogList = data.anime;
+        try { localStorage.setItem(WEB_ADMIN_CATALOG_KEY, JSON.stringify(adminCustomCatalogList)); } catch (e) {}
+      }
+      renderWebAdminLists();
+    }
+
+    function mergeCatalogWithAdminItems(remoteList) {
+      const merged = new Map();
+      (adminCustomCatalogList || []).forEach(item => {
+        if (item && item.title) merged.set(item.title.toLowerCase(), item);
+      });
+      (remoteList || []).forEach(item => {
+        if (item && item.title && !merged.has(item.title.toLowerCase())) {
+          merged.set(item.title.toLowerCase(), item);
+        }
+      });
+      (INITIAL_CATALOG || []).forEach(item => {
+        if (item && item.title && !merged.has(item.title.toLowerCase())) {
+          merged.set(item.title.toLowerCase(), item);
+        }
+      });
+      return Array.from(merged.values());
+    }
+
     async function loadLiveCatalogAndVersion() {
       lastCatalogFetchAction = () => loadLiveCatalogAndVersion();
+      loadPersistedWebAdminState();
       const urlDisplay = document.getElementById("currentWebUrlDisplay");
       if (urlDisplay) {
         if (window.location.protocol === "http:" || window.location.protocol === "https:") {
@@ -881,16 +1242,16 @@
           urlDisplay.textContent = "http://127.0.0.1:8080";
         }
       }
-      renderStreamsAndCatalog(INITIAL_CATALOG);
+      renderStreamsAndCatalog(mergeCatalogWithAdminItems(INITIAL_CATALOG));
       initHeroStream();
 
-      // 1. Check Android App Native Bridge if running inside Android App or LAN Server
       if (window.KuroStreamBridge && typeof window.KuroStreamBridge.getAppCatalogJson === "function") {
         try {
           const bridgeData = JSON.parse(window.KuroStreamBridge.getAppCatalogJson());
+          applyUnifiedPayloadToWeb(bridgeData);
           if (bridgeData.anime && bridgeData.anime.length > 0) {
-            renderStreamsAndCatalog(bridgeData.anime);
-            document.getElementById("syncStatusText").textContent = `Live App Bridge Synced • ${bridgeData.versionName || 'v1.1.0'}`;
+            renderStreamsAndCatalog(mergeCatalogWithAdminItems(bridgeData.anime));
+            document.getElementById("syncStatusText").textContent = `App & Web Synced • v${bridgeData.versionName || '1.2.0'}`;
           }
           if (bridgeData.webPortalUrl && urlDisplay && !bridgeData.webPortalUrl.includes("ais-pre-")) {
             urlDisplay.textContent = bridgeData.webPortalUrl;
@@ -907,11 +1268,11 @@
         return;
       }
 
-      // 2. Check version.json for repository auto-update manifest
       try {
         const res = await fetch("./version.json", { cache: "no-store" });
         if (res.ok) {
           const ver = await res.json();
+          applyUnifiedPayloadToWeb(ver);
           if (ver.versionName) {
             document.getElementById("versionLabel").textContent = "v" + ver.versionName;
             document.getElementById("syncStatusText").textContent = "App & Web Synced • v" + ver.versionName;
@@ -923,7 +1284,6 @@
         }
       } catch (e) {}
 
-      // 3. Fetch live top anime from Jikan v4 API
       try {
         const r = await fetch("https://api.jikan.moe/v4/top/anime?limit=12");
         if (!r.ok) {
@@ -939,7 +1299,7 @@
             episodes: a.episodes || 12,
             poster: a.images?.jpg?.large_image_url || a.images?.jpg?.image_url
           }));
-          renderStreamsAndCatalog(liveList);
+          renderStreamsAndCatalog(mergeCatalogWithAdminItems(liveList));
           hideFetchErrorNotification();
         }
       } catch (e) {
@@ -949,6 +1309,302 @@
           () => loadLiveCatalogAndVersion()
         );
       }
+    }
+
+    function showAdminToast(msg) {
+      const el = document.getElementById("webAdminToast");
+      if (!el) return;
+      el.textContent = msg;
+      el.style.display = "block";
+      setTimeout(() => { el.style.display = "none"; }, 3500);
+    }
+
+    function openWebAdminModal(tabIdx) {
+      const modal = document.getElementById("webAdminModal");
+      if (!modal) return;
+      modal.classList.add("active");
+      if (typeof tabIdx === "number") switchWebAdminTab(tabIdx);
+      if (window.KuroStreamBridge && typeof window.KuroStreamBridge.getAppCatalogJson === "function") {
+        try {
+          applyUnifiedPayloadToWeb(JSON.parse(window.KuroStreamBridge.getAppCatalogJson()));
+        } catch (e) {}
+      }
+      renderWebAdminLists();
+    }
+
+    function closeWebAdminModal() {
+      const modal = document.getElementById("webAdminModal");
+      if (modal) modal.classList.remove("active");
+    }
+
+    function switchWebAdminTab(idx) {
+      [0, 1, 2].forEach(i => {
+        const tab = document.getElementById("webAdminTab" + i);
+        const btn = document.getElementById("adminTabBtn" + i);
+        if (tab) tab.style.display = (i === idx) ? "block" : "none";
+        if (btn) btn.classList.toggle("active", i === idx);
+      });
+      renderWebAdminLists();
+    }
+
+    function setWebServerMode(mode) {
+      currentWebServerMode = mode;
+      ["CDN", "API", "HTML"].forEach(m => {
+        const b = document.getElementById("srvModeBtn_" + m);
+        if (b) b.classList.toggle("active", m === mode);
+      });
+      const lbl = document.getElementById("webSrvPayloadLabel");
+      const inp = document.getElementById("webSrvPayloadInput");
+      if (mode === "CDN") {
+        if (lbl) lbl.textContent = "CDN Pull Zone / Direct Stream URL (.m3u8 / .mp4 / .b-cdn.net)";
+        if (inp && inp.value.startsWith("<")) inp.value = "https://robiulislam.b-cdn.net/anime/ep1/playlist.m3u8";
+      } else if (mode === "API") {
+        if (lbl) lbl.textContent = "Paid Server REST API Endpoint URL (JSON / HLS Resolver)";
+        if (inp) inp.value = "https://video.bunnycdn.com/library/1000/videos";
+      } else {
+        if (lbl) lbl.textContent = "Raw HTML / Iframe Embed Code (<iframe> or <video>)";
+        if (inp && !inp.value.startsWith("<")) {
+          inp.value = '<iframe src="https://iframe.mediadelivery.net/embed/library_id/video_id?autoplay=true" allowfullscreen style="width:100%;height:100%;border:0;"></iframe>';
+        }
+      }
+    }
+
+    function fillWebServerPreset(preset) {
+      const nameEl = document.getElementById("webSrvNameInput");
+      const payloadEl = document.getElementById("webSrvPayloadInput");
+      if (preset === "bunny_cdn") {
+        setWebServerMode("CDN");
+        nameEl.value = "Robiul Bunny.net CDN (robiulislam.b-cdn.net)";
+        payloadEl.value = "https://robiulislam.b-cdn.net";
+      } else if (preset === "bunny_embed") {
+        setWebServerMode("HTML");
+        nameEl.value = "Bunny Stream HTML5 Embed Player";
+        payloadEl.value = '<iframe src="https://iframe.mediadelivery.net/embed/library_id/video_id?autoplay=true" loading="lazy" style="border:none;width:100%;height:100%;" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture;" allowfullscreen="true"></iframe>';
+      } else if (preset === "cf_stream") {
+        setWebServerMode("CDN");
+        nameEl.value = "Cloudflare Stream & R2 Edge CDN";
+        payloadEl.value = "https://customer-stream.cloudflarestream.com/manifest/video.m3u8";
+      } else if (preset === "mux") {
+        setWebServerMode("CDN");
+        nameEl.value = "Mux Paid Video HLS CDN";
+        payloadEl.value = "https://stream.mux.com/PLAYBACK_ID.m3u8";
+      } else if (preset === "aws") {
+        setWebServerMode("CDN");
+        nameEl.value = "AWS S3 + CloudFront Media CDN";
+        payloadEl.value = "https://d111111abcdef8.cloudfront.net/anime/master.m3u8";
+      } else if (preset === "vidsrc") {
+        setWebServerMode("HTML");
+        nameEl.value = "VidSrc / Filemoon Paid Embed Server";
+        payloadEl.value = '<iframe src="https://vidsrc.xyz/embed/anime/frieren/1" allowfullscreen style="width:100%;height:100%;border:0;"></iframe>';
+      } else if (preset === "html_video") {
+        setWebServerMode("HTML");
+        nameEl.value = "Custom HTML5 Video Player";
+        payloadEl.value = '<video src="https://robiulislam.b-cdn.net/anime/ep1.mp4" controls autoplay playsinline style="width:100%;height:100%;background:#000;"></video>';
+      }
+    }
+
+    async function sendWebAdminActionToLan(paramsObj) {
+      try {
+        const qs = Object.entries(paramsObj).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v || "")}`).join("&");
+        const r = await fetch(`./api/admin/action?${qs}`, { cache: "no-store" });
+        if (r.ok) {
+          const updated = await r.json();
+          applyUnifiedPayloadToWeb(updated);
+          return true;
+        }
+      } catch (e) {}
+      return false;
+    }
+
+    async function saveBunnyLogoFromWebModal() {
+      const logoUrl = document.getElementById("webBunnyLogoInput").value.trim();
+      const baseUrl = document.getElementById("webSrvPayloadInput").value.trim();
+      if (!logoUrl) return;
+      applyBunnyLogoOnWeb(logoUrl, baseUrl.startsWith("http") ? baseUrl : null);
+      if (window.KuroStreamBridge && typeof window.KuroStreamBridge.updateBunnyLogoFromWeb === "function") {
+        try {
+          const res = JSON.parse(window.KuroStreamBridge.updateBunnyLogoFromWeb(logoUrl, baseUrl));
+          applyUnifiedPayloadToWeb(res);
+        } catch (e) {}
+      } else {
+        await sendWebAdminActionToLan({ type: "update_logo", logoUrl: logoUrl, baseUrl: baseUrl });
+      }
+      showAdminToast("✅ Bunny.net Logo Updated across Website & App!");
+    }
+
+    async function savePaidServerFromWebModal() {
+      const name = document.getElementById("webSrvNameInput").value.trim() || "Paid Server";
+      const payload = document.getElementById("webSrvPayloadInput").value.trim();
+      const apiKey = document.getElementById("webSrvKeyInput").value.trim();
+      if (!payload) return;
+      const category = currentWebServerMode === "HTML" ? "HTML_EMBED" : (currentWebServerMode === "API" ? "PAID_API" : "STREAMING");
+
+      if (window.KuroStreamBridge && typeof window.KuroStreamBridge.addPaidServerFromWeb === "function") {
+        try {
+          const updated = JSON.parse(window.KuroStreamBridge.addPaidServerFromWeb(name, payload, category, apiKey, payload.includes("b-cdn.net")));
+          applyUnifiedPayloadToWeb(updated);
+        } catch (e) {}
+      } else {
+        const ok = await sendWebAdminActionToLan({ type: "add_server", name: name, url: payload, category: category, apiKey: apiKey });
+        if (!ok) {
+          adminServersList = [{ id: "srv_" + Date.now(), name: name, baseUrl: payload, category: category, isEnabled: true, statusMessage: "200 OK" }, ...adminServersList];
+          try { localStorage.setItem(WEB_ADMIN_SERVERS_KEY, JSON.stringify(adminServersList)); } catch (e) {}
+        }
+      }
+      renderWebAdminLists();
+      showAdminToast(`✅ Saved ${name} (${category}) to Website & App!`);
+    }
+
+    async function saveEpisodeStreamFromWebModal() {
+      const title = document.getElementById("webStreamAnimeTitle").value.trim() || "Frieren: Beyond Journey's End";
+      const ep = parseInt(document.getElementById("webStreamEpNum").value || "1", 10) || 1;
+      const srvName = document.getElementById("webStreamServerName").value.trim() || "Paid Server • 1080p";
+      const streamUrl = document.getElementById("webStreamUrlInput").value.trim();
+      if (!streamUrl) return;
+
+      if (window.KuroStreamBridge && typeof window.KuroStreamBridge.addEpisodeStreamFromWeb === "function") {
+        try {
+          const updated = JSON.parse(window.KuroStreamBridge.addEpisodeStreamFromWeb("", title, ep, streamUrl, srvName, "1080p Full HD"));
+          applyUnifiedPayloadToWeb(updated);
+        } catch (e) {}
+      } else {
+        const ok = await sendWebAdminActionToLan({ type: "add_stream", animeTitle: title, ep: ep, streamUrl: streamUrl, serverName: srvName, quality: "1080p Full HD" });
+        if (!ok) {
+          adminEpisodeStreamsList = [{ id: "st_" + Date.now(), animeTitle: title, episodeNumber: ep, streamUrl: streamUrl, serverName: srvName, quality: "1080p Full HD" }, ...adminEpisodeStreamsList];
+          try { localStorage.setItem(WEB_ADMIN_STREAMS_KEY, JSON.stringify(adminEpisodeStreamsList)); } catch (e) {}
+        }
+      }
+      renderWebAdminLists();
+      showAdminToast(`✅ Stream Attached for ${title} • Episode ${ep}!`);
+    }
+
+    function testAndPlayWebAdminStream() {
+      const title = document.getElementById("webStreamAnimeTitle").value.trim() || "Frieren: Beyond Journey's End";
+      const ep = parseInt(document.getElementById("webStreamEpNum").value || "1", 10) || 1;
+      saveEpisodeStreamFromWebModal();
+      closeWebAdminModal();
+      openPlayerModal(title, ep, 0);
+    }
+
+    async function deleteWebAdminServer(id) {
+      if (window.KuroStreamBridge && typeof window.KuroStreamBridge.deleteServerFromWeb === "function") {
+        try {
+          applyUnifiedPayloadToWeb(JSON.parse(window.KuroStreamBridge.deleteServerFromWeb(id)));
+        } catch (e) {}
+      } else {
+        const ok = await sendWebAdminActionToLan({ type: "delete_server", id: id });
+        if (!ok) {
+          adminServersList = adminServersList.filter(s => s.id !== id);
+          try { localStorage.setItem(WEB_ADMIN_SERVERS_KEY, JSON.stringify(adminServersList)); } catch (e) {}
+        }
+      }
+      renderWebAdminLists();
+      showAdminToast("🗑️ Removed Server");
+    }
+
+    async function deleteWebAdminStream(id) {
+      if (window.KuroStreamBridge && typeof window.KuroStreamBridge.deleteEpisodeStreamFromWeb === "function") {
+        try {
+          applyUnifiedPayloadToWeb(JSON.parse(window.KuroStreamBridge.deleteEpisodeStreamFromWeb(id)));
+        } catch (e) {}
+      } else {
+        const ok = await sendWebAdminActionToLan({ type: "delete_stream", id: id });
+        if (!ok) {
+          adminEpisodeStreamsList = adminEpisodeStreamsList.filter(s => s.id !== id);
+          try { localStorage.setItem(WEB_ADMIN_STREAMS_KEY, JSON.stringify(adminEpisodeStreamsList)); } catch (e) {}
+        }
+      }
+      renderWebAdminLists();
+      showAdminToast("🗑️ Removed Episode Stream");
+    }
+
+    async function addNewAnimeFromWebModal() {
+      const title = document.getElementById("webNewAnimeTitle").value.trim();
+      const studio = document.getElementById("webNewAnimeStudio").value.trim() || "Studio";
+      const eps = parseInt(document.getElementById("webNewAnimeEps").value || "12", 10) || 12;
+      const poster = document.getElementById("webNewAnimePoster").value.trim() || "https://cdn.myanimelist.net/images/anime/1015/138006l.jpg";
+      const streamUrl = document.getElementById("webNewAnimeStream").value.trim();
+      if (!title) return;
+
+      if (window.KuroStreamBridge && typeof window.KuroStreamBridge.addAnimeFromWeb === "function") {
+        try {
+          const updated = JSON.parse(window.KuroStreamBridge.addAnimeFromWeb(title, studio, eps, 4.8, poster, streamUrl));
+          applyUnifiedPayloadToWeb(updated);
+        } catch (e) {}
+      } else {
+        const ok = await sendWebAdminActionToLan({ type: "add_anime", title: title, genre: studio, episodes: eps, rating: 4.8, poster: poster, streamUrl: streamUrl });
+        if (!ok) {
+          adminCustomCatalogList = [{ id: "custom_" + Date.now(), title: title, studio: studio, score: "9.2", episodes: eps, poster: poster }, ...adminCustomCatalogList];
+          try { localStorage.setItem(WEB_ADMIN_CATALOG_KEY, JSON.stringify(adminCustomCatalogList)); } catch (e) {}
+        }
+      }
+      renderStreamsAndCatalog(mergeCatalogWithAdminItems(INITIAL_CATALOG));
+      renderWebAdminLists();
+      showAdminToast(`✅ Added "${title}" to Website & App Catalog!`);
+    }
+
+    function openNativeAdminFromWebModal() {
+      if (window.KuroStreamBridge && typeof window.KuroStreamBridge.openNativeAdminPanel === "function") {
+        window.KuroStreamBridge.openNativeAdminPanel();
+      } else {
+        showAdminToast("ℹ️ You are already inside the full Website Admin Panel!");
+      }
+    }
+
+    function renderWebAdminLists() {
+      const srvContainer = document.getElementById("webAdminServersList");
+      const srvCount = document.getElementById("webServersCount");
+      if (srvCount) srvCount.textContent = String((adminServersList || []).length);
+      if (srvContainer) {
+        if (!adminServersList || adminServersList.length === 0) {
+          srvContainer.innerHTML = `<div style="color:var(--text-muted);font-size:12px;padding:8px;">No custom servers saved yet. Add a Bunny.net CDN, Paid API, or HTML embed above!</div>`;
+        } else {
+          srvContainer.innerHTML = adminServersList.map(s => `
+            <div style="background:#14161D;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+              <div style="flex:1;min-width:200px;">
+                <div style="font-size:13px;font-weight:800;color:#fff;">${s.name || 'Server'} <span class="badge badge-cyan" style="margin-left:6px;">${s.category || 'CDN'}</span></div>
+                <div style="font-size:11px;color:#00F0FF;font-family:monospace;word-break:break-all;margin-top:3px;">${(s.baseUrl || '').replace(/</g, '&lt;')}</div>
+              </div>
+              <button class="btn btn-outline" style="border-color:#FF2A5F;color:#FF2A5F;padding:5px 10px;" onclick="deleteWebAdminServer('${s.id}')">🗑 Delete</button>
+            </div>
+          `).join("");
+        }
+      }
+
+      const stContainer = document.getElementById("webAdminStreamsList");
+      const stCount = document.getElementById("webStreamsCount");
+      if (stCount) stCount.textContent = String((adminEpisodeStreamsList || []).length);
+      if (stContainer) {
+        if (!adminEpisodeStreamsList || adminEpisodeStreamsList.length === 0) {
+          stContainer.innerHTML = `<div style="color:var(--text-muted);font-size:12px;padding:8px;">No custom episode streams saved yet.</div>`;
+        } else {
+          stContainer.innerHTML = adminEpisodeStreamsList.map(st => {
+            const safeT = (st.animeTitle || "Anime").replace(/'/g, "\\'");
+            return `
+              <div style="background:#14161D;border:1px solid rgba(0,230,118,0.28);border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+                <div style="flex:1;min-width:200px;">
+                  <div style="font-size:13px;font-weight:800;color:#fff;">${st.animeTitle} • <span style="color:#00E676;">Episode ${st.episodeNumber || 1}</span> (${st.serverName || 'Paid Server'})</div>
+                  <div style="font-size:11px;color:#00F0FF;font-family:monospace;word-break:break-all;margin-top:3px;">${(st.streamUrl || '').replace(/</g, '&lt;')}</div>
+                </div>
+                <div style="display:flex;gap:6px;">
+                  <button class="btn btn-primary" style="padding:5px 10px;" onclick="closeWebAdminModal(); openPlayerModal('${safeT}', ${st.episodeNumber || 1}, 0)">▶ Play</button>
+                  <button class="btn btn-outline" style="border-color:#FF2A5F;color:#FF2A5F;padding:5px 10px;" onclick="deleteWebAdminStream('${st.id}')">🗑</button>
+                </div>
+              </div>
+            `;
+          }).join("");
+        }
+      }
+
+      const dl = document.getElementById("webCatalogTitlesList");
+      if (dl) {
+        const titles = mergeCatalogWithAdminItems(INITIAL_CATALOG).map(a => a.title);
+        dl.innerHTML = titles.map(t => `<option value="${t.replace(/"/g, '&quot;')}"></option>`).join("");
+      }
+    }
+
+    if (window.location.hash === "#admin") {
+      setTimeout(() => openWebAdminModal(0), 200);
     }
 
     async function syncCrunchyrollWeb() {
@@ -1003,27 +1659,69 @@
         );
         return;
       }
-      document.getElementById("catalogStatus").textContent = `Searching "${q}"...`;
+      document.getElementById("catalogStatus").textContent = `Searching Jikan v4 + Anime GraphQL for "${q}"...`;
       try {
-        const r = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(q)}&limit=12`);
-        if (!r.ok) {
-          throw new Error(`HTTP ${r.status} during catalog search`);
-        }
-        const json = await r.json();
-        if (json.data) {
-          const results = json.data.map(a => ({
-            id: "search_" + a.mal_id,
-            title: a.title_english || a.title,
-            studio: (a.studios && a.studios[0]) ? a.studios[0].name : "Anime",
+        const jikanPromise = fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(q)}&limit=25`).then(r => r.ok ? r.json() : { data: [] }).catch(() => ({ data: [] }));
+        const gqlQuery = `
+          query ($search: String) {
+            Page(page: 1, perPage: 25) {
+              media(search: $search, type: ANIME, sort: [SEARCH_MATCH, POPULARITY_DESC]) {
+                id
+                idMal
+                title { english romaji native }
+                format
+                episodes
+                averageScore
+                coverImage { extraLarge large }
+              }
+            }
+          }
+        `;
+        const gqlPromise = fetch("https://graphql.anilist.co", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify({ query: gqlQuery, variables: { search: q } })
+        }).then(r => r.ok ? r.json() : {}).catch(() => ({}));
+
+        const [jikanJson, gqlJson] = await Promise.all([jikanPromise, gqlPromise]);
+        const jikanList = Array.isArray(jikanJson.data) ? jikanJson.data : [];
+        const gqlList = (gqlJson && gqlJson.data && gqlJson.data.Page && Array.isArray(gqlJson.data.Page.media)) ? gqlJson.data.Page.media : [];
+
+        const merged = new Map();
+        jikanList.forEach(a => {
+          const title = a.title_english || a.title || "Anime";
+          const key = a.mal_id ? `mal_${a.mal_id}` : title.toLowerCase();
+          merged.set(key, {
+            id: "search_" + (a.mal_id || title),
+            title: title,
+            studio: (a.studios && a.studios[0]) ? a.studios[0].name : (a.type || "Anime"),
             score: a.score || "8.5",
             episodes: a.episodes || 12,
-            poster: a.images?.jpg?.large_image_url || a.images?.jpg?.image_url
-          }));
-          document.getElementById("catalogSectionTitle").textContent = `🔍 Search Results for "${q}"`;
-          document.getElementById("catalogStatus").textContent = `${results.length} results found`;
-          renderStreamsAndCatalog(results);
-          hideFetchErrorNotification();
-        }
+            poster: a.images?.jpg?.large_image_url || a.images?.jpg?.image_url || ""
+          });
+        });
+
+        gqlList.forEach(m => {
+          const titleObj = m.title || {};
+          const title = titleObj.english || titleObj.romaji || titleObj.native || "Anime";
+          const key = m.idMal ? `mal_${m.idMal}` : title.toLowerCase();
+          if (!merged.has(key)) {
+            merged.set(key, {
+              id: "gql_" + m.id,
+              title: title,
+              studio: m.format || "Anime",
+              score: m.averageScore ? (m.averageScore / 10).toFixed(1) : "8.4",
+              episodes: m.episodes || 12,
+              poster: (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large)) || ""
+            });
+          }
+        });
+
+        const results = Array.from(merged.values());
+        document.getElementById("catalogSectionTitle").textContent = `🔍 Jikan + GraphQL Search Results for "${q}"`;
+        document.getElementById("catalogStatus").textContent = `${results.length} results found`;
+        renderStreamsAndCatalog(results);
+        hideFetchErrorNotification();
       } catch (e) {
         updateOfflineIndicator(`search catalog results for "${q}"`);
         showFetchErrorNotification(

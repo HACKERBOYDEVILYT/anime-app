@@ -9,6 +9,7 @@ import android.net.Uri
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
@@ -40,6 +41,7 @@ import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SystemUpdateAlt
 import androidx.compose.material3.Button
@@ -104,6 +106,7 @@ fun WebPortalScreen(
     appUpdateRepository: AppUpdateRepository,
     onWatchEpisode: (animeId: String, episodeNumber: Int) -> Unit,
     onBack: () -> Unit,
+    onOpenAdminPanel: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     BackHandler { onBack() }
@@ -111,6 +114,7 @@ fun WebPortalScreen(
     val updateState by appUpdateRepository.updateState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var selectedTab by remember { mutableIntStateOf(0) }
+    var webViewRef by remember { mutableStateOf<WebView?>(null) }
 
     var repoSlugInput by remember(updateState.repositorySlug) { mutableStateOf(updateState.repositorySlug) }
     var webUrlInput by remember(updateState.liveWebsiteUrl) { mutableStateOf(updateState.liveWebsiteUrl) }
@@ -154,20 +158,57 @@ fun WebPortalScreen(
                 }
             }
 
-            Button(
-                onClick = { appUpdateRepository.checkForRepositoryUpdate(autoPrompt = true) },
-                colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon),
-                shape = RoundedCornerShape(8.dp),
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                modifier = Modifier.testTag("check_repo_update_btn")
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                if (updateState.isChecking) {
-                    CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(14.dp))
-                } else {
-                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(15.dp))
+                Button(
+                    onClick = {
+                        webViewRef?.evaluateJavascript(
+                            "if(window.openWebAdminModal){window.openWebAdminModal();}",
+                            null
+                        )
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF7A00)),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                    modifier = Modifier.testTag("web_admin_modal_btn")
+                ) {
+                    Icon(Icons.Default.Security, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Web Admin", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
                 }
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Check Update", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+
+                OutlinedButton(
+                    onClick = onOpenAdminPanel,
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                    modifier = Modifier.testTag("open_native_admin_from_web_btn")
+                ) {
+                    Text("App Admin", color = CyanGlow, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Button(
+                    onClick = {
+                        appUpdateRepository.checkForRepositoryUpdate(autoPrompt = true)
+                        webViewRef?.evaluateJavascript(
+                            "if(window.loadLiveCatalogAndVersion){window.loadLiveCatalogAndVersion();}",
+                            null
+                        )
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                    modifier = Modifier.testTag("check_repo_update_btn")
+                ) {
+                    if (updateState.isChecking) {
+                        CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(14.dp))
+                    } else {
+                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(15.dp))
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Sync", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
 
@@ -362,6 +403,8 @@ fun WebPortalScreen(
                             settings.allowFileAccess = true
                             settings.allowContentAccess = true
                             settings.mediaPlaybackRequiresUserGesture = false
+                            settings.cacheMode = WebSettings.LOAD_NO_CACHE
+                            clearCache(true)
                             webChromeClient = WebChromeClient()
                             webViewClient = object : WebViewClient() {
                                 override fun shouldOverrideUrlLoading(
@@ -419,6 +462,88 @@ fun WebPortalScreen(
                                     }
 
                                     @JavascriptInterface
+                                    fun openNativeAdminPanel() {
+                                        post {
+                                            onOpenAdminPanel()
+                                        }
+                                    }
+
+                                    @JavascriptInterface
+                                    fun addPaidServerFromWeb(
+                                        name: String,
+                                        url: String,
+                                        category: String,
+                                        apiKey: String,
+                                        setAsLogoCdn: Boolean
+                                    ): String {
+                                        return appUpdateRepository.addAdminServerFromWeb(
+                                            name = name,
+                                            url = url,
+                                            category = category,
+                                            apiKey = apiKey,
+                                            setAsLogoCdn = setAsLogoCdn
+                                        )
+                                    }
+
+                                    @JavascriptInterface
+                                    fun addEpisodeStreamFromWeb(
+                                        animeId: String,
+                                        animeTitle: String,
+                                        episodeNum: Int,
+                                        streamUrl: String,
+                                        serverName: String,
+                                        quality: String
+                                    ): String {
+                                        return appUpdateRepository.addAdminEpisodeStreamFromWeb(
+                                            animeId = animeId,
+                                            animeTitle = animeTitle,
+                                            episodeNumber = episodeNum,
+                                            streamUrl = streamUrl,
+                                            serverName = serverName,
+                                            quality = quality
+                                        )
+                                    }
+
+                                    @JavascriptInterface
+                                    fun updateBunnyLogoFromWeb(logoUrl: String, baseUrl: String): String {
+                                        return appUpdateRepository.updateBunnyLogoFromWeb(logoUrl, baseUrl)
+                                    }
+
+                                    @JavascriptInterface
+                                    fun deleteServerFromWeb(serverId: String): String {
+                                        return appUpdateRepository.deleteAdminServerFromWeb(serverId)
+                                    }
+
+                                    @JavascriptInterface
+                                    fun toggleServerFromWeb(serverId: String): String {
+                                        return appUpdateRepository.toggleAdminServerFromWeb(serverId)
+                                    }
+
+                                    @JavascriptInterface
+                                    fun deleteEpisodeStreamFromWeb(streamId: String): String {
+                                        return appUpdateRepository.deleteAdminStreamFromWeb(streamId)
+                                    }
+
+                                    @JavascriptInterface
+                                    fun addAnimeFromWeb(
+                                        title: String,
+                                        genre: String,
+                                        episodes: Int,
+                                        rating: Float,
+                                        posterUrl: String,
+                                        streamUrl: String
+                                    ): String {
+                                        return appUpdateRepository.addAnimeCatalogFromWeb(
+                                            title = title,
+                                            genre = genre,
+                                            episodes = episodes,
+                                            rating = rating,
+                                            posterUrl = posterUrl,
+                                            streamUrl = streamUrl.ifBlank { null }
+                                        )
+                                    }
+
+                                    @JavascriptInterface
                                     fun releaseApkFromWeb(): String {
                                         val msg = appUpdateRepository.exportReleaseApkToDownloads()
                                         post {
@@ -430,8 +555,12 @@ fun WebPortalScreen(
                                 "KuroStreamBridge"
                             )
 
+                            webViewRef = this
                             loadUrl("file:///android_asset/web/index.html")
                         }
+                    },
+                    update = { view ->
+                        webViewRef = view
                     },
                     modifier = Modifier.fillMaxSize()
                 )

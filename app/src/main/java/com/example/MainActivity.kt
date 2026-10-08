@@ -337,7 +337,10 @@ fun KuroStreamApp(container: KuroAppContainer) {
                         onWatchEpisode = { animeId, epNum ->
                             navController.navigate(Screen.Player.createRoute(animeId, epNum))
                         },
-                        onBack = { navController.popBackStack() }
+                        onBack = { navController.popBackStack() },
+                        onOpenAdminPanel = {
+                            navController.navigate(Screen.Admin.route)
+                        }
                     )
                 }
 

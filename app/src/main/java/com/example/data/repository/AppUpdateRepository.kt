@@ -28,6 +28,7 @@ import java.io.PrintWriter
 import java.net.Inet4Address
 import java.net.NetworkInterface
 import java.net.ServerSocket
+import java.net.URLDecoder
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -62,7 +63,8 @@ data class RepositoryUpdateState(
  */
 class AppUpdateRepository(
     private val context: Context,
-    private val mediaProvider: LocalLicensedMediaProvider
+    private val mediaProvider: LocalLicensedMediaProvider,
+    private val adminRepository: AdminRepository? = null
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val prefs: SharedPreferences =
@@ -366,7 +368,8 @@ class AppUpdateRepository(
     }
 
     /**
-     * Generates the unified JSON payload shared between the Android App and the Live Website.
+     * Generates the unified JSON payload shared between the Android App and the Live Website,
+     * including live Bunny.net CDN config, Paid Server APIs/CDNs/HTML embeds, Episode Streams, and Anime Catalog.
      */
     fun buildUnifiedAppCatalogJson(): String {
         val state = _updateState.value
@@ -378,6 +381,38 @@ class AppUpdateRepository(
         root.put("repositorySlug", state.repositorySlug)
         root.put("apkDownloadUrl", state.apkDownloadUrl)
         root.put("webPortalUrl", state.liveWebsiteUrl)
+        root.put("bunnyCdnBaseUrl", AdminRepository.globalBunnyCdnBaseUrl.value)
+        root.put("bunnyCdnLogoUrl", AdminRepository.globalBunnyCdnLogoUrl.value)
+
+        val serversArray = JSONArray()
+        adminRepository?.apiConfigs?.value?.forEach { srv ->
+            val obj = JSONObject()
+            obj.put("id", srv.id)
+            obj.put("name", srv.name)
+            obj.put("baseUrl", srv.baseUrl)
+            obj.put("category", srv.category)
+            obj.put("isEnabled", srv.isActive)
+            obj.put("latencyMs", srv.latencyMs)
+            obj.put("statusMessage", srv.status)
+            serversArray.put(obj)
+        }
+        root.put("servers", serversArray)
+
+        val streamsArray = JSONArray()
+        adminRepository?.scrapedVideos?.value?.forEach { stream ->
+            val obj = JSONObject()
+            obj.put("id", stream.id)
+            obj.put("animeId", stream.animeId)
+            obj.put("animeTitle", stream.animeTitle)
+            obj.put("episodeNumber", stream.episodeNumber)
+            obj.put("streamUrl", stream.streamUrl)
+            obj.put("serverName", stream.serverSource)
+            obj.put("quality", stream.qualityLabel)
+            obj.put("isDirectHls", stream.isHls)
+            obj.put("isWorking", !stream.status.contains("Offline", ignoreCase = true))
+            streamsArray.put(obj)
+        }
+        root.put("episodeStreams", streamsArray)
 
         val animeArray = JSONArray()
         catalog.forEach { anime ->
@@ -393,6 +428,124 @@ class AppUpdateRepository(
         }
         root.put("anime", animeArray)
         return root.toString()
+    }
+
+    fun addAdminServerFromWeb(
+        name: String,
+        url: String,
+        category: String,
+        apiKey: String?,
+        setAsLogoCdn: Boolean
+    ): String {
+        adminRepository?.addApiConfig(
+            name = name.ifBlank { "Paid Server / CDN" },
+            baseUrl = url,
+            category = category.ifBlank { "STREAMING" },
+            apiKey = apiKey
+        )
+        if (setAsLogoCdn && (url.endsWith(".png", true) || url.endsWith(".jpg", true) || url.endsWith(".webp", true))) {
+            adminRepository?.updateBunnyLogoCdn(url)
+        }
+        return buildUnifiedAppCatalogJson()
+    }
+
+    fun addAdminEpisodeStreamFromWeb(
+        animeId: String,
+        animeTitle: String,
+        episodeNumber: Int,
+        streamUrl: String,
+        serverName: String,
+        quality: String
+    ): String {
+        val resolvedId = animeId.ifBlank {
+            mediaProvider.getAllCatalogSnapshot()
+                .firstOrNull { it.titleEnglish.equals(animeTitle, ignoreCase = true) }?.id
+                ?: ("anime_web_" + animeTitle.lowercase(Locale.ROOT).replace(Regex("[^a-z0-9]+"), "_").trim('_'))
+        }
+        val safeTitle = animeTitle.ifBlank { "Anime Episode" }
+        val safeEp = episodeNumber.coerceAtLeast(1)
+        adminRepository?.addScrapedVideo(
+            animeId = resolvedId,
+            animeTitle = safeTitle,
+            episodeNumber = safeEp,
+            episodeTitle = "$safeTitle • Episode $safeEp",
+            streamUrl = streamUrl,
+            qualityLabel = quality.ifBlank { "1080p Full HD" },
+            serverSource = serverName.ifBlank { "Paid Server • 1080p" },
+            subtitleUrl = null,
+            subtitleLanguage = "Bangla",
+            audioLanguage = "Japanese [Original]"
+        )
+        return buildUnifiedAppCatalogJson()
+    }
+
+    fun updateBunnyLogoFromWeb(logoUrl: String, baseUrl: String? = null): String {
+        adminRepository?.updateBunnyLogoCdn(logoUrl, baseUrl)
+        return buildUnifiedAppCatalogJson()
+    }
+
+    fun deleteAdminServerFromWeb(serverId: String): String {
+        adminRepository?.deleteApiConfig(serverId)
+        return buildUnifiedAppCatalogJson()
+    }
+
+    fun toggleAdminServerFromWeb(serverId: String): String {
+        adminRepository?.setActiveApi(serverId)
+        return buildUnifiedAppCatalogJson()
+    }
+
+    fun deleteAdminStreamFromWeb(streamId: String): String {
+        adminRepository?.deleteScrapedVideo(streamId)
+        return buildUnifiedAppCatalogJson()
+    }
+
+    fun addAnimeCatalogFromWeb(
+        title: String,
+        genre: String,
+        episodes: Int,
+        rating: Float,
+        posterUrl: String,
+        streamUrl: String? = null
+    ): String {
+        val safeTitle = title.trim().ifBlank { "New Anime" }
+        val newId = "anime_${System.currentTimeMillis()}"
+        val safePoster = posterUrl.ifBlank { "https://cdn.myanimelist.net/images/anime/1015/138006l.jpg" }
+        val newAnime = com.example.data.model.Anime(
+            id = newId,
+            slug = safeTitle.lowercase(Locale.ROOT).replace(" ", "-"),
+            titleEnglish = safeTitle,
+            titleRomaji = safeTitle,
+            titleJapanese = safeTitle,
+            description = "$safeTitle added via Website & App Admin Panel.",
+            posterUrl = safePoster,
+            bannerUrl = safePoster,
+            rating = rating.coerceIn(1f, 5f),
+            score = (rating.coerceIn(1f, 5f) * 20).toInt(),
+            type = com.example.data.model.AnimeType.TV,
+            status = com.example.data.model.AnimeStatus.RELEASING,
+            episodesCount = episodes.coerceAtLeast(1),
+            releaseYear = 2026,
+            season = "Spring 2026",
+            durationMinutes = 24,
+            studio = genre.ifBlank { "Studio" },
+            genres = listOf(genre.ifBlank { "Action" }, "Fantasy")
+        )
+        adminRepository?.addAnime(newAnime)
+        if (!streamUrl.isNullOrBlank()) {
+            adminRepository?.addScrapedVideo(
+                animeId = newId,
+                animeTitle = safeTitle,
+                episodeNumber = 1,
+                episodeTitle = "$safeTitle • Episode 1",
+                streamUrl = streamUrl,
+                qualityLabel = "1080p Full HD",
+                serverSource = "Paid Server • 1080p",
+                subtitleUrl = null,
+                subtitleLanguage = "Bangla",
+                audioLanguage = "Japanese [Original]"
+            )
+        }
+        return buildUnifiedAppCatalogJson()
     }
 
     // ========================================================================
@@ -486,10 +639,66 @@ class AppUpdateRepository(
                     val headerLine = reader.readLine() ?: break
                     if (headerLine.isEmpty()) break
                 }
-                val path = requestLine.split(" ").getOrNull(1)?.substringBefore("?") ?: "/"
+                val fullTarget = requestLine.split(" ").getOrNull(1) ?: "/"
+                val path = fullTarget.substringBefore("?")
+                val queryStr = fullTarget.substringAfter("?", "")
+                val queryMap = mutableMapOf<String, String>()
+                if (queryStr.isNotEmpty()) {
+                    queryStr.split("&").forEach { pair ->
+                        val k = pair.substringBefore("=")
+                        val v = runCatching { URLDecoder.decode(pair.substringAfter("=", ""), "UTF-8") }.getOrDefault("")
+                        if (k.isNotBlank()) queryMap[k] = v
+                    }
+                }
 
                 val rawOut = sock.getOutputStream()
                 when {
+                    path.startsWith("/api/admin/action") -> {
+                        when (queryMap["type"]) {
+                            "add_server" -> addAdminServerFromWeb(
+                                name = queryMap["name"].orEmpty(),
+                                url = queryMap["url"].orEmpty(),
+                                category = queryMap["category"].orEmpty(),
+                                apiKey = queryMap["apiKey"],
+                                setAsLogoCdn = queryMap["setAsLogoCdn"] == "true"
+                            )
+                            "add_stream" -> addAdminEpisodeStreamFromWeb(
+                                animeId = queryMap["animeId"].orEmpty(),
+                                animeTitle = queryMap["animeTitle"].orEmpty(),
+                                episodeNumber = queryMap["ep"]?.toIntOrNull() ?: 1,
+                                streamUrl = queryMap["streamUrl"].orEmpty(),
+                                serverName = queryMap["serverName"].orEmpty(),
+                                quality = queryMap["quality"].orEmpty()
+                            )
+                            "update_logo" -> updateBunnyLogoFromWeb(
+                                logoUrl = queryMap["logoUrl"].orEmpty(),
+                                baseUrl = queryMap["baseUrl"]
+                            )
+                            "delete_server" -> deleteAdminServerFromWeb(queryMap["id"].orEmpty())
+                            "toggle_server" -> toggleAdminServerFromWeb(queryMap["id"].orEmpty())
+                            "delete_stream" -> deleteAdminStreamFromWeb(queryMap["id"].orEmpty())
+                            "add_anime" -> addAnimeCatalogFromWeb(
+                                title = queryMap["title"].orEmpty(),
+                                genre = queryMap["genre"].orEmpty(),
+                                episodes = queryMap["episodes"]?.toIntOrNull() ?: 12,
+                                rating = queryMap["rating"]?.toFloatOrNull() ?: 4.7f,
+                                posterUrl = queryMap["poster"].orEmpty(),
+                                streamUrl = queryMap["streamUrl"]
+                            )
+                        }
+                        val jsonBytes = buildUnifiedAppCatalogJson().toByteArray(Charsets.UTF_8)
+                        val header = buildString {
+                            append("HTTP/1.1 200 OK\r\n")
+                            append("Content-Type: application/json; charset=utf-8\r\n")
+                            append("Access-Control-Allow-Origin: *\r\n")
+                            append("Cache-Control: no-cache\r\n")
+                            append("Connection: close\r\n")
+                            append("Content-Length: ${jsonBytes.size}\r\n\r\n")
+                        }
+                        rawOut.write(header.toByteArray(Charsets.UTF_8))
+                        rawOut.write(jsonBytes)
+                        rawOut.flush()
+                    }
                     path.startsWith("/download/") || path.endsWith(".apk", ignoreCase = true) -> {
                         val apkFile = File(context.applicationInfo.sourceDir)
                         if (apkFile.exists()) {
