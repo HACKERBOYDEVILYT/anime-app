@@ -269,12 +269,36 @@ fun VideoPlayerScreen(
     }
 
     val currentStreamUrl = uiState.currentSource?.streamUrl.orEmpty()
-    val isWebEmbedOrTrailer = remember(currentStreamUrl) {
-        currentStreamUrl.contains("youtube.com/embed", ignoreCase = true) ||
-            currentStreamUrl.contains("youtube.com/watch", ignoreCase = true) ||
-            currentStreamUrl.contains("youtu.be/", ignoreCase = true) ||
-            currentStreamUrl.contains("/embed/", ignoreCase = true)
+    val isBlockedYoutubeTrailer = remember(currentStreamUrl) {
+        currentStreamUrl.contains("youtube.com", ignoreCase = true) ||
+            currentStreamUrl.contains("youtu.be", ignoreCase = true)
     }
+    val isPaidServerHtmlOrEmbed = remember(currentStreamUrl, isBlockedYoutubeTrailer) {
+        if (isBlockedYoutubeTrailer || currentStreamUrl.isBlank()) {
+            false
+        } else {
+            val trimmed = currentStreamUrl.trim()
+            trimmed.startsWith("<") ||
+                trimmed.contains("<iframe", ignoreCase = true) ||
+                trimmed.contains("<video", ignoreCase = true) ||
+                trimmed.contains("<mux-player", ignoreCase = true) ||
+                trimmed.contains("iframe.mediadelivery.net", ignoreCase = true) ||
+                (trimmed.contains("cloudflarestream.com", ignoreCase = true) && trimmed.contains("/iframe", ignoreCase = true)) ||
+                trimmed.contains("player.vimeo.com", ignoreCase = true) ||
+                trimmed.contains("jwplayer.com/players", ignoreCase = true) ||
+                trimmed.contains("filemoon.", ignoreCase = true) ||
+                trimmed.contains("streamtape.", ignoreCase = true) ||
+                trimmed.contains("dood", ignoreCase = true) ||
+                trimmed.contains("vidguard", ignoreCase = true) ||
+                trimmed.contains("listeamed", ignoreCase = true) ||
+                trimmed.contains("abyss.to", ignoreCase = true) ||
+                trimmed.contains("streamwish", ignoreCase = true) ||
+                trimmed.contains("voe.sx", ignoreCase = true) ||
+                trimmed.contains("/embed/", ignoreCase = true) ||
+                trimmed.endsWith(".html", ignoreCase = true)
+        }
+    }
+    val isWebEmbedOrTrailer = isBlockedYoutubeTrailer || isPaidServerHtmlOrEmbed
 
     // Automatic Multi-Server Failover if a stream URL fails or codec is unsupported on device
     DisposableEffect(exoPlayer) {
@@ -639,7 +663,7 @@ fun VideoPlayerScreen(
                     }
                 }
         ) {
-            if (currentStreamUrl.isBlank() || isWebEmbedOrTrailer || uiState.currentEpisode?.sources.isNullOrEmpty()) {
+            if (currentStreamUrl.isBlank() || isBlockedYoutubeTrailer || uiState.currentEpisode?.sources.isNullOrEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -672,6 +696,51 @@ fun VideoPlayerScreen(
                         )
                     }
                 }
+            } else if (isPaidServerHtmlOrEmbed) {
+                val htmlPayload = remember(currentStreamUrl) {
+                    val trimmed = currentStreamUrl.trim()
+                    val bodyMarkup = if (trimmed.startsWith("<") || trimmed.contains("<iframe", true) || trimmed.contains("<video", true)) {
+                        trimmed
+                    } else {
+                        """<iframe src="$trimmed" allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen="true" frameborder="0" scrolling="no" style="width:100%;height:100%;border:none;"></iframe>"""
+                    }
+                    """
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+                    <style>
+                      * { margin: 0; padding: 0; box-sizing: border-box; background: #000; }
+                      html, body { width: 100%; height: 100%; overflow: hidden; background: #000; display: flex; align-items: center; justify-content: center; }
+                      iframe, video, mux-player, div { width: 100% !important; height: 100% !important; border: none !important; }
+                    </style>
+                    </head>
+                    <body>$bodyMarkup</body>
+                    </html>
+                    """.trimIndent()
+                }
+                AndroidView(
+                    factory = { ctx ->
+                        WebView(ctx).apply {
+                            setBackgroundColor(android.graphics.Color.BLACK)
+                            settings.javaScriptEnabled = true
+                            settings.domStorageEnabled = true
+                            settings.mediaPlaybackRequiresUserGesture = false
+                            settings.loadWithOverviewMode = true
+                            settings.useWideViewPort = true
+                            webChromeClient = WebChromeClient()
+                            webViewClient = WebViewClient()
+                            loadDataWithBaseURL("https://robiulislam.b-cdn.net/", htmlPayload, "text/html", "UTF-8", null)
+                        }
+                    },
+                    update = { webView ->
+                        if (webView.tag != htmlPayload) {
+                            webView.tag = htmlPayload
+                            webView.loadDataWithBaseURL("https://robiulislam.b-cdn.net/", htmlPayload, "text/html", "UTF-8", null)
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
             } else {
                 AndroidView(
                     factory = { ctx ->

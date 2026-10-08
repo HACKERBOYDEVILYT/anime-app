@@ -76,6 +76,8 @@ class AdminViewModel(
     val apiConfigs: StateFlow<List<ApiConfig>> = adminRepository.apiConfigs
     val scrapedVideos: StateFlow<List<ScrapedVideoEntity>> = adminRepository.scrapedVideos
     val adMobConfig: StateFlow<AdMobConfigEntity> = adminRepository.adMobConfig
+    val bunnyCdnBaseUrl: StateFlow<String> = AdminRepository.globalBunnyCdnBaseUrl
+    val bunnyCdnLogoUrl: StateFlow<String> = AdminRepository.globalBunnyCdnLogoUrl
 
     init {
         loadCatalog()
@@ -114,11 +116,99 @@ class AdminViewModel(
         _uiState.update { it.copy(extractionMessage = null) }
     }
 
-    fun addApiEndpointDirect(name: String, baseUrl: String, category: String) {
+    fun addApiEndpointDirect(name: String, baseUrl: String, category: String, apiKey: String? = null) {
         if (name.isBlank() || baseUrl.isBlank()) return
-        adminRepository.addApiConfig(name = name, baseUrl = baseUrl, category = category, apiKey = null)
+        adminRepository.addApiConfig(name = name, baseUrl = baseUrl, category = category, apiKey = apiKey)
         _uiState.update {
-            it.copy(extractionMessage = "Added Video Server: $name")
+            it.copy(extractionMessage = "Added CDN / Video Server: $name")
+        }
+    }
+
+    fun addBunnyOrCustomCdn(
+        name: String,
+        cdnUrl: String,
+        category: String,
+        apiKey: String?,
+        setAsLogoCdn: Boolean,
+        attachAnimeId: String? = null,
+        attachAnimeTitle: String? = null,
+        attachEpisodeNumber: Int? = null
+    ) {
+        if (cdnUrl.isBlank()) return
+        val isHtmlMode = cdnUrl.trim().startsWith("<") ||
+            cdnUrl.contains("<iframe", ignoreCase = true) ||
+            cdnUrl.contains("<video", ignoreCase = true) ||
+            cdnUrl.contains("/embed/", ignoreCase = true) ||
+            cdnUrl.contains("/iframe", ignoreCase = true)
+        val effectiveName = name.trim().ifBlank {
+            when {
+                cdnUrl.contains("b-cdn.net", ignoreCase = true) || cdnUrl.contains("mediadelivery.net", ignoreCase = true) ->
+                    "Bunny.net Paid CDN"
+                isHtmlMode -> "Paid Server HTML Embed"
+                else -> "Paid Cloud CDN Server"
+            }
+        }
+        adminRepository.addApiConfig(
+            name = effectiveName,
+            baseUrl = cdnUrl,
+            category = category,
+            apiKey = apiKey
+        )
+        if (setAsLogoCdn && !isHtmlMode) {
+            adminRepository.updateBunnyLogoCdn(cdnUrl)
+        }
+        if (!attachAnimeId.isNullOrBlank() && !attachAnimeTitle.isNullOrBlank()) {
+            val epNum = (attachEpisodeNumber ?: 1).coerceAtLeast(1)
+            val modeBadge = when {
+                isHtmlMode -> "1080p • Paid HTML Embed"
+                !apiKey.isNullOrBlank() -> "1080p • Paid API Stream"
+                else -> "1080p • Paid CDN Stream"
+            }
+            adminRepository.addScrapedVideo(
+                animeId = attachAnimeId,
+                animeTitle = attachAnimeTitle,
+                episodeNumber = epNum,
+                episodeTitle = "$attachAnimeTitle • Episode $epNum ($effectiveName)",
+                streamUrl = cdnUrl,
+                qualityLabel = modeBadge,
+                serverSource = effectiveName,
+                subtitleUrl = null,
+                subtitleLanguage = "Bangla",
+                audioLanguage = "Japanese [Original]"
+            )
+        }
+        _uiState.update {
+            it.copy(
+                extractionMessage = buildString {
+                    append("✅ Added Paid Server/CDN: $effectiveName")
+                    if (setAsLogoCdn && !isHtmlMode) append(" • Updated App Logo CDN")
+                    if (!attachAnimeTitle.isNullOrBlank()) append(" • Attached to $attachAnimeTitle Ep ${attachEpisodeNumber ?: 1}")
+                }
+            )
+        }
+    }
+
+    fun resolvePaidServerApi(
+        apiUrl: String,
+        apiKey: String?,
+        onResolved: (String) -> Unit
+    ) {
+        if (apiUrl.isBlank()) return
+        _uiState.update { it.copy(extractionMessage = "🔄 Connecting to Paid Server API & resolving stream/HTML...") }
+        viewModelScope.launch {
+            val resolved = adminRepository.resolvePaidServerApi(apiUrl, apiKey)
+            onResolved(resolved)
+            _uiState.update {
+                it.copy(extractionMessage = "✅ Paid Server API Resolved: ${resolved.take(65)}")
+            }
+        }
+    }
+
+    fun updateBunnyLogoCdn(logoUrl: String, pullZoneHost: String? = null) {
+        if (logoUrl.isBlank()) return
+        adminRepository.updateBunnyLogoCdn(logoUrl = logoUrl, pullZoneHost = pullZoneHost)
+        _uiState.update {
+            it.copy(extractionMessage = "✅ Updated Bunny.net Logo & Pull Zone CDN: $logoUrl")
         }
     }
 

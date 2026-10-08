@@ -168,11 +168,13 @@ fun AdminDashboardScreen(
     val catalog = uiState.animeList
     val selectedTab = uiState.selectedTab
     val actionFeedback = uiState.extractionMessage
+    val bunnyCdnBaseUrl by viewModel.bunnyCdnBaseUrl.collectAsStateWithLifecycle()
+    val bunnyCdnLogoUrl by viewModel.bunnyCdnLogoUrl.collectAsStateWithLifecycle()
 
     BackHandler { onBack() }
 
     val tabs = listOf(
-        "🌐 Video Servers",
+        "🐰 Paid CDN • API • HTML",
         "🎬 Episode Streams",
         "📚 Anime Catalog",
         "🕸️ Stream Catcher",
@@ -217,7 +219,7 @@ fun AdminDashboardScreen(
                     fontWeight = FontWeight.ExtraBold
                 )
                 Text(
-                    text = "GitHub Video Servers • Episode Streams • Catalog",
+                    text = "Bunny.net CDN • Video Servers • Episode Streams • Catalog",
                     color = TextSecondary,
                     fontSize = 11.sp
                 )
@@ -258,7 +260,7 @@ fun AdminDashboardScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             CleanMetricChip(
-                label = "Servers",
+                label = "CDN/Servers",
                 value = "${apiConfigs.size}",
                 accent = EmeraldSuccess,
                 modifier = Modifier.weight(1f)
@@ -353,6 +355,27 @@ fun AdminDashboardScreen(
             when (selectedTab.coerceIn(0, tabs.lastIndex)) {
                 0 -> CleanVideoServersTab(
                     apiConfigs = apiConfigs,
+                    catalog = catalog,
+                    activeBunnyBaseUrl = bunnyCdnBaseUrl,
+                    activeBunnyLogoUrl = bunnyCdnLogoUrl,
+                    onAddBunnyOrCustomCdn = { name, url, category, apiKey, setAsLogo, animeId, animeTitle, epNum ->
+                        viewModel.addBunnyOrCustomCdn(
+                            name = name,
+                            cdnUrl = url,
+                            category = category,
+                            apiKey = apiKey,
+                            setAsLogoCdn = setAsLogo,
+                            attachAnimeId = animeId,
+                            attachAnimeTitle = animeTitle,
+                            attachEpisodeNumber = epNum
+                        )
+                    },
+                    onResolvePaidApi = { apiUrl, apiKey, onResult ->
+                        viewModel.resolvePaidServerApi(apiUrl, apiKey, onResult)
+                    },
+                    onUpdateLogoCdn = { logoUrl, pullZone ->
+                        viewModel.updateBunnyLogoCdn(logoUrl, pullZone)
+                    },
                     onAddServer = { name, url, category ->
                         viewModel.addApiEndpointDirect(name, url, category)
                     },
@@ -365,6 +388,7 @@ fun AdminDashboardScreen(
                 1 -> CleanEpisodeStreamsTab(
                     catalog = catalog,
                     scrapedVideos = scrapedVideos,
+                    activeBunnyBaseUrl = bunnyCdnBaseUrl,
                     onAddStream = { animeId, animeTitle, epNum, epTitle, streamUrl, quality, subUrl, subLang, audioLang, serverName ->
                         viewModel.addScrapedStreamDirect(
                             animeId = animeId,
@@ -497,6 +521,21 @@ private fun CleanMetricChip(
 @Composable
 private fun CleanVideoServersTab(
     apiConfigs: List<ApiConfig>,
+    catalog: List<Anime>,
+    activeBunnyBaseUrl: String,
+    activeBunnyLogoUrl: String,
+    onAddBunnyOrCustomCdn: (
+        name: String,
+        url: String,
+        category: String,
+        apiKey: String?,
+        setAsLogoCdn: Boolean,
+        attachAnimeId: String?,
+        attachAnimeTitle: String?,
+        attachEpisodeNumber: Int?
+    ) -> Unit,
+    onResolvePaidApi: (String, String?, (String) -> Unit) -> Unit,
+    onUpdateLogoCdn: (String, String?) -> Unit,
     onAddServer: (String, String, String) -> Unit,
     onToggleServer: (String) -> Unit,
     onPingServer: (String) -> Unit,
@@ -504,15 +543,597 @@ private fun CleanVideoServersTab(
     onDeleteServer: (String) -> Unit,
     onTestPlay: () -> Unit
 ) {
+    // 0 = CDN URL Mode, 1 = Paid Server API Mode, 2 = HTML / Iframe Embed Code Mode
+    var integrationMode by remember { mutableStateOf(0) }
+    var cdnProviderType by remember { mutableStateOf("Bunny.net Storage + CDN (✅ HLS)") }
+    var bunnyCdnName by remember { mutableStateOf("Bunny.net CDN • robiulislam.b-cdn.net") }
+    var bunnyCdnUrl by remember(activeBunnyLogoUrl) { mutableStateOf(activeBunnyLogoUrl) }
+    var bunnyPullZoneHost by remember(activeBunnyBaseUrl) { mutableStateOf(activeBunnyBaseUrl) }
+    var bunnyAccessKey by remember { mutableStateOf("") }
+    var setAsAppLogoCdn by remember { mutableStateOf(false) }
+    var attachToAnimeEpisode by remember { mutableStateOf(false) }
+    var selectedCdnAnime by remember(catalog) { mutableStateOf(catalog.firstOrNull()) }
+    var cdnEpisodeNumberText by remember { mutableStateOf("1") }
+
+    // Standard Custom Video Server Form State
     var serverName by remember { mutableStateOf("") }
     var serverUrl by remember { mutableStateOf("") }
     var serverCategory by remember { mutableStateOf("GitHub Consumet Server") }
+
+    val paidServerProviders = remember {
+        listOf(
+            "🐰 Bunny.net (Stream/CDN)" to "Bunny.net Storage + CDN (✅ HLS)",
+            "☁️ Cloudflare (Stream/R2)" to "Cloudflare Stream & R2 Paid CDN",
+            "🎬 Mux Enterprise Video" to "Mux Paid Video Platform (API/HLS/HTML)",
+            "🔶 AWS S3 + CloudFront" to "AWS S3 + CloudFront Paid CDN",
+            "🎥 JWPlayer / Vimeo OTT" to "JWPlayer & Vimeo Pro Paid CDN",
+            "⚡ Fastly / Akamai / DO" to "Fastly & DigitalOcean Paid Edge CDN",
+            "🎞️ Filemoon / StreamWish / VidGuard" to "Paid Anime Video Hoster (API/CDN/HTML)",
+            "🖼️ Bunny.net Logo/Asset" to "Bunny.net Asset & Logo CDN"
+        )
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        // 0. Dedicated Paid Servers & Bunny.net Hub (API • CDN • HTML Embed)
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.5.dp, EmeraldSuccess.copy(alpha = 0.6f), RoundedCornerShape(14.dp))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "💎 Paid Server & Bunny.net Hub (API • CDN • HTML)",
+                                color = EmeraldSuccess,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Text(
+                                text = "Use Bunny.net, Cloudflare Stream, Mux, AWS CloudFront, JWPlayer, Vimeo Pro, Filemoon Pro — via CDN URL, Paid API, or HTML Iframe",
+                                color = TextSecondary,
+                                fontSize = 11.sp
+                            )
+                        }
+                        Surface(
+                            color = EmeraldSuccess.copy(alpha = 0.18f),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.border(1.dp, EmeraldSuccess.copy(alpha = 0.45f), RoundedCornerShape(8.dp))
+                        ) {
+                            Text(
+                                text = "PAID • 200 OK",
+                                color = EmeraldSuccess,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Live Active Bunny.net Pull Zone & Logo Preview Banner
+                    Surface(
+                        color = SurfaceVariantDark,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, CyanAccent.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            AsyncImage(
+                                model = activeBunnyLogoUrl,
+                                contentDescription = "Active Bunny.net CDN Logo",
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.Black)
+                                    .border(1.dp, EmeraldSuccess, RoundedCornerShape(8.dp))
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Active Pull Zone: ${activeBunnyBaseUrl.removePrefix("https://")}",
+                                    color = TextPrimary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "Logo CDN: $activeBunnyLogoUrl",
+                                    color = CyanAccent,
+                                    fontSize = 10.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // 3-Mode Integration Selector: CDN URL vs Paid API vs HTML / Iframe Code
+                    Text(
+                        text = "1. Select Integration Mode (CDN / API / HTML):",
+                        color = TextSecondary,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val modes = listOf(
+                            0 to "🔗 CDN URL",
+                            1 to "🔑 Paid API",
+                            2 to "💻 HTML / Iframe"
+                        )
+                        modes.forEach { (modeIdx, modeLabel) ->
+                            val selected = integrationMode == modeIdx
+                            FilterChip(
+                                selected = selected,
+                                onClick = {
+                                    integrationMode = modeIdx
+                                    when (modeIdx) {
+                                        0 -> {
+                                            if (bunnyCdnUrl.trim().startsWith("<")) {
+                                                bunnyCdnUrl = "${bunnyPullZoneHost.trimEnd('/')}/anime/playlist.m3u8"
+                                            }
+                                        }
+                                        1 -> {
+                                            setAsAppLogoCdn = false
+                                            if (bunnyCdnUrl.trim().startsWith("<") || bunnyCdnUrl.endsWith(".png")) {
+                                                bunnyCdnUrl = "https://video.bunnycdn.com/library/10001/videos"
+                                            }
+                                        }
+                                        2 -> {
+                                            setAsAppLogoCdn = false
+                                            if (!bunnyCdnUrl.trim().startsWith("<")) {
+                                                bunnyCdnUrl = """<iframe src="https://iframe.mediadelivery.net/embed/10001/anime-ep1?autoplay=true" loading="lazy" style="border:none;width:100%;height:100%;" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture;" allowfullscreen="true"></iframe>"""
+                                            }
+                                        }
+                                    }
+                                },
+                                label = { Text(modeLabel, fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = CrimsonNeon,
+                                    selectedLabelColor = Color.White
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Paid Server Provider Selector Chips
+                    Text(
+                        text = "2. Select Paid Server Provider:",
+                        color = TextSecondary,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(paidServerProviders) { (label, categoryValue) ->
+                            val isSelected = cdnProviderType == categoryValue
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = {
+                                    cdnProviderType = categoryValue
+                                    when {
+                                        label.contains("Logo") -> {
+                                            integrationMode = 0
+                                            bunnyCdnName = "Bunny.net Logo & Media CDN"
+                                            bunnyCdnUrl = "${bunnyPullZoneHost.trimEnd('/')}/images/logo.png"
+                                            setAsAppLogoCdn = true
+                                        }
+                                        label.contains("Bunny.net") -> {
+                                            bunnyCdnName = "Bunny.net Paid Stream & CDN"
+                                            bunnyCdnUrl = when (integrationMode) {
+                                                1 -> "https://video.bunnycdn.com/library/10001/videos"
+                                                2 -> """<iframe src="https://iframe.mediadelivery.net/embed/10001/anime-ep1?autoplay=true" loading="lazy" style="border:none;width:100%;height:100%;" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture;" allowfullscreen="true"></iframe>"""
+                                                else -> "${bunnyPullZoneHost.trimEnd('/')}/anime/playlist.m3u8"
+                                            }
+                                            setAsAppLogoCdn = false
+                                        }
+                                        label.contains("Cloudflare") -> {
+                                            bunnyCdnName = "Cloudflare Stream & R2 Paid CDN"
+                                            bunnyCdnUrl = when (integrationMode) {
+                                                1 -> "https://api.cloudflare.com/client/v4/accounts/acc_id/stream"
+                                                2 -> """<iframe src="https://customer-anime.cloudflarestream.com/video_id/iframe" style="border:none;width:100%;height:100%;" allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;" allowfullscreen="true"></iframe>"""
+                                                else -> "https://customer-anime.cloudflarestream.com/video_id/manifest/video.m3u8"
+                                            }
+                                            setAsAppLogoCdn = false
+                                        }
+                                        label.contains("Mux") -> {
+                                            bunnyCdnName = "Mux Enterprise Video Server"
+                                            bunnyCdnUrl = when (integrationMode) {
+                                                1 -> "https://api.mux.com/video/v1/assets"
+                                                2 -> """<iframe src="https://stream.mux.com/playback_id.html" style="width:100%;height:100%;border:none;" allow="autoplay; fullscreen" allowfullscreen></iframe>"""
+                                                else -> "https://stream.mux.com/playback_id.m3u8"
+                                            }
+                                            setAsAppLogoCdn = false
+                                        }
+                                        label.contains("AWS") -> {
+                                            bunnyCdnName = "AWS S3 + CloudFront Paid CDN"
+                                            bunnyCdnUrl = when (integrationMode) {
+                                                1 -> "https://medialive.amazonaws.com/v1/channels"
+                                                2 -> """<video controls autoplay style="width:100%;height:100%;background:#000;" src="https://d111111abcdef8.cloudfront.net/anime/ep1.mp4"></video>"""
+                                                else -> "https://d111111abcdef8.cloudfront.net/anime/ep1/master.m3u8"
+                                            }
+                                            setAsAppLogoCdn = false
+                                        }
+                                        label.contains("JWPlayer") -> {
+                                            bunnyCdnName = "JWPlayer / Vimeo OTT Paid CDN"
+                                            bunnyCdnUrl = when (integrationMode) {
+                                                1 -> "https://cdn.jwplayer.com/v2/media/anime_ep1"
+                                                2 -> """<iframe src="https://cdn.jwplayer.com/players/anime_ep1-player.html" width="100%" height="100%" frameborder="0" allowfullscreen></iframe>"""
+                                                else -> "https://cdn.jwplayer.com/manifests/anime_ep1.m3u8"
+                                            }
+                                            setAsAppLogoCdn = false
+                                        }
+                                        label.contains("Fastly") -> {
+                                            bunnyCdnName = "Fastly / DigitalOcean Spaces Paid CDN"
+                                            bunnyCdnUrl = when (integrationMode) {
+                                                1 -> "https://api.fastly.com/service/anime_cdn"
+                                                2 -> """<video controls autoplay style="width:100%;height:100%;background:#000;" src="https://anime.nyc3.cdn.digitaloceanspaces.com/ep1.mp4"></video>"""
+                                                else -> "https://anime.nyc3.cdn.digitaloceanspaces.com/ep1/index.m3u8"
+                                            }
+                                            setAsAppLogoCdn = false
+                                        }
+                                        else -> {
+                                            bunnyCdnName = "Filemoon / StreamWish / VidGuard Paid Server"
+                                            bunnyCdnUrl = when (integrationMode) {
+                                                1 -> "https://filemoonapi.com/api/file/direct_link?key=YOUR_KEY&file_code=ep1"
+                                                2 -> """<iframe src="https://filemoon.sx/e/anime_ep1" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" width="100%" height="100%" allowfullscreen></iframe>"""
+                                                else -> "https://edge.filemoon.sx/hls2/01/master.m3u8"
+                                            }
+                                            setAsAppLogoCdn = false
+                                        }
+                                    }
+                                },
+                                label = { Text(label, fontSize = 11.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = EmeraldSuccess,
+                                    selectedLabelColor = Color.Black
+                                )
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Quick Fill Presets for CDN, Paid API, and HTML Embed
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        item {
+                            Surface(
+                                onClick = {
+                                    integrationMode = 0
+                                    bunnyCdnName = "Bunny.net Logo CDN (robiulislam.b-cdn.net)"
+                                    bunnyPullZoneHost = "https://robiulislam.b-cdn.net"
+                                    bunnyCdnUrl = "https://robiulislam.b-cdn.net/images/logo.png"
+                                    cdnProviderType = "Bunny.net Storage + CDN (✅ HLS)"
+                                    setAsAppLogoCdn = true
+                                },
+                                color = SurfaceVariantDark,
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    text = "⚡ robiulislam.b-cdn.net/images/logo.png",
+                                    color = EmeraldSuccess,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                                )
+                            }
+                        }
+                        item {
+                            Surface(
+                                onClick = {
+                                    integrationMode = 0
+                                    bunnyCdnName = "Bunny.net Pull Zone • robiulislam.b-cdn.net"
+                                    bunnyPullZoneHost = "https://robiulislam.b-cdn.net"
+                                    bunnyCdnUrl = "https://robiulislam.b-cdn.net/"
+                                    cdnProviderType = "Bunny.net Storage + CDN (✅ HLS)"
+                                    setAsAppLogoCdn = false
+                                },
+                                color = SurfaceVariantDark,
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    text = "🐰 Pull Zone: robiulislam.b-cdn.net",
+                                    color = CyanAccent,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                                )
+                            }
+                        }
+                        item {
+                            Surface(
+                                onClick = {
+                                    integrationMode = 2
+                                    bunnyCdnName = "Bunny.net Stream HTML Iframe Player"
+                                    bunnyCdnUrl = """<iframe src="https://iframe.mediadelivery.net/embed/10001/anime-ep1?autoplay=true" loading="lazy" style="border:none;width:100%;height:100%;" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture;" allowfullscreen="true"></iframe>"""
+                                    cdnProviderType = "Bunny.net Storage + CDN (✅ HLS)"
+                                    setAsAppLogoCdn = false
+                                },
+                                color = SurfaceVariantDark,
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    text = "💻 Bunny HTML <iframe>",
+                                    color = StarAmber,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                                )
+                            }
+                        }
+                        item {
+                            Surface(
+                                onClick = {
+                                    integrationMode = 2
+                                    bunnyCdnName = "Cloudflare Stream HTML Iframe"
+                                    bunnyCdnUrl = """<iframe src="https://customer-anime.cloudflarestream.com/video_id/iframe" style="border:none;width:100%;height:100%;" allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;" allowfullscreen="true"></iframe>"""
+                                    cdnProviderType = "Cloudflare Stream & R2 Paid CDN"
+                                    setAsAppLogoCdn = false
+                                },
+                                color = SurfaceVariantDark,
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    text = "☁️ Cloudflare HTML <iframe>",
+                                    color = CyanAccent,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                                )
+                            }
+                        }
+                        item {
+                            Surface(
+                                onClick = {
+                                    integrationMode = 2
+                                    bunnyCdnName = "Filemoon / VidGuard Paid HTML Embed"
+                                    bunnyCdnUrl = """<iframe src="https://filemoon.sx/e/anime_ep1" frameborder="0" width="100%" height="100%" allowfullscreen></iframe>"""
+                                    cdnProviderType = "Paid Anime Video Hoster (API/CDN/HTML)"
+                                    setAsAppLogoCdn = false
+                                },
+                                color = SurfaceVariantDark,
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    text = "🎞️ Filemoon/VidGuard HTML",
+                                    color = CrimsonNeon,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    OutlinedTextField(
+                        value = bunnyCdnName,
+                        onValueChange = { bunnyCdnName = it },
+                        label = { Text("Paid Server / CDN Name (e.g. Bunny.net CDN, Cloudflare Stream, Filemoon Pro)") },
+                        singleLine = true,
+                        colors = adminTextFieldColors(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("admin_bunny_cdn_name_input")
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = bunnyCdnUrl,
+                        onValueChange = { bunnyCdnUrl = it },
+                        label = {
+                            Text(
+                                when (integrationMode) {
+                                    1 -> "Paid Server API Endpoint URL (Bunny / Cloudflare / Mux / Filemoon API)"
+                                    2 -> "HTML Embed Code (<iframe src=\"...\"></iframe> or <video ...>)"
+                                    else -> "Paid CDN URL (.b-cdn.net / .cloudfront.net / .m3u8 / .mp4)"
+                                }
+                            )
+                        },
+                        singleLine = integrationMode != 2,
+                        minLines = if (integrationMode == 2) 3 else 1,
+                        maxLines = if (integrationMode == 2) 5 else 1,
+                        colors = adminTextFieldColors(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("admin_bunny_cdn_url_input")
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = bunnyAccessKey,
+                            onValueChange = { bunnyAccessKey = it },
+                            label = { Text("Paid API Key / Bearer Token / AccessKey (Optional)") },
+                            singleLine = true,
+                            colors = adminTextFieldColors(),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("admin_bunny_cdn_key_input")
+                        )
+
+                        if (integrationMode == 1) {
+                            Button(
+                                onClick = {
+                                    onResolvePaidApi(bunnyCdnUrl, bunnyAccessKey.takeIf { it.isNotBlank() }) { resolved ->
+                                        if (resolved.isNotBlank()) {
+                                            bunnyCdnUrl = resolved
+                                        }
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = CyanAccent),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.height(54.dp)
+                            ) {
+                                Text("Resolve API", color = Color.Black, fontWeight = FontWeight.ExtraBold, fontSize = 11.sp)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    if (integrationMode == 0) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = setAsAppLogoCdn,
+                                onCheckedChange = { setAsAppLogoCdn = it }
+                            )
+                            Text(
+                                text = "Set this URL as Active App Logo CDN (robiulislam.b-cdn.net)",
+                                color = TextPrimary,
+                                fontSize = 11.sp,
+                                modifier = Modifier.clickable { setAsAppLogoCdn = !setAsAppLogoCdn }
+                            )
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = attachToAnimeEpisode,
+                            onCheckedChange = { attachToAnimeEpisode = it }
+                        )
+                        Text(
+                            text = "Also attach this Paid CDN / API / HTML player to an Anime Episode",
+                            color = TextPrimary,
+                            fontSize = 11.sp,
+                            modifier = Modifier.clickable { attachToAnimeEpisode = !attachToAnimeEpisode }
+                        )
+                    }
+
+                    if (attachToAnimeEpisode && catalog.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            items(catalog, key = { it.id }) { anime ->
+                                FilterChip(
+                                    selected = selectedCdnAnime?.id == anime.id,
+                                    onClick = { selectedCdnAnime = anime },
+                                    label = { Text(anime.titleEnglish, fontSize = 10.sp, maxLines = 1) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = CrimsonNeon,
+                                        selectedLabelColor = Color.White
+                                    )
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        OutlinedTextField(
+                            value = cdnEpisodeNumberText,
+                            onValueChange = { cdnEpisodeNumberText = it },
+                            label = { Text("Target Episode Number") },
+                            singleLine = true,
+                            colors = adminTextFieldColors(),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                if (bunnyCdnUrl.isNotBlank()) {
+                                    val targetAnime = if (attachToAnimeEpisode) selectedCdnAnime else null
+                                    val epNum = cdnEpisodeNumberText.toIntOrNull() ?: 1
+                                    onAddBunnyOrCustomCdn(
+                                        bunnyCdnName,
+                                        bunnyCdnUrl,
+                                        cdnProviderType,
+                                        bunnyAccessKey.takeIf { it.isNotBlank() },
+                                        setAsAppLogoCdn && integrationMode == 0,
+                                        targetAnime?.id,
+                                        targetAnime?.titleEnglish,
+                                        if (attachToAnimeEpisode) epNum else null
+                                    )
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = EmeraldSuccess),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("admin_add_bunny_cdn_btn")
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = when (integrationMode) {
+                                    1 -> "Add Paid Server API"
+                                    2 -> "Add Paid HTML Player"
+                                    else -> "Add Bunny.net / Paid CDN"
+                                },
+                                color = Color.Black,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 12.sp
+                            )
+                        }
+
+                        if (integrationMode == 0) {
+                            OutlinedButton(
+                                onClick = {
+                                    if (bunnyCdnUrl.isNotBlank()) {
+                                        onUpdateLogoCdn(bunnyCdnUrl, bunnyPullZoneHost)
+                                    }
+                                },
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.testTag("admin_set_logo_cdn_btn")
+                            ) {
+                                Text(
+                                    text = "Update Logo CDN",
+                                    color = CyanAccent,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // 1. GitHub Open-Source Video Server Quick Add Section
         item {
             Card(
@@ -530,13 +1151,13 @@ private fun CleanVideoServersTab(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "GitHub Open-Source Video Servers",
+                                text = "GitHub & Cloud CDN Presets",
                                 color = TextPrimary,
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.ExtraBold
                             )
                             Text(
-                                text = "Tap any verified GitHub anime streaming server preset to add or test playback",
+                                text = "Tap any verified Bunny.net, Cloudflare R2, or GitHub server preset to add or test",
                                 color = TextSecondary,
                                 fontSize = 11.sp
                             )
@@ -701,7 +1322,7 @@ private fun CleanVideoServersTab(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Configured Video Servers (${apiConfigs.size})",
+                    text = "Configured CDN & Video Servers (${apiConfigs.size})",
                     color = TextPrimary,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.ExtraBold
@@ -716,14 +1337,20 @@ private fun CleanVideoServersTab(
         }
 
         items(apiConfigs, key = { it.id }) { api ->
+            val isBunnyCdn = api.baseUrl.contains("b-cdn.net", ignoreCase = true) ||
+                api.category.contains("Bunny", ignoreCase = true)
             Card(
                 colors = CardDefaults.cardColors(containerColor = SurfaceDark),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .border(
-                        width = 1.dp,
-                        color = if (api.isActive) EmeraldSuccess.copy(alpha = 0.35f) else CardBorder,
+                        width = if (isBunnyCdn) 1.5.dp else 1.dp,
+                        color = when {
+                            isBunnyCdn && api.isActive -> EmeraldSuccess.copy(alpha = 0.7f)
+                            api.isActive -> EmeraldSuccess.copy(alpha = 0.35f)
+                            else -> CardBorder
+                        },
                         shape = RoundedCornerShape(12.dp)
                     )
             ) {
@@ -738,7 +1365,7 @@ private fun CleanVideoServersTab(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = api.name,
+                                text = if (isBunnyCdn && !api.name.startsWith("🐰")) "🐰 ${api.name}" else api.name,
                                 color = TextPrimary,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold
@@ -824,6 +1451,7 @@ private fun CleanVideoServersTab(
 private fun CleanEpisodeStreamsTab(
     catalog: List<Anime>,
     scrapedVideos: List<ScrapedVideoEntity>,
+    activeBunnyBaseUrl: String,
     onAddStream: (String, String, Int, String, String, String, String, String, String, String) -> Unit,
     onDeleteStream: (String) -> Unit,
     onSyncSimulcast: () -> Unit,
@@ -835,7 +1463,7 @@ private fun CleanEpisodeStreamsTab(
     var streamUrl by remember {
         mutableStateOf("https://v.animethemes.moe/SousouNoFrieren-OP1.webm")
     }
-    var serverSource by remember { mutableStateOf("HiAnime MegaCloud (Consumet)") }
+    var serverSource by remember { mutableStateOf("Bunny.net CDN (robiulislam.b-cdn.net)") }
     var qualityLabel by remember { mutableStateOf("1080p HD") }
     var subtitleLang by remember { mutableStateOf("Bangla") }
 
@@ -860,13 +1488,13 @@ private fun CleanEpisodeStreamsTab(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Publish Episode Video Stream",
+                                text = "Publish Episode Video Stream (Bunny.net / Custom CDN)",
                                 color = TextPrimary,
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.ExtraBold
                             )
                             Text(
-                                text = "Attach a direct .m3u8 HLS or .mp4 stream to any anime episode",
+                                text = "Attach a Bunny.net CDN (.b-cdn.net), .m3u8 HLS, or .mp4 stream to any anime episode",
                                 color = TextSecondary,
                                 fontSize = 11.sp
                             )
@@ -925,8 +1553,9 @@ private fun CleanEpisodeStreamsTab(
                     OutlinedTextField(
                         value = streamUrl,
                         onValueChange = { streamUrl = it },
-                        label = { Text("Video Stream URL (.m3u8 or .mp4)") },
-                        singleLine = true,
+                        label = { Text("Paid CDN URL (.b-cdn.net / .m3u8 / .mp4) or HTML <iframe ...> Code") },
+                        minLines = if (streamUrl.trim().startsWith("<")) 3 else 1,
+                        maxLines = 4,
                         colors = adminTextFieldColors(),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -935,8 +1564,71 @@ private fun CleanEpisodeStreamsTab(
 
                     Spacer(modifier = Modifier.height(6.dp))
 
-                    // Quick Verified Stream Presets
+                    // Quick Verified Stream Presets + Bunny.net Pull Zone Builder + HTML Iframe Embed Builder
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        item {
+                            Surface(
+                                onClick = {
+                                    val slug = selectedAnime?.slug ?: "anime"
+                                    val ep = episodeNumberText.ifBlank { "1" }
+                                    streamUrl = "${activeBunnyBaseUrl.trimEnd('/')}/videos/$slug/ep$ep.m3u8"
+                                    serverSource = "Bunny.net CDN (${activeBunnyBaseUrl.removePrefix("https://")})"
+                                },
+                                color = EmeraldSuccess.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(6.dp),
+                                modifier = Modifier.border(1.dp, EmeraldSuccess.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
+                            ) {
+                                Text(
+                                    text = "🐰 Bunny CDN (${activeBunnyBaseUrl.removePrefix("https://")})",
+                                    color = EmeraldSuccess,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+                        item {
+                            Surface(
+                                onClick = {
+                                    val slug = selectedAnime?.slug ?: "anime"
+                                    val ep = episodeNumberText.ifBlank { "1" }
+                                    streamUrl = """<iframe src="https://iframe.mediadelivery.net/embed/10001/$slug-ep$ep?autoplay=true" loading="lazy" style="border:none;width:100%;height:100%;" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture;" allowfullscreen="true"></iframe>"""
+                                    serverSource = "Bunny.net Stream HTML Player"
+                                },
+                                color = StarAmber.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(6.dp),
+                                modifier = Modifier.border(1.dp, StarAmber.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
+                            ) {
+                                Text(
+                                    text = "💻 Bunny HTML <iframe>",
+                                    color = StarAmber,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+                        item {
+                            Surface(
+                                onClick = {
+                                    val slug = selectedAnime?.slug ?: "anime"
+                                    val ep = episodeNumberText.ifBlank { "1" }
+                                    streamUrl = """<iframe src="https://filemoon.sx/e/$slug-ep$ep" frameborder="0" width="100%" height="100%" allowfullscreen></iframe>"""
+                                    serverSource = "Paid Server HTML Embed"
+                                },
+                                color = CrimsonNeon.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(6.dp),
+                                modifier = Modifier.border(1.dp, CrimsonNeon.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
+                            ) {
+                                Text(
+                                    text = "🎞️ Paid HTML Embed",
+                                    color = CrimsonNeon,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
                         items(GITHUB_VIDEO_SERVER_PRESETS) { preset ->
                             Surface(
                                 onClick = {

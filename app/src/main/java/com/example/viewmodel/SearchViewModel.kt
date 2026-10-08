@@ -311,7 +311,7 @@ class SearchViewModel(
             } else {
                 val charAnimeIds = matchedChars.map { it.animeId }.toSet()
                 val extraCharAnimes = if (charAnimeIds.isNotEmpty()) {
-                    animeRepository.getAllCatalog().filter { anime ->
+                    animeRepository.getInitialSnapshot().filter { anime ->
                         anime.id in charAnimeIds && baseFiltered.none { it.id == anime.id }
                     }
                 } else {

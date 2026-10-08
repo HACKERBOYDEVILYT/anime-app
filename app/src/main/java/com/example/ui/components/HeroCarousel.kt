@@ -94,28 +94,40 @@ fun HeroCarousel(
     var isMuted by remember { mutableStateOf(true) }
     var currentServerIdx by remember { mutableIntStateOf(0) }
 
-    val liveServerStreams = remember(anime.id, anime.titleEnglish) {
+    val liveServerStreams = remember(anime.id, anime.titleEnglish, anime.titleRomaji) {
         val titleLower = "${anime.titleEnglish} ${anime.titleRomaji}".lowercase()
         val primaryUrl = when {
             anime.id == "anime_1" || titleLower.contains("frieren") -> "https://v.animethemes.moe/SousouNoFrieren-OP1.webm"
             anime.id == "anime_2" || titleLower.contains("jujutsu") -> "https://v.animethemes.moe/JujutsuKaisenS2-OP1.webm"
-            anime.id == "anime_3" || titleLower.contains("solo leveling") -> "https://v.animethemes.moe/SoloLeveling-OP1.webm"
+            anime.id == "anime_3" || titleLower.contains("solo leveling") || titleLower.contains("ore dake") -> "https://v.animethemes.moe/SoloLeveling-OP1.webm"
             anime.id == "anime_4" || titleLower.contains("demon slayer") || titleLower.contains("kimetsu") -> "https://v.animethemes.moe/KimetsuNoYaiba-OP1.webm"
             anime.id == "anime_5" || titleLower.contains("chainsaw") -> "https://v.animethemes.moe/ChainsawMan-OP1.webm"
             anime.id == "anime_6" || titleLower.contains("attack on titan") || titleLower.contains("shingeki") -> "https://v.animethemes.moe/ShingekiNoKyojin-OP1.webm"
             anime.id == "anime_7" || titleLower.contains("cyberpunk") -> "https://v.animethemes.moe/CyberpunkEdgerunners-OP1.webm"
-            anime.id == "anime_8" || titleLower.contains("spy") -> "https://v.animethemes.moe/SpyXFamily-OP1.webm"
-            else -> "https://v.animethemes.moe/SousouNoFrieren-OP1.webm"
+            anime.id == "anime_8" || (titleLower.contains("spy") && titleLower.contains("family")) -> "https://v.animethemes.moe/SpyXFamily-OP1.webm"
+            titleLower.contains("one piece") -> "https://v.animethemes.moe/OnePiece-OP1-NCDVD480.webm"
+            titleLower.contains("naruto") -> "https://v.animethemes.moe/Naruto-OP1.webm"
+            titleLower.contains("bleach") -> "https://v.animethemes.moe/Bleach-OP1.webm"
+            titleLower.contains("blue lock") -> "https://v.animethemes.moe/BlueLock-OP1.webm"
+            else -> ""
         }
-        listOf(
-            primaryUrl to "HD-1 • VidStreaming (SUB)",
-            primaryUrl to "HD-2 • MegaCloud (SUB)",
-            primaryUrl to "Bunny.net CDN • robiulislam.b-cdn.net",
-            primaryUrl to "Cloudflare R2 + CDN • 1080p"
-        )
+        if (primaryUrl.isBlank()) {
+            emptyList()
+        } else {
+            listOf(
+                primaryUrl to "HD-1 • VidStreaming (SUB)",
+                primaryUrl to "HD-2 • MegaCloud (SUB)",
+                primaryUrl to "Bunny.net CDN • robiulislam.b-cdn.net",
+                primaryUrl to "Cloudflare R2 + CDN • 1080p"
+            )
+        }
     }
 
-    val activeStreamPair = liveServerStreams[currentServerIdx % liveServerStreams.size]
+    val activeStreamPair = if (liveServerStreams.isNotEmpty()) {
+        liveServerStreams[currentServerIdx % liveServerStreams.size]
+    } else {
+        "" to "Video not available right now"
+    }
 
     Box(
         modifier = modifier
@@ -137,8 +149,8 @@ fun HeroCarousel(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Lazily instantiate ExoPlayer ONLY when the user explicitly enables Live Video Preview
-        if (isVideoPreviewEnabled) {
+        // Lazily instantiate ExoPlayer ONLY when the user explicitly enables Live Video Preview and stream is available
+        if (isVideoPreviewEnabled && activeStreamPair.first.isNotBlank()) {
             val heroPlayer = remember(context) {
                 val httpDataSourceFactory = DefaultHttpDataSource.Factory()
                     .setUserAgent("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124.0.0.0 Mobile Safari/537.36")
@@ -245,10 +257,14 @@ fun HeroCarousel(
                 modifier = Modifier
                     .border(1.dp, Color(0xFF00E676).copy(alpha = 0.6f), RoundedCornerShape(20.dp))
                     .clickable {
-                        if (!isVideoPreviewEnabled) {
-                            isVideoPreviewEnabled = true
+                        if (liveServerStreams.isNotEmpty()) {
+                            if (!isVideoPreviewEnabled) {
+                                isVideoPreviewEnabled = true
+                            } else {
+                                currentServerIdx = (currentServerIdx + 1) % liveServerStreams.size
+                            }
                         } else {
-                            currentServerIdx = (currentServerIdx + 1) % liveServerStreams.size
+                            isVideoPreviewEnabled = false
                         }
                     }
             ) {
@@ -260,16 +276,16 @@ fun HeroCarousel(
                         modifier = Modifier
                             .size(8.dp)
                             .background(
-                                if (isVideoPreviewEnabled) Color(0xFF00E676) else CrimsonNeon,
+                                if (isVideoPreviewEnabled && liveServerStreams.isNotEmpty()) Color(0xFF00E676) else CrimsonNeon,
                                 CircleShape
                             )
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (isVideoPreviewEnabled) {
-                            "LIVE • ${activeStreamPair.second}"
-                        } else {
-                            "TAP FOR LIVE PREVIEW • ${activeStreamPair.second}"
+                        text = when {
+                            liveServerStreams.isEmpty() -> "Video not available right now"
+                            isVideoPreviewEnabled -> "LIVE • ${activeStreamPair.second}"
+                            else -> "TAP FOR LIVE PREVIEW • ${activeStreamPair.second}"
                         },
                         color = Color.White,
                         fontSize = 10.sp,

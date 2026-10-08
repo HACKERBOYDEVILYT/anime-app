@@ -621,8 +621,7 @@ class LocalLicensedMediaProvider(
                 it.streamUrl.isNotBlank() &&
                     !isLegacyFakeDemoStream(it.streamUrl) &&
                     !it.streamUrl.contains("youtube.com", ignoreCase = true) &&
-                    !it.streamUrl.contains("youtu.be", ignoreCase = true) &&
-                    !it.streamUrl.contains("/embed/", ignoreCase = true)
+                    !it.streamUrl.contains("youtu.be", ignoreCase = true)
             }
             .distinctBy { it.id }
 
@@ -799,10 +798,10 @@ class LocalLicensedMediaProvider(
                     it.streamUrl.isNotBlank() &&
                         !isLegacyFakeDemoStream(it.streamUrl) &&
                         !it.streamUrl.contains("youtube.com", ignoreCase = true) &&
-                        !it.streamUrl.contains("youtu.be", ignoreCase = true) &&
-                        !it.streamUrl.contains("/embed/", ignoreCase = true)
+                        !it.streamUrl.contains("youtu.be", ignoreCase = true)
                 }
-                (dedicatedEpisodeServers + scrapedSources + validStoredSources).distinctBy { it.id }
+                val adminCustomServers = synchronized(customAddedServers) { customAddedServers.toList() }
+                (scrapedSources + adminCustomServers + dedicatedEpisodeServers + validStoredSources).distinctBy { it.id }
             } else {
                 scrapedSources.distinctBy { it.id }
             }

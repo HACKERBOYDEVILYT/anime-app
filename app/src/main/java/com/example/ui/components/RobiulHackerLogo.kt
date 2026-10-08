@@ -41,8 +41,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.R
+import com.example.data.repository.AdminRepository
 
 const val ROBIUL_BUNNY_CDN_BASE_URL = "https://robiulislam.b-cdn.net"
 const val ROBIUL_BUNNY_CDN_LOGO_URL = "https://robiulislam.b-cdn.net/images/logo.png"
@@ -60,6 +62,7 @@ fun RsHackerEmblem(
     size: Dp = 38.dp,
     modifier: Modifier = Modifier
 ) {
+    val activeBunnyLogoUrl by AdminRepository.globalBunnyCdnLogoUrl.collectAsStateWithLifecycle()
     val infiniteTransition = rememberInfiniteTransition(label = "robiul_logo_glow")
     val pulseAlpha by infiniteTransition.animateFloat(
         initialValue = 0.55f,
@@ -99,9 +102,9 @@ fun RsHackerEmblem(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Bunny.net CDN Official Logo (https://robiulislam.b-cdn.net/images/logo.png)
+        // Bunny.net CDN Official Logo (https://robiulislam.b-cdn.net/images/logo.png or custom Admin CDN logo)
         AsyncImage(
-            model = ROBIUL_BUNNY_CDN_LOGO_URL,
+            model = activeBunnyLogoUrl.ifBlank { ROBIUL_BUNNY_CDN_LOGO_URL },
             contentDescription = "Robiul Bunny.net CDN Logo",
             contentScale = ContentScale.Fit,
             modifier = Modifier.fillMaxSize()
