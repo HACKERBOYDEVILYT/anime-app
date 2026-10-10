@@ -62,13 +62,13 @@ class RetrofitMetadataProvider(
 
         coroutineScope {
             val animeThemesDeferred = async {
-                fetchFromAnimeThemesVideoServer("https://api.animethemes.moe/anime?include=animethemes.animethemeentries.videos,images&sort=-year&page[size]=8")
+                fetchFromAnimeThemesVideoServer("https://api.animethemes.moe/anime?include=animethemes.animethemeentries.videos,images&sort=-year&page[size]=12")
             }
             val jikanDeferred = async {
-                fetchFromJikanApi("https://api.jikan.moe/v4/top/anime?filter=airing&limit=20")
+                fetchFromJikanApi("https://api.jikan.moe/v4/top/anime?filter=airing&limit=25")
             }
             val anilistDeferred = async {
-                fetchFromAniListGraphQl(sort = "TRENDING_DESC", perPage = 20)
+                fetchFromAniListGraphQl(sort = "TRENDING_DESC", perPage = 50)
             }
 
             val animeThemesList = animeThemesDeferred.await()
@@ -104,10 +104,10 @@ class RetrofitMetadataProvider(
         }
         coroutineScope {
             val jikanDeferred = async {
-                fetchFromJikanApi("https://api.jikan.moe/v4/top/anime?filter=bypopularity&limit=20")
+                fetchFromJikanApi("https://api.jikan.moe/v4/top/anime?filter=bypopularity&limit=25")
             }
             val anilistDeferred = async {
-                fetchFromAniListGraphQl(sort = "POPULARITY_DESC", perPage = 20)
+                fetchFromAniListGraphQl(sort = "POPULARITY_DESC", perPage = 50)
             }
             val jikanList = jikanDeferred.await()
             val anilistList = anilistDeferred.await()
@@ -126,10 +126,10 @@ class RetrofitMetadataProvider(
         }
         coroutineScope {
             val jikanDeferred = async {
-                fetchFromJikanApi("https://api.jikan.moe/v4/top/anime?limit=20")
+                fetchFromJikanApi("https://api.jikan.moe/v4/top/anime?limit=25")
             }
             val anilistDeferred = async {
-                fetchFromAniListGraphQl(sort = "SCORE_DESC", perPage = 20)
+                fetchFromAniListGraphQl(sort = "SCORE_DESC", perPage = 50)
             }
             val jikanList = jikanDeferred.await()
             val anilistList = anilistDeferred.await()
@@ -146,7 +146,7 @@ class RetrofitMetadataProvider(
         if (!catalogNetworkMonitor.verifyConnectionBeforeCatalogFetch("Seasonal Simulcast Catalog")) {
             return@withContext fallbackProvider.getSeasonalAnime()
         }
-        val jikanSeasonal = fetchFromJikanApi("https://api.jikan.moe/v4/seasons/now?limit=20")
+        val jikanSeasonal = fetchFromJikanApi("https://api.jikan.moe/v4/seasons/now?limit=25")
         if (jikanSeasonal.isNotEmpty()) {
             fallbackProvider.mergeRemoteAnimeList(jikanSeasonal)
             catalogNetworkMonitor.reportCatalogFetchSuccess()
@@ -211,8 +211,9 @@ class RetrofitMetadataProvider(
         }
 
         val directRemoteMatches = mutableListOf<Anime>()
+        val shouldFetchRemote = cleanQuery.isNotBlank() || hasRemoteFilters || fallbackProvider.getInitialCatalogSnapshot().size < 65
 
-        if (cleanQuery.isNotBlank() || hasRemoteFilters) {
+        if (shouldFetchRemote) {
             coroutineScope {
                 val jikanUrl = buildJikanSearchUrl(
                     query = cleanQuery,
@@ -229,7 +230,7 @@ class RetrofitMetadataProvider(
                         type = type,
                         status = status,
                         sortBy = sortBy,
-                        perPage = 25
+                        perPage = 50
                     )
                 }
                 val atDeferred = async {

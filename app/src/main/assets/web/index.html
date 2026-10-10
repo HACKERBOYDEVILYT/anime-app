@@ -283,33 +283,34 @@
   </header>
 
   <section class="hero">
-    <video id="heroVideo" muted autoplay loop playsinline></video>
+    <video id="heroVideo" muted autoplay playsinline onended="playRandomHeroVideo()"></video>
     <div class="hero-overlay"></div>
 
     <div class="hero-top-bar">
-      <div class="server-pill" onclick="cycleHeroServer()">
+      <div class="server-pill" onclick="playRandomHeroVideo()">
         <span class="dot-live"></span>
-        <span id="heroServerLabel">LIVE • Crunchyroll Simulcast (1080p HLS)</span>
-        <span style="color:var(--cyan-glow);">⇄ Switch Server</span>
+        <span id="heroServerLabel">🎲 RANDOM LIVE • Auto-Playing Anime Stream (1080p)</span>
+        <span style="color:var(--cyan-glow);">🎲 Next Random Video</span>
       </div>
-      <div style="display:flex;gap:8px;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn" style="background:#FF2A5F;color:#fff;" onclick="playRandomHeroVideo()">🎲 Random Video</button>
         <button class="btn btn-outline" onclick="toggleHeroMute()" id="heroMuteBtn">🔇 Unmute Live Stream</button>
       </div>
     </div>
 
     <div class="hero-content">
       <div class="hero-badges">
-        <span class="badge badge-crimson">SIMULCAST 1080P</span>
+        <span class="badge badge-crimson" id="heroModeBadge">🎲 RANDOM ANIME STREAM • 1080P</span>
         <span class="badge badge-cyan">BANGLA & ENG SUB</span>
-        <span class="badge badge-amber">★ 9.4 MAL</span>
+        <span class="badge badge-amber" id="heroScoreBadge">★ 9.4 MAL</span>
       </div>
       <h1 class="hero-title" id="heroTitle">Frieren: Beyond Journey's End</h1>
       <p class="hero-desc" id="heroDesc">
         After a ten-year quest alongside hero Himmel, elven mage Frieren embarks on a new journey to understand humanity. Stream in 1080p HLS across Web & Android App.
       </p>
       <div class="hero-buttons">
-        <button class="btn btn-primary" onclick="openPlayerModal('Frieren: Beyond Journey\'s End', 1, 0)">▶ Watch Episode 1 (1080p)</button>
-        <button class="btn btn-outline" onclick="cycleHeroServer()">🌐 Next Upstream Server</button>
+        <button class="btn btn-primary" id="heroWatchBtn" onclick="openHeroActiveAnimePlayer()">▶ Watch Episode 1 (1080p)</button>
+        <button class="btn btn-outline" onclick="playRandomHeroVideo()">🎲 Next Random Video</button>
       </div>
     </div>
   </section>
@@ -373,10 +374,22 @@
     </div>
 
     <div class="section-header">
-      <div class="section-title" id="catalogSectionTitle">🔥 Trending & Crunchyroll Simulcast Catalog</div>
+      <div class="section-title" id="catalogSectionTitle">🔥 Full Anime Catalog (Jikan v4 + AniList GraphQL)</div>
       <div class="section-sub" id="catalogStatus">Synced with Live APIs</div>
     </div>
+    <div class="chip-group" style="margin-bottom:14px;" id="catalogCategoryChips">
+      <button class="chip active" onclick="filterWebCatalogCategory('ALL', this)">🔥 All Anime</button>
+      <button class="chip" onclick="filterWebCatalogCategory('TRENDING', this)">⚡ Trending &amp; Airing</button>
+      <button class="chip" onclick="filterWebCatalogCategory('TOP', this)">⭐ Top Rated (9.0+)</button>
+      <button class="chip" onclick="filterWebCatalogCategory('MOVIE', this)">🎬 Anime Movies</button>
+      <button class="chip" onclick="syncCrunchyrollWeb()">🍊 Crunchyroll Simulcast</button>
+    </div>
     <div class="anime-grid" id="animeGrid"></div>
+    <div style="display:flex;justify-content:center;margin:22px 0 10px;">
+      <button class="btn btn-primary" id="loadMoreAnimeBtn" onclick="loadMoreLiveAnime()" style="padding:11px 24px;font-size:13px;">
+        ➕ Load More Anime (Jikan v4 + AniList GraphQL)
+      </button>
+    </div>
   </div>
 
   <!-- Custom Media3-Style Video Player Modal with Keyboard Shortcuts -->
@@ -647,15 +660,60 @@
     ];
 
     const INITIAL_CATALOG = [
-      { id: "anime_1", title: "Frieren: Beyond Journey's End", studio: "Madhouse", score: "9.38", episodes: 28, poster: "https://cdn.myanimelist.net/images/anime/1015/138006l.jpg", serverIdx: 0 },
-      { id: "anime_3", title: "Solo Leveling", studio: "A-1 Pictures", score: "8.85", episodes: 12, poster: "https://cdn.myanimelist.net/images/anime/1801/142390l.jpg", serverIdx: 1 },
-      { id: "anime_2", title: "Jujutsu Kaisen Season 2", studio: "MAPPA", score: "8.92", episodes: 23, poster: "https://cdn.myanimelist.net/images/anime/1792/138022l.jpg", serverIdx: 2 },
-      { id: "anime_4", title: "Demon Slayer: Hashira Training Arc", studio: "ufotable", score: "8.74", episodes: 8, poster: "https://cdn.myanimelist.net/images/anime/1286/99889l.jpg", serverIdx: 0 },
-      { id: "anime_5", title: "One Piece: Egghead Arc", studio: "Toei Animation", score: "9.12", episodes: 1100, poster: "https://cdn.myanimelist.net/images/anime/6/73245l.jpg", serverIdx: 1 },
-      { id: "anime_6", title: "Chainsaw Man", studio: "MAPPA", score: "8.65", episodes: 12, poster: "https://cdn.myanimelist.net/images/anime/1806/126216l.jpg", serverIdx: 2 }
+      { id: "anime_1", title: "Frieren: Beyond Journey's End", studio: "Madhouse", score: "9.38", episodes: 28, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1015/138006l.jpg", serverIdx: 0 },
+      { id: "anime_3", title: "Solo Leveling", studio: "A-1 Pictures", score: "8.85", episodes: 12, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1801/142390l.jpg", serverIdx: 1 },
+      { id: "anime_2", title: "Jujutsu Kaisen Season 2", studio: "MAPPA", score: "8.92", episodes: 23, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1792/138022l.jpg", serverIdx: 2 },
+      { id: "anime_4", title: "Demon Slayer: Hashira Training Arc", studio: "ufotable", score: "8.74", episodes: 8, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1286/99889l.jpg", serverIdx: 0 },
+      { id: "anime_9", title: "One Piece: Egghead Arc", studio: "Toei Animation", score: "9.12", episodes: 1100, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/6/73245l.jpg", serverIdx: 1 },
+      { id: "anime_5", title: "Chainsaw Man", studio: "MAPPA", score: "8.65", episodes: 12, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1806/126216l.jpg", serverIdx: 2 },
+      { id: "anime_6", title: "Attack on Titan: The Final Season", studio: "MAPPA", score: "9.15", episodes: 28, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1000/110531l.jpg", serverIdx: 0 },
+      { id: "anime_7", title: "Cyberpunk: Edgerunners", studio: "Studio Trigger", score: "8.78", episodes: 10, type: "ONA", poster: "https://cdn.myanimelist.net/images/anime/1818/126431l.jpg", serverIdx: 1 },
+      { id: "anime_8", title: "SPY x FAMILY Season 2", studio: "Wit Studio & CloverWorks", score: "8.62", episodes: 12, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1506/138982l.jpg", serverIdx: 2 },
+      { id: "anime_10", title: "Naruto: Shippuden", studio: "Pierrot", score: "8.82", episodes: 500, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1565/111305l.jpg", serverIdx: 0 },
+      { id: "anime_11", title: "Bleach: Thousand-Year Blood War", studio: "Pierrot", score: "9.08", episodes: 26, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1908/135431l.jpg", serverIdx: 1 },
+      { id: "anime_12", title: "Dandadan", studio: "Science SARU", score: "8.90", episodes: 12, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1584/143719l.jpg", serverIdx: 2 },
+      { id: "anime_13", title: "Oshi no Ko", studio: "Doga Kobo", score: "8.84", episodes: 24, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1812/134736l.jpg", serverIdx: 0 },
+      { id: "anime_14", title: "Blue Lock", studio: "8bit", score: "8.52", episodes: 38, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1258/126929l.jpg", serverIdx: 1 },
+      { id: "anime_15", title: "Death Note", studio: "Madhouse", score: "8.98", episodes: 37, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1079/138100l.jpg", serverIdx: 2 },
+      { id: "anime_16", title: "My Hero Academia Season 7", studio: "Bones", score: "8.45", episodes: 21, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/10/78745l.jpg", serverIdx: 0 },
+      { id: "anime_17", title: "Kaiju No. 8", studio: "Production I.G", score: "8.58", episodes: 12, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1370/140362l.jpg", serverIdx: 1 },
+      { id: "anime_18", title: "Vinland Saga Season 2", studio: "MAPPA", score: "9.04", episodes: 24, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1170/124312l.jpg", serverIdx: 2 },
+      { id: "anime_19", title: "Hunter x Hunter (2011)", studio: "Madhouse", score: "9.28", episodes: 148, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1337/99013l.jpg", serverIdx: 0 },
+      { id: "anime_20", title: "Fullmetal Alchemist: Brotherhood", studio: "Bones", score: "9.35", episodes: 64, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1208/94745l.jpg", serverIdx: 1 },
+      { id: "anime_21", title: "Steins;Gate", studio: "White Fox", score: "9.18", episodes: 24, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1935/127974l.jpg", serverIdx: 2 },
+      { id: "anime_22", title: "Mob Psycho 100 III", studio: "Bones", score: "8.88", episodes: 12, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1228/125011l.jpg", serverIdx: 0 },
+      { id: "anime_23", title: "Mushoku Tensei: Jobless Reincarnation", studio: "Studio Bind", score: "8.68", episodes: 24, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1530/117776l.jpg", serverIdx: 1 },
+      { id: "anime_24", title: "Re:Zero -Starting Life in Another World-", studio: "White Fox", score: "8.72", episodes: 50, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1522/128039l.jpg", serverIdx: 2 },
+      { id: "anime_25", title: "Black Clover", studio: "Pierrot", score: "8.54", episodes: 170, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/2/88336l.jpg", serverIdx: 0 },
+      { id: "anime_26", title: "Tokyo Ghoul", studio: "Pierrot", score: "8.35", episodes: 12, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1498/134443l.jpg", serverIdx: 1 },
+      { id: "anime_27", title: "Code Geass: Lelouch of the Rebellion", studio: "Sunrise", score: "9.05", episodes: 25, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1032/135088l.jpg", serverIdx: 2 },
+      { id: "anime_28", title: "Haikyuu!!", studio: "Production I.G", score: "8.86", episodes: 25, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/7/76014l.jpg", serverIdx: 0 },
+      { id: "anime_29", title: "Sword Art Online", studio: "A-1 Pictures", score: "8.22", episodes: 25, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/11/39717l.jpg", serverIdx: 1 },
+      { id: "anime_30", title: "Your Name. (Kimi no Na wa.)", studio: "CoMix Wave Films", score: "9.16", episodes: 1, type: "MOVIE", poster: "https://cdn.myanimelist.net/images/anime/5/87048l.jpg", serverIdx: 2 }
+    ];
+
+    const HERO_RANDOM_POOL = [
+      { title: "Solo Leveling", score: "★ 8.9 MAL", desc: "In a world where hunters awaken supernatural powers, the weakest hunter Sung Jinwoo unlocks a secret leveling system to command the Shadow Army.", url: "https://v.animethemes.moe/SoloLeveling-OP1.webm", serverLabel: "RANDOM LIVE • Solo Leveling (1080p)" },
+      { title: "Jujutsu Kaisen Season 2", score: "★ 9.0 MAL", desc: "Satoru Gojo and Suguru Geto's past collides with the catastrophic Shibuya Incident in 1080p high-bitrate streaming.", url: "https://v.animethemes.moe/JujutsuKaisenS2-OP1.webm", serverLabel: "RANDOM LIVE • Jujutsu Kaisen S2 (1080p)" },
+      { title: "Demon Slayer: Hashira Training Arc", score: "★ 8.8 MAL", desc: "Tanjiro Kamado and the Demon Slayer Corps undergo intense training with the elite Hashira before the final battle against Muzan Kibutsuji.", url: "https://v.animethemes.moe/KimetsuNoYaiba-OP1.webm", serverLabel: "RANDOM LIVE • Demon Slayer (1080p)" },
+      { title: "Chainsaw Man", score: "★ 8.7 MAL", desc: "Denji merges with his chainsaw devil Pochita to become Chainsaw Man and join Public Safety Devil Hunters.", url: "https://v.animethemes.moe/ChainsawMan-OP1.webm", serverLabel: "RANDOM LIVE • Chainsaw Man (1080p)" },
+      { title: "Attack on Titan: The Final Season", score: "★ 9.2 MAL", desc: "Eren Yeager unleashes the Rumbling as former allies and enemies unite in a desperate struggle for humanity's future.", url: "https://v.animethemes.moe/ShingekiNoKyojin-OP1.webm", serverLabel: "RANDOM LIVE • Attack on Titan (1080p)" },
+      { title: "Cyberpunk: Edgerunners", score: "★ 8.8 MAL", desc: "Street kid David Martinez installs experimental military cyberware and joins a crew of edgerunners in Night City.", url: "https://v.animethemes.moe/CyberpunkEdgerunners-OP1.webm", serverLabel: "RANDOM LIVE • Cyberpunk: Edgerunners (1080p)" },
+      { title: "SPY x FAMILY Season 2", score: "★ 8.6 MAL", desc: "Master spy Twilight, assassin Yor, and telepathic Anya embark on an undercover family cruise mission.", url: "https://v.animethemes.moe/SpyXFamily-OP1.webm", serverLabel: "RANDOM LIVE • SPY x FAMILY (1080p)" },
+      { title: "Dandadan", score: "★ 8.9 MAL", desc: "Momo Ayase and Okarun clash with Turbo Granny and alien invaders in an explosive supernatural showdown.", url: "https://v.animethemes.moe/Dandadan-OP1.webm", serverLabel: "RANDOM LIVE • Dandadan (1080p)" },
+      { title: "Oshi no Ko", score: "★ 8.8 MAL", desc: "Reborn as the twin children of legendary idol Ai Hoshino, Aqua and Ruby navigate the dazzling and dark world of showbiz.", url: "https://v.animethemes.moe/OshiNoKo-OP1.webm", serverLabel: "RANDOM LIVE • Oshi no Ko (1080p)" },
+      { title: "Blue Lock", score: "★ 8.5 MAL", desc: "Three hundred high school strikers compete inside the Blue Lock facility to become Japan's ultimate egoist forward.", url: "https://v.animethemes.moe/BlueLock-OP1.webm", serverLabel: "RANDOM LIVE • Blue Lock (1080p)" },
+      { title: "One Piece: Egghead Arc", score: "★ 9.1 MAL", desc: "Monkey D. Luffy and the Straw Hat Pirates arrive at the futuristic island of Egghead, home to Dr. Vegapunk.", url: "https://v.animethemes.moe/OnePiece-OP1-NCDVD480.webm", serverLabel: "RANDOM LIVE • One Piece (HD)" },
+      { title: "Naruto: Shippuden", score: "★ 8.8 MAL", desc: "Naruto Uzumaki returns to Konoha to face the Akatsuki organization and fulfill his promise to bring Sasuke back.", url: "https://v.animethemes.moe/Naruto-OP1.webm", serverLabel: "RANDOM LIVE • Naruto Shippuden (1080p)" },
+      { title: "Bleach: Thousand-Year Blood War", score: "★ 9.1 MAL", desc: "Ichigo Kurosaki unleashes his true Zanpakuto as the Soul Society faces Yhwach and the Wandenreich.", url: "https://v.animethemes.moe/Bleach-OP1.webm", serverLabel: "RANDOM LIVE • Bleach TYBW (1080p)" },
+      { title: "Frieren: Beyond Journey's End", score: "★ 9.4 MAL", desc: "After a ten-year quest alongside hero Himmel, elven mage Frieren embarks on a new journey to understand humanity.", url: "https://v.animethemes.moe/SousouNoFrieren-OP1.webm", serverLabel: "RANDOM LIVE • Frieren (1080p)" }
     ];
 
     let heroServerIndex = 0;
+    let activeHeroItem = HERO_RANDOM_POOL[0];
+    let currentCatalogFullList = [...INITIAL_CATALOG];
+    let currentCatalogFilter = "ALL";
+    let currentLivePage = 1;
     let currentModalServerIndex = 0;
     let currentPlayingAnime = null;
     let heroHls = null;
@@ -866,16 +924,61 @@
       }
     }
 
-    function initHeroStream() {
+    function getHeroRandomPoolWithAdminStreams() {
+      const adminDirectStreams = (adminEpisodeStreamsList || []).filter(st =>
+        st && st.streamUrl && !st.streamUrl.trim().startsWith("<") && !st.streamUrl.includes("/embed/")
+      ).map(st => ({
+        title: st.animeTitle || "Featured Anime",
+        score: "★ 9.5 LIVE",
+        desc: `Streaming Episode ${st.episodeNumber || 1} directly from ${st.serverName || 'Paid Server CDN'} in 1080p Full HD.`,
+        url: st.streamUrl,
+        serverLabel: `RANDOM LIVE • ${st.animeTitle} (${st.serverName || 'Paid CDN'})`
+      }));
+      return [...adminDirectStreams, ...HERO_RANDOM_POOL];
+    }
+
+    function playRandomHeroVideo() {
+      const pool = getHeroRandomPoolWithAdminStreams();
+      if (!pool.length) return;
+      let nextIdx = Math.floor(Math.random() * pool.length);
+      if (pool.length > 1 && pool[nextIdx].url === (activeHeroItem && activeHeroItem.url)) {
+        nextIdx = (nextIdx + 1) % pool.length;
+      }
+      heroServerIndex = nextIdx;
+      activeHeroItem = pool[heroServerIndex];
+
       const video = document.getElementById("heroVideo");
-      const srv = UPSTREAM_SERVERS[heroServerIndex];
-      document.getElementById("heroServerLabel").textContent = "LIVE • " + srv.name;
-      attachStream(video, srv, true);
+      const titleEl = document.getElementById("heroTitle");
+      const descEl = document.getElementById("heroDesc");
+      const scoreEl = document.getElementById("heroScoreBadge");
+      const labelEl = document.getElementById("heroServerLabel");
+      const watchBtn = document.getElementById("heroWatchBtn");
+
+      if (titleEl) titleEl.textContent = activeHeroItem.title;
+      if (descEl) descEl.textContent = activeHeroItem.desc;
+      if (scoreEl) scoreEl.textContent = activeHeroItem.score || "★ 9.1 MAL";
+      if (labelEl) labelEl.textContent = "🎲 " + (activeHeroItem.serverLabel || ("RANDOM LIVE • " + activeHeroItem.title));
+      if (watchBtn) watchBtn.textContent = `▶ Watch ${activeHeroItem.title} Ep 1`;
+
+      attachStream(video, {
+        code: "RND",
+        name: activeHeroItem.serverLabel || activeHeroItem.title,
+        url: activeHeroItem.url,
+        isHls: (activeHeroItem.url || "").toLowerCase().includes(".m3u8")
+      }, true);
+    }
+
+    function openHeroActiveAnimePlayer() {
+      const title = (activeHeroItem && activeHeroItem.title) ? activeHeroItem.title : "Frieren: Beyond Journey's End";
+      openPlayerModal(title, 1, 0);
+    }
+
+    function initHeroStream() {
+      playRandomHeroVideo();
     }
 
     function cycleHeroServer() {
-      heroServerIndex = (heroServerIndex + 1) % UPSTREAM_SERVERS.length;
-      initHeroStream();
+      playRandomHeroVideo();
     }
 
     function toggleHeroMute() {
@@ -884,14 +987,42 @@
       document.getElementById("heroMuteBtn").textContent = video.muted ? "🔇 Unmute Live Stream" : "🔊 Mute Live Stream";
     }
 
-    function renderStreamsAndCatalog(list) {
+    function filterWebCatalogCategory(category, btnEl) {
+      currentCatalogFilter = category || "ALL";
+      const chipContainer = document.getElementById("catalogCategoryChips");
+      if (chipContainer && btnEl) {
+        Array.from(chipContainer.querySelectorAll(".chip")).forEach(b => b.classList.remove("active"));
+        btnEl.classList.add("active");
+      }
+      renderStreamsAndCatalog(currentCatalogFullList, true);
+    }
+
+    function renderStreamsAndCatalog(list, skipFullUpdate) {
+      if (!skipFullUpdate && Array.isArray(list) && list.length > 0) {
+        currentCatalogFullList = list;
+      }
+      const sourceList = (Array.isArray(list) && list.length > 0) ? list : currentCatalogFullList;
+      let displayList = sourceList;
+      if (currentCatalogFilter === "TOP") {
+        displayList = sourceList.filter(a => parseFloat(a.score || "8.8") >= 8.9);
+      } else if (currentCatalogFilter === "MOVIE") {
+        displayList = sourceList.filter(a => (a.type || "").toUpperCase() === "MOVIE" || Number(a.episodes) === 1);
+      } else if (currentCatalogFilter === "TRENDING") {
+        displayList = sourceList.slice(0, 40);
+      }
+      if (!displayList.length) displayList = sourceList;
+
       const streamRow = document.getElementById("liveStreamRow");
       const grid = document.getElementById("animeGrid");
+      const statusEl = document.getElementById("catalogStatus");
+      if (statusEl) {
+        statusEl.textContent = `Showing ${displayList.length} Anime • Live Jikan v4 & AniList GraphQL`;
+      }
 
-      streamRow.innerHTML = list.slice(0, 4).map((item, idx) => {
+      streamRow.innerHTML = sourceList.slice(0, 14).map((item, idx) => {
         const srv = UPSTREAM_SERVERS[idx % UPSTREAM_SERVERS.length];
         return `
-          <div class="stream-card" onclick="openPlayerModal('${item.title.replace(/'/g, "\\'")}', 1, ${idx % UPSTREAM_SERVERS.length})">
+          <div class="stream-card" onclick="openPlayerModal('${(item.title || "").replace(/'/g, "\\'")}', 1, ${idx % UPSTREAM_SERVERS.length})">
             <div class="stream-thumb">
               <img src="${item.poster}" alt="${item.title}" loading="lazy" />
               <div class="stream-server-tag"><span class="dot-live"></span> ${srv.name}</div>
@@ -905,15 +1036,15 @@
         `;
       }).join("");
 
-      grid.innerHTML = list.map((item, idx) => `
-        <div class="anime-card" onclick="openPlayerModal('${item.title.replace(/'/g, "\\'")}', 1, ${idx % UPSTREAM_SERVERS.length})">
+      grid.innerHTML = displayList.map((item, idx) => `
+        <div class="anime-card" onclick="openPlayerModal('${(item.title || "").replace(/'/g, "\\'")}', 1, ${idx % UPSTREAM_SERVERS.length})">
           <div class="anime-poster">
             <img src="${item.poster}" alt="${item.title}" loading="lazy" />
             <div class="anime-score">★ ${item.score || '8.9'}</div>
           </div>
           <div class="anime-info">
             <h4>${item.title}</h4>
-            <p>${item.episodes || 12} Eps • 1080p Stream</p>
+            <p>${item.episodes || 12} Eps • ${item.type || 'TV'} • 1080p</p>
           </div>
         </div>
       `).join("");
@@ -1004,6 +1135,22 @@
         pool = ["https://v.animethemes.moe/Bleach-OP1.webm", "https://v.animethemes.moe/Bleach-OP2.webm"];
       } else if (t.includes("blue lock")) {
         pool = ["https://v.animethemes.moe/BlueLock-OP1.webm", "https://v.animethemes.moe/BlueLock-OP1-NCBD1080.webm"];
+      } else if (t.includes("vinland")) {
+        pool = ["https://v.animethemes.moe/VinlandSaga-OP1.webm", "https://v.animethemes.moe/VinlandSagaS2-OP1.webm"];
+      } else if (t.includes("hunter x hunter") || t.includes("hunter×hunter")) {
+        pool = ["https://v.animethemes.moe/HunterXHunter2011-OP1.webm", "https://v.animethemes.moe/HunterXHunter2011-ED1.webm"];
+      } else if (t.includes("fullmetal") || t.includes("hagane no renkinjutsushi")) {
+        pool = ["https://v.animethemes.moe/FullmetalAlchemistBrotherhood-OP1.webm", "https://v.animethemes.moe/FullmetalAlchemistBrotherhood-ED1.webm"];
+      } else if (t.includes("dandadan") || t.includes("dan da dan")) {
+        pool = ["https://v.animethemes.moe/Dandadan-OP1.webm", "https://v.animethemes.moe/Dandadan-ED1.webm"];
+      } else if (t.includes("steins")) {
+        pool = ["https://v.animethemes.moe/SteinsGate-OP1.webm", "https://v.animethemes.moe/SteinsGate-ED1.webm"];
+      } else if (t.includes("death note")) {
+        pool = ["https://v.animethemes.moe/DeathNote-OP1.webm", "https://v.animethemes.moe/DeathNote-ED1.webm"];
+      } else if (t.includes("mob psycho")) {
+        pool = ["https://v.animethemes.moe/MobPsycho100-OP1.webm", "https://v.animethemes.moe/MobPsycho100S2-OP1.webm"];
+      } else if (t.includes("code geass")) {
+        pool = ["https://v.animethemes.moe/CodeGeass-OP1.webm", "https://v.animethemes.moe/CodeGeassR2-OP1.webm"];
       }
       if (!pool.length) return "";
       return pool[Math.abs(variantIndex || 0) % pool.length];
@@ -1428,21 +1575,79 @@
       } catch (e) {}
 
       try {
-        const r = await fetch("https://api.jikan.moe/v4/top/anime?limit=12");
-        if (!r.ok) {
-          throw new Error(`HTTP ${r.status} while fetching catalog`);
-        }
-        const json = await r.json();
-        if (json.data && json.data.length > 0) {
-          const liveList = json.data.map(a => ({
-            id: "mal_" + a.mal_id,
-            title: a.title_english || a.title,
-            studio: (a.studios && a.studios[0]) ? a.studios[0].name : "Jikan Live",
-            score: a.score || "8.8",
-            episodes: a.episodes || 12,
-            poster: a.images?.jpg?.large_image_url || a.images?.jpg?.image_url
-          }));
-          renderStreamsAndCatalog(mergeCatalogWithAdminItems(liveList));
+        const jikanTopPromise = fetch("https://api.jikan.moe/v4/top/anime?limit=25")
+          .then(r => r.ok ? r.json() : { data: [] })
+          .catch(() => ({ data: [] }));
+        const jikanSeasonalPromise = fetch("https://api.jikan.moe/v4/seasons/now?limit=25")
+          .then(r => r.ok ? r.json() : { data: [] })
+          .catch(() => ({ data: [] }));
+        const gqlHomeQuery = `
+          query ($page: Int, $perPage: Int) {
+            Page(page: $page, perPage: $perPage) {
+              media(type: ANIME, isAdult: false, sort: [TRENDING_DESC, POPULARITY_DESC]) {
+                id
+                idMal
+                title { english romaji native }
+                format
+                episodes
+                averageScore
+                coverImage { extraLarge large }
+                studios(isMain: true) { nodes { name } }
+              }
+            }
+          }
+        `;
+        const gqlHomePromise = fetch("https://graphql.anilist.co", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify({ query: gqlHomeQuery, variables: { page: 1, perPage: 50 } })
+        }).then(r => r.ok ? r.json() : {}).catch(() => ({}));
+
+        const [jikanTopJson, jikanSeasonJson, gqlHomeJson] = await Promise.all([
+          jikanTopPromise,
+          jikanSeasonalPromise,
+          gqlHomePromise
+        ]);
+
+        const combinedRemote = [];
+        const addJikanItems = (arr) => {
+          (arr || []).forEach(a => {
+            if (!a) return;
+            combinedRemote.push({
+              id: "mal_" + a.mal_id,
+              title: a.title_english || a.title,
+              studio: (a.studios && a.studios[0]) ? a.studios[0].name : (a.type || "Jikan Live"),
+              score: a.score || "8.8",
+              episodes: a.episodes || 12,
+              type: a.type || "TV",
+              poster: a.images?.jpg?.large_image_url || a.images?.jpg?.image_url
+            });
+          });
+        };
+        addJikanItems(jikanTopJson.data);
+        addJikanItems(jikanSeasonJson.data);
+
+        const gqlMedia = (gqlHomeJson && gqlHomeJson.data && gqlHomeJson.data.Page && Array.isArray(gqlHomeJson.data.Page.media))
+          ? gqlHomeJson.data.Page.media
+          : [];
+        gqlMedia.forEach(m => {
+          if (!m) return;
+          const tObj = m.title || {};
+          const title = tObj.english || tObj.romaji || tObj.native || "Anime";
+          const studioNode = (m.studios && m.studios.nodes && m.studios.nodes[0]) ? m.studios.nodes[0].name : (m.format || "AniList GraphQL");
+          combinedRemote.push({
+            id: m.idMal ? ("mal_" + m.idMal) : ("gql_" + m.id),
+            title: title,
+            studio: studioNode,
+            score: m.averageScore ? (m.averageScore / 10).toFixed(1) : "8.6",
+            episodes: m.episodes || 12,
+            type: m.format || "TV",
+            poster: (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large)) || ""
+          });
+        });
+
+        if (combinedRemote.length > 0) {
+          renderStreamsAndCatalog(mergeCatalogWithAdminItems(combinedRemote));
           hideFetchErrorNotification();
         }
       } catch (e) {
@@ -1451,6 +1656,75 @@
           `Catalog fetch failed (${e.message || "Network error"}). Click 'Retry' to re-attempt the connection.`,
           () => loadLiveCatalogAndVersion()
         );
+      }
+    }
+
+    async function loadMoreLiveAnime() {
+      currentLivePage += 1;
+      const btn = document.getElementById("loadMoreAnimeBtn");
+      if (btn) btn.textContent = `⏳ Loading Page ${currentLivePage} from Jikan v4 & GraphQL...`;
+      try {
+        const jikanNextPromise = fetch(`https://api.jikan.moe/v4/top/anime?page=${currentLivePage}&limit=25`)
+          .then(r => r.ok ? r.json() : { data: [] })
+          .catch(() => ({ data: [] }));
+        const gqlNextQuery = `
+          query ($page: Int, $perPage: Int) {
+            Page(page: $page, perPage: $perPage) {
+              media(type: ANIME, isAdult: false, sort: [POPULARITY_DESC, SCORE_DESC]) {
+                id
+                idMal
+                title { english romaji native }
+                format
+                episodes
+                averageScore
+                coverImage { extraLarge large }
+                studios(isMain: true) { nodes { name } }
+              }
+            }
+          }
+        `;
+        const gqlNextPromise = fetch("https://graphql.anilist.co", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify({ query: gqlNextQuery, variables: { page: currentLivePage, perPage: 50 } })
+        }).then(r => r.ok ? r.json() : {}).catch(() => ({}));
+
+        const [jikanJson, gqlJson] = await Promise.all([jikanNextPromise, gqlNextPromise]);
+        const moreItems = [];
+        (jikanJson.data || []).forEach(a => {
+          moreItems.push({
+            id: "mal_" + a.mal_id,
+            title: a.title_english || a.title,
+            studio: (a.studios && a.studios[0]) ? a.studios[0].name : (a.type || "Jikan Live"),
+            score: a.score || "8.6",
+            episodes: a.episodes || 12,
+            type: a.type || "TV",
+            poster: a.images?.jpg?.large_image_url || a.images?.jpg?.image_url
+          });
+        });
+        const gqlMedia = (gqlJson && gqlJson.data && gqlJson.data.Page && Array.isArray(gqlJson.data.Page.media))
+          ? gqlJson.data.Page.media
+          : [];
+        gqlMedia.forEach(m => {
+          const tObj = m.title || {};
+          const title = tObj.english || tObj.romaji || tObj.native || "Anime";
+          const studioNode = (m.studios && m.studios.nodes && m.studios.nodes[0]) ? m.studios.nodes[0].name : (m.format || "AniList");
+          moreItems.push({
+            id: m.idMal ? ("mal_" + m.idMal) : ("gql_" + m.id),
+            title: title,
+            studio: studioNode,
+            score: m.averageScore ? (m.averageScore / 10).toFixed(1) : "8.5",
+            episodes: m.episodes || 12,
+            type: m.format || "TV",
+            poster: (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large)) || ""
+          });
+        });
+
+        const merged = mergeCatalogWithAdminItems([...currentCatalogFullList, ...moreItems]);
+        renderStreamsAndCatalog(merged);
+        if (btn) btn.textContent = `➕ Load More Anime (Showing ${merged.length} Anime • Page ${currentLivePage + 1})`;
+      } catch (e) {
+        if (btn) btn.textContent = "➕ Load More Anime (Jikan v4 + AniList GraphQL)";
       }
     }
 

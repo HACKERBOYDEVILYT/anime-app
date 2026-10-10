@@ -167,7 +167,8 @@ class HomeViewModel(
             val initSeasonal = initialCatalog.filter { it.isSeasonal }.ifEmpty { initialCatalog }
             val initTopRated = initialCatalog.sortedByDescending { it.rating }
             val initRecent = initialCatalog.sortedByDescending { it.releaseYear }
-            val initFeatured = initialCatalog.firstOrNull { it.isFeatured } ?: initialCatalog.first()
+            val featuredPool = initialCatalog.filter { it.isFeatured }.ifEmpty { initialCatalog.take(14) }
+            val initFeatured = featuredPool.randomOrNull() ?: initialCatalog.first()
             val prefs = userRepository?.preferences?.value ?: com.example.data.model.UserPreferences()
             val initRecs = AiRecommendationEngine.generateRecommendations(
                 catalog = initialCatalog,
@@ -179,7 +180,7 @@ class HomeViewModel(
                 it.copy(
                     isLoading = false,
                     featuredAnime = it.featuredAnime ?: initFeatured,
-                    bannerItems = initTrending.take(5),
+                    bannerItems = featuredPool.shuffled().take(10),
                     trending = initTrending,
                     popular = initPopular,
                     seasonal = initSeasonal,
@@ -187,7 +188,7 @@ class HomeViewModel(
                     recentlyAdded = initRecent,
                     genres = listOf("All", "Action", "Adventure", "Comedy", "Dark Fantasy", "Drama", "Fantasy", "Sci-Fi", "Supernatural"),
                     recommendations = initRecs,
-                    randomPickedAnime = it.randomPickedAnime ?: initialCatalog.firstOrNull(),
+                    randomPickedAnime = it.randomPickedAnime ?: initialCatalog.randomOrNull(),
                     rouletteSelectedAnime = it.rouletteSelectedAnime ?: initialCatalog.lastOrNull(),
                     error = null
                 )
@@ -230,7 +231,8 @@ class HomeViewModel(
                         ?: _uiState.value.genres
 
                     val allCatalog = (trending + popular + seasonal + topRated + recentlyAdded + currentSnap).distinctBy { it.id }
-                    val featured = allCatalog.firstOrNull { it.isFeatured } ?: trending.firstOrNull()
+                    val featuredPool = allCatalog.filter { it.isFeatured }.ifEmpty { allCatalog.take(14) }
+                    val featured = _uiState.value.featuredAnime ?: featuredPool.randomOrNull() ?: trending.firstOrNull()
 
                     val history = watchRepository.getContinueWatching().firstOrNull().orEmpty()
                     val watchlist = watchRepository.getAllWatchlist().firstOrNull().orEmpty()
@@ -246,7 +248,7 @@ class HomeViewModel(
                         it.copy(
                             isLoading = false,
                             featuredAnime = featured ?: it.featuredAnime,
-                            bannerItems = trending.take(5),
+                            bannerItems = featuredPool.shuffled().take(10),
                             trending = trending,
                             popular = popular,
                             seasonal = seasonal,
@@ -254,7 +256,7 @@ class HomeViewModel(
                             recentlyAdded = recentlyAdded,
                             genres = genres,
                             recommendations = aiRecs,
-                            randomPickedAnime = it.randomPickedAnime ?: allCatalog.firstOrNull(),
+                            randomPickedAnime = it.randomPickedAnime ?: allCatalog.randomOrNull(),
                             rouletteSelectedAnime = it.rouletteSelectedAnime ?: allCatalog.lastOrNull(),
                             error = null
                         )
@@ -377,5 +379,16 @@ class HomeViewModel(
 
     fun setHeatmapPeriod(period: String) {
         _uiState.update { it.copy(selectedHeatmapPeriod = period) }
+    }
+
+    fun randomizeHeroFeaturedAnime() {
+        val state = _uiState.value
+        val allCatalog = (state.trending + state.popular + state.seasonal + state.topRated + state.recentlyAdded + animeRepository.getInitialSnapshot()).distinctBy { it.id }
+        val videoBackedPool = allCatalog.filter { it.isFeatured || it.id.startsWith("anime_") || it.id.startsWith("at_") }
+            .ifEmpty { allCatalog }
+        val currentId = state.featuredAnime?.id
+        val candidates = videoBackedPool.filter { it.id != currentId }.ifEmpty { videoBackedPool }
+        val nextFeatured = candidates.randomOrNull() ?: return
+        _uiState.update { it.copy(featuredAnime = nextFeatured) }
     }
 }

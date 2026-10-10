@@ -683,24 +683,25 @@ fun HomeScreen(
                     }
                 }
 
-                // Featured Hero Banner
+                // Featured Hero Banner (Random Video On)
                 uiState.featuredAnime?.let { featured ->
                     item {
                         HeroCarousel(
                             anime = featured,
                             onWatchClick = { onWatchEpisodeClick(featured.id, 1) },
                             onDetailsClick = { onAnimeClick(featured) },
-                            onWatchlistToggle = { viewModel.toggleWatchlist(featured) }
+                            onWatchlistToggle = { viewModel.toggleWatchlist(featured) },
+                            onRandomVideoClick = { viewModel.randomizeHeroFeaturedAnime() }
                         )
                     }
                 }
 
                 // Live Server Video Streams (Direct 1080p Play from Home Screen)
-                if (uiState.trending.isNotEmpty()) {
+                if (allCatalog.isNotEmpty()) {
                     item {
                         Spacer(modifier = Modifier.height(16.dp))
                         LiveServerVideosRow(
-                            animeList = uiState.trending.take(8),
+                            animeList = allCatalog.take(16),
                             onPlayVideoClick = { anime: Anime -> onWatchEpisodeClick(anime.id, 1) }
                         )
                     }
@@ -890,6 +891,19 @@ fun HomeScreen(
                         isLoading = uiState.isLoading,
                         onAnimeClick = onAnimeClick
                     )
+                }
+
+                // 📚 Complete Anime Catalog (All Anime A-Z & Multi-Type)
+                if (allCatalog.isNotEmpty()) {
+                    item {
+                        Spacer(modifier = Modifier.height(18.dp))
+                        AnimeRow(
+                            title = "📚 All Anime Library (${allCatalog.size} Series & Movies)",
+                            animeList = allCatalog,
+                            isLoading = uiState.isLoading,
+                            onAnimeClick = onAnimeClick
+                        )
+                    }
                 }
             }
         }

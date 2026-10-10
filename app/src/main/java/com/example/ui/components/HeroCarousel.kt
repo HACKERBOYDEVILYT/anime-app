@@ -85,42 +85,90 @@ fun HeroCarousel(
     onWatchClick: () -> Unit,
     onDetailsClick: () -> Unit,
     onWatchlistToggle: () -> Unit,
+    onRandomVideoClick: (() -> Unit)? = null,
     isInWatchlist: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    // Keep preview off by default on startup to avoid background Codec2 hardware decoder contention
-    var isVideoPreviewEnabled by remember { mutableStateOf(false) }
+    // Enable live random anime video preview at the top banner by default
+    var isVideoPreviewEnabled by remember { mutableStateOf(true) }
     var isMuted by remember { mutableStateOf(true) }
-    var currentServerIdx by remember { mutableIntStateOf(0) }
+    var currentServerIdx by remember { mutableIntStateOf((0..13).random()) }
+
+    val allRandomAnimeVideoPool = remember {
+        listOf(
+            "https://v.animethemes.moe/SoloLeveling-OP1.webm" to "RANDOM LIVE • Solo Leveling (1080p)",
+            "https://v.animethemes.moe/JujutsuKaisenS2-OP1.webm" to "RANDOM LIVE • Jujutsu Kaisen S2 (1080p)",
+            "https://v.animethemes.moe/KimetsuNoYaiba-OP1.webm" to "RANDOM LIVE • Demon Slayer (1080p)",
+            "https://v.animethemes.moe/ChainsawMan-OP1.webm" to "RANDOM LIVE • Chainsaw Man (1080p)",
+            "https://v.animethemes.moe/ShingekiNoKyojin-OP1.webm" to "RANDOM LIVE • Attack on Titan (1080p)",
+            "https://v.animethemes.moe/CyberpunkEdgerunners-OP1.webm" to "RANDOM LIVE • Cyberpunk: Edgerunners (1080p)",
+            "https://v.animethemes.moe/SpyXFamily-OP1.webm" to "RANDOM LIVE • SPY x FAMILY (1080p)",
+            "https://v.animethemes.moe/Dandadan-OP1.webm" to "RANDOM LIVE • Dandadan (1080p)",
+            "https://v.animethemes.moe/OshiNoKo-OP1.webm" to "RANDOM LIVE • Oshi no Ko (1080p)",
+            "https://v.animethemes.moe/BlueLock-OP1.webm" to "RANDOM LIVE • Blue Lock (1080p)",
+            "https://v.animethemes.moe/OnePiece-OP1-NCDVD480.webm" to "RANDOM LIVE • One Piece (HD)",
+            "https://v.animethemes.moe/Naruto-OP1.webm" to "RANDOM LIVE • Naruto Shippuden (1080p)",
+            "https://v.animethemes.moe/Bleach-OP1.webm" to "RANDOM LIVE • Bleach TYBW (1080p)",
+            "https://v.animethemes.moe/SousouNoFrieren-OP1.webm" to "RANDOM LIVE • Frieren (1080p)"
+        )
+    }
 
     val liveServerStreams = remember(anime.id, anime.titleEnglish, anime.titleRomaji) {
         val titleLower = "${anime.titleEnglish} ${anime.titleRomaji}".lowercase()
-        val primaryUrl = when {
-            anime.id == "anime_1" || titleLower.contains("frieren") -> "https://v.animethemes.moe/SousouNoFrieren-OP1.webm"
-            anime.id == "anime_2" || titleLower.contains("jujutsu") -> "https://v.animethemes.moe/JujutsuKaisenS2-OP1.webm"
-            anime.id == "anime_3" || titleLower.contains("solo leveling") || titleLower.contains("ore dake") -> "https://v.animethemes.moe/SoloLeveling-OP1.webm"
-            anime.id == "anime_4" || titleLower.contains("demon slayer") || titleLower.contains("kimetsu") -> "https://v.animethemes.moe/KimetsuNoYaiba-OP1.webm"
-            anime.id == "anime_5" || titleLower.contains("chainsaw") -> "https://v.animethemes.moe/ChainsawMan-OP1.webm"
-            anime.id == "anime_6" || titleLower.contains("attack on titan") || titleLower.contains("shingeki") -> "https://v.animethemes.moe/ShingekiNoKyojin-OP1.webm"
-            anime.id == "anime_7" || titleLower.contains("cyberpunk") -> "https://v.animethemes.moe/CyberpunkEdgerunners-OP1.webm"
-            anime.id == "anime_8" || (titleLower.contains("spy") && titleLower.contains("family")) -> "https://v.animethemes.moe/SpyXFamily-OP1.webm"
-            titleLower.contains("one piece") -> "https://v.animethemes.moe/OnePiece-OP1-NCDVD480.webm"
-            titleLower.contains("naruto") -> "https://v.animethemes.moe/Naruto-OP1.webm"
-            titleLower.contains("bleach") -> "https://v.animethemes.moe/Bleach-OP1.webm"
-            titleLower.contains("blue lock") -> "https://v.animethemes.moe/BlueLock-OP1.webm"
-            else -> ""
-        }
-        if (primaryUrl.isBlank()) {
-            emptyList()
-        } else {
-            listOf(
-                primaryUrl to "HD-1 • VidStreaming (SUB)",
-                primaryUrl to "HD-2 • MegaCloud (SUB)",
-                primaryUrl to "Bunny.net CDN • robiulislam.b-cdn.net",
-                primaryUrl to "Cloudflare R2 + CDN • 1080p"
+        val matchedStreams = when {
+            anime.id == "anime_3" || titleLower.contains("solo leveling") || titleLower.contains("ore dake") -> listOf(
+                "https://v.animethemes.moe/SoloLeveling-OP1.webm" to "RANDOM LIVE • Solo Leveling OP (1080p)",
+                "https://v.animethemes.moe/SoloLeveling-ED1.webm" to "RANDOM LIVE • Solo Leveling ED (1080p)"
             )
+            anime.id == "anime_2" || titleLower.contains("jujutsu") -> listOf(
+                "https://v.animethemes.moe/JujutsuKaisenS2-OP1.webm" to "RANDOM LIVE • Jujutsu Kaisen S2 (1080p)",
+                "https://v.animethemes.moe/JujutsuKaisen-OP1.webm" to "RANDOM LIVE • Jujutsu Kaisen OP1 (1080p)"
+            )
+            anime.id == "anime_4" || titleLower.contains("demon slayer") || titleLower.contains("kimetsu") -> listOf(
+                "https://v.animethemes.moe/KimetsuNoYaiba-OP1.webm" to "RANDOM LIVE • Demon Slayer (1080p)",
+                "https://v.animethemes.moe/KimetsuNoYaiba-OP1v2.webm" to "RANDOM LIVE • Demon Slayer v2 (1080p)"
+            )
+            anime.id == "anime_5" || titleLower.contains("chainsaw") -> listOf(
+                "https://v.animethemes.moe/ChainsawMan-OP1.webm" to "RANDOM LIVE • Chainsaw Man OP (1080p)",
+                "https://v.animethemes.moe/ChainsawMan-ED1.webm" to "RANDOM LIVE • Chainsaw Man ED (1080p)"
+            )
+            anime.id == "anime_6" || titleLower.contains("attack on titan") || titleLower.contains("shingeki") -> listOf(
+                "https://v.animethemes.moe/ShingekiNoKyojin-OP1.webm" to "RANDOM LIVE • Attack on Titan OP1 (1080p)",
+                "https://v.animethemes.moe/ShingekiNoKyojin-OP2.webm" to "RANDOM LIVE • Attack on Titan OP2 (1080p)"
+            )
+            anime.id == "anime_7" || titleLower.contains("cyberpunk") -> listOf(
+                "https://v.animethemes.moe/CyberpunkEdgerunners-OP1.webm" to "RANDOM LIVE • Cyberpunk Edgerunners (1080p)"
+            )
+            anime.id == "anime_8" || (titleLower.contains("spy") && titleLower.contains("family")) -> listOf(
+                "https://v.animethemes.moe/SpyXFamily-OP1.webm" to "RANDOM LIVE • SPY x FAMILY OP (1080p)",
+                "https://v.animethemes.moe/SpyXFamily-ED1.webm" to "RANDOM LIVE • SPY x FAMILY ED (1080p)"
+            )
+            titleLower.contains("dandadan") -> listOf(
+                "https://v.animethemes.moe/Dandadan-OP1.webm" to "RANDOM LIVE • Dandadan (1080p)"
+            )
+            titleLower.contains("oshi no ko") -> listOf(
+                "https://v.animethemes.moe/OshiNoKo-OP1.webm" to "RANDOM LIVE • Oshi no Ko (1080p)"
+            )
+            titleLower.contains("blue lock") -> listOf(
+                "https://v.animethemes.moe/BlueLock-OP1.webm" to "RANDOM LIVE • Blue Lock (1080p)"
+            )
+            titleLower.contains("one piece") -> listOf(
+                "https://v.animethemes.moe/OnePiece-OP1-NCDVD480.webm" to "RANDOM LIVE • One Piece (HD)"
+            )
+            titleLower.contains("naruto") -> listOf(
+                "https://v.animethemes.moe/Naruto-OP1.webm" to "RANDOM LIVE • Naruto Shippuden (1080p)"
+            )
+            titleLower.contains("bleach") -> listOf(
+                "https://v.animethemes.moe/Bleach-OP1.webm" to "RANDOM LIVE • Bleach TYBW (1080p)"
+            )
+            anime.id == "anime_1" || titleLower.contains("frieren") -> listOf(
+                "https://v.animethemes.moe/SousouNoFrieren-OP1.webm" to "RANDOM LIVE • Frieren OP1 (1080p)",
+                "https://v.animethemes.moe/SousouNoFrieren-ED1.webm" to "RANDOM LIVE • Frieren ED1 (1080p)"
+            )
+            else -> emptyList()
         }
+        (matchedStreams + allRandomAnimeVideoPool.shuffled()).distinctBy { it.first }
     }
 
     val activeStreamPair = if (liveServerStreams.isNotEmpty()) {
@@ -175,13 +223,20 @@ fun HeroCarousel(
                     .build()
                     .apply {
                         volume = if (isMuted) 0f else 1f
-                        repeatMode = Player.REPEAT_MODE_ONE
+                        repeatMode = Player.REPEAT_MODE_OFF
                         playWhenReady = true
                     }
             }
 
             DisposableEffect(heroPlayer) {
                 val listener = object : Player.Listener {
+                    override fun onPlaybackStateChanged(playbackState: Int) {
+                        if (playbackState == Player.STATE_ENDED && liveServerStreams.isNotEmpty()) {
+                            currentServerIdx = (currentServerIdx + 1 + (0..3).random()) % liveServerStreams.size
+                            onRandomVideoClick?.invoke()
+                        }
+                    }
+
                     override fun onPlayerError(error: PlaybackException) {
                         if (currentServerIdx < liveServerStreams.size - 1) {
                             currentServerIdx++
@@ -298,6 +353,28 @@ fun HeroCarousel(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    color = CrimsonNeon.copy(alpha = 0.9f),
+                    modifier = Modifier
+                        .clickable {
+                            isVideoPreviewEnabled = true
+                            if (liveServerStreams.isNotEmpty()) {
+                                currentServerIdx = (currentServerIdx + 1 + (0..3).random()) % liveServerStreams.size
+                            }
+                            onRandomVideoClick?.invoke()
+                        }
+                        .testTag("hero_random_video_btn")
+                ) {
+                    Text(
+                        text = "🎲 Random Video",
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
+                }
+
                 if (isVideoPreviewEnabled) {
                     IconButton(
                         onClick = { isMuted = !isMuted },
