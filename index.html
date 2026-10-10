@@ -1,0 +1,2433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Robiul [RS] • Hacker Edition Anime Streaming Web & App</title>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <style>
+    :root {
+      --bg-dark: #0B0C10;
+      --surface-dark: #14161D;
+      --surface-variant: #1E212B;
+      --crimson-neon: #FF2A5F;
+      --cyan-glow: #00F0FF;
+      --violet-accent: #8A2BE2;
+      --star-amber: #FFB800;
+      --emerald: #00E676;
+      --text-primary: #F8F9FA;
+      --text-secondary: #A0AAB8;
+      --text-muted: #6C7585;
+      --border-color: rgba(255, 255, 255, 0.08);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif; }
+    body { background: var(--bg-dark); color: var(--text-primary); overflow-x: hidden; padding-bottom: 90px; }
+
+    /* Top Header */
+    header {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(11, 12, 16, 0.9); backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+    .brand-logo {
+      width: 40px; height: 40px; border-radius: 10px; background: #070B10;
+      border: 1.5px solid #00FF66;
+      display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 16px;
+      font-family: "Courier New", monospace; letter-spacing: -0.5px;
+      color: #00FF66;
+      box-shadow: 0 0 16px rgba(0, 255, 102, 0.45), inset 0 0 8px rgba(0, 229, 255, 0.25);
+    }
+    .brand-logo span { color: #00E5FF; }
+    .brand-title { font-size: 20px; font-weight: 900; letter-spacing: 2px; font-family: monospace; }
+    .brand-title span { color: #00FF66; font-size: 13px; margin-left: 4px; }
+    .sync-badge {
+      background: rgba(0, 230, 118, 0.14); border: 1px solid rgba(0, 230, 118, 0.45);
+      color: var(--emerald); font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .dot-live { width: 8px; height: 8px; border-radius: 50%; background: var(--emerald); display: inline-block; animation: pulse 1.6s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.45; transform: scale(1.2); } }
+
+    .header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .search-box {
+      background: var(--surface-variant); border: 1px solid var(--border-color);
+      border-radius: 20px; padding: 7px 14px; color: var(--text-primary); font-size: 13px; width: 220px; outline: none;
+    }
+    .search-box:focus { border-color: var(--cyan-glow); }
+    .btn {
+      border: none; border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 700;
+      cursor: pointer; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; transition: 0.2s;
+    }
+    .btn-primary { background: var(--crimson-neon); color: #fff; box-shadow: 0 4px 14px rgba(255,42,95,0.35); }
+    .btn-primary:hover { filter: brightness(1.12); }
+    .btn-outline { background: var(--surface-dark); color: var(--cyan-glow); border: 1px solid rgba(0, 240, 255, 0.4); }
+
+    /* Hero Live Video Banner */
+    .hero {
+      position: relative; width: 100%; height: 430px; overflow: hidden;
+      background: #000; border-bottom: 1px solid var(--border-color);
+    }
+    .hero video {
+      position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.72;
+    }
+    .hero-overlay {
+      position: absolute; inset: 0;
+      background: linear-gradient(180deg, rgba(11,12,16,0.55) 0%, rgba(11,12,16,0.2) 45%, rgba(11,12,16,0.92) 85%, var(--bg-dark) 100%);
+    }
+    .hero-top-bar {
+      position: relative; z-index: 5; display: flex; justify-content: space-between; align-items: center; padding: 16px 24px;
+    }
+    .server-pill {
+      background: rgba(20, 22, 29, 0.88); border: 1px solid rgba(0, 230, 118, 0.55);
+      border-radius: 20px; padding: 6px 12px; font-size: 11px; font-weight: 700; color: #fff; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .hero-content {
+      position: absolute; bottom: 26px; left: 24px; right: 24px; z-index: 5; max-width: 720px;
+    }
+    .hero-badges { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+    .badge {
+      padding: 3px 8px; border-radius: 5px; font-size: 10px; font-weight: 800; text-transform: uppercase;
+    }
+    .badge-crimson { background: var(--crimson-neon); color: #fff; }
+    .badge-cyan { background: rgba(0,240,255,0.18); color: var(--cyan-glow); border: 1px solid rgba(0,240,255,0.4); }
+    .badge-amber { background: rgba(255,184,0,0.18); color: var(--star-amber); }
+    .hero-title { font-size: 28px; font-weight: 900; margin-bottom: 6px; line-height: 1.15; }
+    .hero-desc { color: var(--text-secondary); font-size: 13px; line-height: 1.45; margin-bottom: 14px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .hero-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    /* Container & Sections */
+    .container { max-width: 1280px; margin: 0 auto; padding: 18px 20px; }
+    .update-banner {
+      background: linear-gradient(90deg, rgba(255,42,95,0.16), rgba(138,43,226,0.16), rgba(0,240,255,0.12));
+      border: 1px solid rgba(255,42,95,0.45); border-radius: 12px; padding: 12px 16px; margin-bottom: 20px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    }
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin: 22px 0 12px; }
+    .section-title { font-size: 18px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+    .section-sub { font-size: 11px; color: var(--cyan-glow); font-weight: 700; }
+
+    /* Horizontal Live Stream Cards */
+    .stream-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+    .stream-card {
+      background: var(--surface-dark); border: 1px solid var(--border-color); border-radius: 12px;
+      overflow: hidden; cursor: pointer; transition: transform 0.2s, border-color 0.2s;
+    }
+    .stream-card:hover { transform: translateY(-3px); border-color: var(--crimson-neon); }
+    .stream-thumb { position: relative; height: 142px; background: #000; }
+    .stream-thumb img { width: 100%; height: 100%; object-fit: cover; opacity: 0.85; }
+    .stream-server-tag {
+      position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.8);
+      border: 1px solid rgba(0,230,118,0.6); color: #fff; font-size: 9px; font-weight: 700;
+      padding: 3px 7px; border-radius: 6px; display: flex; align-items: center; gap: 5px;
+    }
+    .stream-play-btn {
+      position: absolute; inset: 0; margin: auto; width: 44px; height: 44px; border-radius: 50%;
+      background: rgba(255,42,95,0.92); color: #fff; display: flex; align-items: center; justify-content: center;
+      font-size: 18px; box-shadow: 0 0 16px rgba(255,42,95,0.6);
+    }
+    .stream-meta { padding: 10px 12px; }
+    .stream-meta h4 { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .stream-meta p { font-size: 11px; color: var(--text-secondary); margin-top: 3px; }
+
+    /* Anime Poster Grid */
+    .anime-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; }
+    .anime-card {
+      background: var(--surface-dark); border: 1px solid var(--border-color); border-radius: 12px;
+      overflow: hidden; cursor: pointer; transition: transform 0.2s, border-color 0.2s;
+    }
+    .anime-card:hover { transform: translateY(-4px); border-color: var(--cyan-glow); }
+    .anime-poster { position: relative; aspect-ratio: 2/3; background: #101218; }
+    .anime-poster img { width: 100%; height: 100%; object-fit: cover; }
+    .anime-score {
+      position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.82);
+      color: var(--star-amber); font-size: 10px; font-weight: 800; padding: 3px 6px; border-radius: 6px;
+    }
+    .anime-info { padding: 10px; }
+    .anime-info h4 { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .anime-info p { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+
+    /* Custom Media3-Style Video Player Modal */
+    .player-modal {
+      position: fixed; inset: 0; z-index: 200; background: rgba(5, 6, 8, 0.96);
+      display: none; flex-direction: column; justify-content: center; align-items: center; padding: 16px;
+    }
+    .player-modal.active { display: flex; }
+    .player-box {
+      width: 100%; max-width: 980px; background: var(--surface-dark);
+      border: 1px solid rgba(255,42,95,0.4); border-radius: 14px; overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.85); transition: all 0.2s ease;
+    }
+    .player-box.fullscreen-active {
+      max-width: 100vw; width: 100vw; height: 100vh; border-radius: 0; border: none;
+      display: flex; flex-direction: column; justify-content: space-between; background: #000;
+    }
+    .player-box.fullscreen-active .video-stage {
+      flex: 1; aspect-ratio: auto; height: calc(100vh - 150px);
+    }
+    .player-key-toast {
+      position: absolute; top: 18px; left: 50%; transform: translateX(-50%);
+      background: rgba(7, 11, 16, 0.88); border: 1px solid #00FF66;
+      color: #00FF66; font-family: monospace; font-size: 13px; font-weight: 800;
+      padding: 7px 16px; border-radius: 20px; pointer-events: none;
+      opacity: 0; transition: opacity 0.2s ease; z-index: 20;
+      box-shadow: 0 0 16px rgba(0, 255, 102, 0.35);
+    }
+    .player-key-toast.visible { opacity: 1; }
+    .kbd-hint-bar {
+      padding: 6px 16px; background: rgba(7, 11, 16, 0.9);
+      border-top: 1px solid var(--border-color);
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
+      font-size: 11px; color: var(--text-secondary); font-family: monospace;
+    }
+    .kbd-tag {
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2);
+      color: #fff; padding: 1px 6px; border-radius: 4px; font-weight: 700; font-size: 10px;
+    }
+    .player-header {
+      padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .video-stage { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; }
+    .video-stage video { width: 100%; height: 100%; object-fit: contain; }
+    .bangla-sub-overlay {
+      position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.78); color: #FFEE00; padding: 5px 14px; border-radius: 6px;
+      font-size: 15px; font-weight: 700; text-align: center; pointer-events: none;
+    }
+    /* Custom Neon Progress Bar */
+    .custom-progress-wrap { padding: 12px 16px; background: #0F1117; border-top: 1px solid var(--border-color); }
+    .progress-track-container {
+      position: relative; width: 100%; height: 22px; display: flex; align-items: center; cursor: pointer;
+    }
+    .progress-track-bg {
+      position: relative; width: 100%; height: 6px; background: rgba(255,255,255,0.2); border-radius: 4px; overflow: visible;
+    }
+    .progress-track-buffer {
+      position: absolute; left: 0; top: 0; height: 100%; width: 0%;
+      background: rgba(255,255,255,0.42); border-radius: 4px;
+    }
+    .progress-track-active {
+      position: absolute; left: 0; top: 0; height: 100%; width: 0%;
+      background: linear-gradient(90deg, var(--crimson-neon), var(--violet-accent), var(--cyan-glow));
+      border-radius: 4px;
+    }
+    .progress-thumb {
+      position: absolute; top: 50%; left: 0%; transform: translate(-50%, -50%);
+      width: 14px; height: 14px; border-radius: 50%; background: var(--crimson-neon);
+      border: 2px solid #fff; box-shadow: 0 0 12px var(--crimson-neon);
+    }
+    .progress-telemetry {
+      display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-family: monospace; font-size: 12px;
+    }
+    .player-controls-row {
+      padding: 10px 16px 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+    }
+    .chip-group { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip {
+      background: var(--surface-variant); border: 1px solid var(--border-color); color: var(--text-primary);
+      padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;
+    }
+    .chip.active { background: var(--crimson-neon); border-color: var(--crimson-neon); color: #fff; }
+    .admin-input {
+      width: 100%; background: var(--surface-variant); border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 8px; padding: 9px 12px; color: var(--text-primary); font-size: 12px; outline: none; margin-top: 6px;
+    }
+    .admin-input:focus { border-color: var(--cyan-glow); }
+    .admin-card {
+      background: rgba(20, 22, 29, 0.95); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px; padding: 14px; margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Unified Navigation Header -->
+  <header>
+    <div class="brand" onclick="triggerStealthAdminLogoTap()" title="Robiul [RS]">
+      <div class="brand-logo" style="position:relative;overflow:hidden;">
+        <img id="headerBunnyLogoImg" src="https://robiulislam.b-cdn.net/images/logo.png" alt="Robiul Bunny.net CDN Logo" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;" onerror="this.style.display='none'" />
+        <span style="position:relative;z-index:1;color:#00E5FF;font-size:16px;">▶</span>
+      </div>
+      <div>
+        <div class="brand-title">ROBIUL</div>
+      </div>
+      <div class="sync-badge" id="syncBadge">
+        <span class="dot-live"></span>
+        <span id="syncStatusText">Robiul App &amp; Web Live • v1.2.0</span>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <input type="text" id="searchInput" class="search-box" placeholder="Search anime (Jikan + GraphQL)..." onkeydown="if(event.key==='Enter') searchAnime()" />
+      <button id="publicHeaderAdminBtn" class="btn" style="display:none;background:#FF7A00;color:#fff;box-shadow:0 4px 14px rgba(255,122,0,0.4);" onclick="openWebAdminModal()">🛡️ Admin Panel</button>
+      <button class="btn btn-outline" onclick="syncCrunchyrollWeb()">⚡ Crunchyroll Simulcast</button>
+      <a id="apkDownloadBtn" href="./download/Robiul-Release.apk" download="Robiul-Release.apk" onclick="if(window.KuroStreamBridge && window.KuroStreamBridge.releaseApkFromWeb){window.KuroStreamBridge.releaseApkFromWeb(); return false;}" class="btn btn-primary">
+        📲 Download Robiul-Release.apk
+      </a>
+    </div>
+  </header>
+
+  <!-- Hero Banner with Live 1080p HLS / MP4 Video Stream -->
+  <section class="hero">
+    <video id="heroVideo" muted autoplay playsinline onended="playRandomHeroVideo()"></video>
+    <div class="hero-overlay"></div>
+
+    <div class="hero-top-bar">
+      <div class="server-pill" onclick="playRandomHeroVideo()">
+        <span class="dot-live"></span>
+        <span id="heroServerLabel">🎲 RANDOM LIVE • Auto-Playing Anime Stream (1080p)</span>
+        <span style="color:var(--cyan-glow);">🎲 Next Random Video</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn" style="background:#FF2A5F;color:#fff;" onclick="playRandomHeroVideo()">🎲 Random Video</button>
+        <button class="btn btn-outline" onclick="toggleHeroMute()" id="heroMuteBtn">🔇 Unmute Live Stream</button>
+      </div>
+    </div>
+
+    <div class="hero-content">
+      <div class="hero-badges">
+        <span class="badge badge-crimson" id="heroModeBadge">🎲 RANDOM ANIME STREAM • 1080P</span>
+        <span class="badge badge-cyan">BANGLA & ENG SUB</span>
+        <span class="badge badge-amber" id="heroScoreBadge">★ 9.4 MAL</span>
+      </div>
+      <h1 class="hero-title" id="heroTitle">Frieren: Beyond Journey's End</h1>
+      <p class="hero-desc" id="heroDesc">
+        After a ten-year quest alongside hero Himmel, elven mage Frieren embarks on a new journey to understand humanity. Stream in 1080p HLS across Web & Android App.
+      </p>
+      <div class="hero-buttons">
+        <button class="btn btn-primary" id="heroWatchBtn" onclick="openHeroActiveAnimePlayer()">▶ Watch Episode 1 (1080p)</button>
+        <button class="btn btn-outline" onclick="playRandomHeroVideo()">🎲 Next Random Video</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Content Container -->
+  <div class="container">
+    <!-- Offline Mode Indicator (navigator.onLine check) -->
+    <div id="offlineModeBanner" style="display:none;background:rgba(255,184,0,0.14);border:1px solid #FFB800;border-radius:12px;padding:12px 16px;margin-bottom:14px;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:18px;">📡</span>
+        <div>
+          <div style="font-size:12px;font-weight:800;color:#FFB800;font-family:monospace;">OFFLINE MODE • navigator.onLine: false</div>
+          <div id="offlineModeAlertText" style="font-size:12px;color:#F8F9FA;margin-top:2px;">Lost internet connection while attempting to fetch catalog data. Displaying cached catalog.</div>
+        </div>
+      </div>
+      <button class="btn btn-outline" style="border-color:#FFB800;color:#FFB800;" onclick="retryLastCatalogFetch()">🔄 Retry Connection</button>
+    </div>
+
+    <!-- Visual Fetch Failure Notification Component with Retry Button -->
+    <div id="fetchErrorNotification" style="display:none;background:rgba(255,42,95,0.16);border:1px solid #FF2A5F;border-radius:12px;padding:12px 16px;margin-bottom:16px;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:18px;">⚠️</span>
+        <div>
+          <div style="font-size:12px;font-weight:800;color:#FF2A5F;font-family:monospace;">CATALOG FETCH FAILURE DETECTED</div>
+          <div id="fetchErrorMessageText" style="font-size:12px;color:#F8F9FA;margin-top:2px;">Failed to fetch catalog data from upstream server. Check your connection and click Retry.</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button id="retryFetchBtn" class="btn btn-primary" onclick="retryLastCatalogFetch()">🔄 Retry</button>
+        <button class="btn btn-outline" onclick="hideFetchErrorNotification()">✕ Dismiss</button>
+      </div>
+    </div>
+
+    <!-- Repository Auto-Update & App Sync Banner -->
+    <div class="update-banner">
+      <div>
+        <div style="font-size:13px;font-weight:800;color:#fff;">
+          🚀 Robiul [RS] • Official APK Release (<code style="color:#00FF66;">Robiul-Release.apk</code>) & Live Website Active
+        </div>
+        <div style="font-size:11px;color:var(--text-secondary);margin-top:3px;" id="versionChangelogText">
+          Single official APK package: <b>Robiul-Release.apk</b> • Live Website Server: <b style="color:#00F0FF;cursor:pointer;text-decoration:underline;" id="currentWebUrlDisplay" onclick="copyCurrentWebUrl()">http://127.0.0.1:8080</b>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button id="publicBannerAdminBtn" class="btn" style="display:none;background:#FF7A00;color:#fff;" onclick="openWebAdminModal()">🛡️ Open Admin Panel</button>
+        <button class="btn btn-outline" onclick="copyCurrentWebUrl()">🔗 Copy Website Link</button>
+        <a id="bannerApkLink" href="./download/Robiul-Release.apk" download="Robiul-Release.apk" onclick="if(window.KuroStreamBridge && window.KuroStreamBridge.releaseApkFromWeb){window.KuroStreamBridge.releaseApkFromWeb(); return false;}" class="btn btn-primary">⬇️ Robiul-Release.apk (<span id="versionLabel">v1.2.0</span>)</a>
+      </div>
+    </div>
+
+    <!-- Live Video Streams Row -->
+    <div class="section-header">
+      <div class="section-title"><span class="dot-live"></span> 🎬 Live Video Streams (Real Server • 1080p HLS & MP4)</div>
+      <div class="section-sub">Crunchyroll • HiAnime HD-1/HD-2 • AnimeThemes</div>
+    </div>
+    <div class="stream-row" id="liveStreamRow"></div>
+
+    <!-- Trending / Jikan & Crunchyroll Catalog -->
+    <div class="section-header">
+      <div class="section-title" id="catalogSectionTitle">🔥 Full Anime Catalog (Jikan v4 + AniList GraphQL)</div>
+      <div class="section-sub" id="catalogStatus">Synced with Live APIs</div>
+    </div>
+    <div class="chip-group" style="margin-bottom:14px;" id="catalogCategoryChips">
+      <button class="chip active" onclick="filterWebCatalogCategory('ALL', this)">🔥 All Anime</button>
+      <button class="chip" onclick="filterWebCatalogCategory('TRENDING', this)">⚡ Trending &amp; Airing</button>
+      <button class="chip" onclick="filterWebCatalogCategory('TOP', this)">⭐ Top Rated (9.0+)</button>
+      <button class="chip" onclick="filterWebCatalogCategory('MOVIE', this)">🎬 Anime Movies</button>
+      <button class="chip" onclick="syncCrunchyrollWeb()">🍊 Crunchyroll Simulcast</button>
+    </div>
+    <div class="anime-grid" id="animeGrid"></div>
+    <div style="display:flex;justify-content:center;margin:22px 0 10px;">
+      <button class="btn btn-primary" id="loadMoreAnimeBtn" onclick="loadMoreLiveAnime()" style="padding:11px 24px;font-size:13px;">
+        ➕ Load More Anime (Jikan v4 + AniList GraphQL)
+      </button>
+    </div>
+  </div>
+
+  <!-- Full-Featured Video Player Modal with Custom Progress Bar & Keyboard Shortcuts -->
+  <div class="player-modal" id="playerModal" tabindex="-1">
+    <div class="player-box" id="playerBox">
+      <div class="player-header">
+        <div>
+          <div style="font-size:15px;font-weight:800;" id="modalAnimeTitle">Frieren: Beyond Journey's End</div>
+          <div style="font-size:11px;color:var(--cyan-glow);" id="modalEpisodeSub">Episode 1 • 1080p HLS Stream</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn btn-outline" id="fullscreenBtn" onclick="toggleModalFullscreen()">⛶ Fullscreen (F)</button>
+          <button class="btn btn-outline" onclick="closePlayerModal()">✕ Close Player</button>
+        </div>
+      </div>
+
+      <div class="video-stage" id="videoStage" onclick="toggleModalPlay()">
+        <video id="modalVideo" playsinline></video>
+        <div id="modalHtmlEmbedStage" style="display:none;position:absolute;inset:0;width:100%;height:100%;background:#000;z-index:5;" onclick="event.stopPropagation()"></div>
+        <div id="modalUnavailableOverlay" style="display:none;position:absolute;inset:0;background:rgba(8,10,15,0.96);z-index:10;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;" onclick="event.stopPropagation()">
+          <div style="font-size:38px;margin-bottom:10px;">📡</div>
+          <div style="font-size:20px;font-weight:900;color:#FF2A5F;margin-bottom:6px;">Video not available right now</div>
+          <div style="font-size:12px;color:#A0AAB8;max-width:440px;margin-bottom:16px;">This anime does not have an active stream on the server yet. Please check back soon.</div>
+          <button id="unavailableAdminBtn" class="btn" style="display:none;background:#FF7A00;color:#fff;" onclick="closePlayerModal(); openWebAdminModal(1);">🛡️ Add Stream in Admin Panel</button>
+        </div>
+        <div class="player-key-toast" id="playerKeyToast">▶ Playing [Space]</div>
+        <div id="modalEpCornerBadge" style="position:absolute;top:12px;left:12px;background:rgba(0,0,0,0.72);border:1px solid #FFBADE;color:#FFBADE;font-size:11px;font-weight:800;padding:4px 10px;border-radius:6px;pointer-events:none;z-index:12;">EP 1 • SUB • HD-1</div>
+      </div>
+
+      <!-- Custom Progress Bar UI Component (Playback Time + Total Duration + Buffer) -->
+      <div class="custom-progress-wrap">
+        <div class="progress-track-container" id="customProgressBar" onclick="seekFromProgressBar(event)">
+          <div class="progress-track-bg">
+            <div class="progress-track-buffer" id="progressBufferBar"></div>
+            <div class="progress-track-active" id="progressActiveBar"></div>
+            <div class="progress-thumb" id="progressThumb"></div>
+          </div>
+        </div>
+        <div class="progress-telemetry">
+          <div>
+            <span id="currentTimeText" style="color:#fff;font-weight:800;">00:00</span>
+            <span style="color:var(--text-muted);"> / </span>
+            <span id="totalDurationText" style="color:var(--text-secondary);">24:00</span>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <span id="bufferPctText" style="color:var(--cyan-glow);font-size:11px;">Buffer 0%</span>
+            <span id="remainingTimeText" style="color:var(--text-secondary);font-size:11px;">-24:00 left</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="player-controls-row">
+        <div class="chip-group">
+          <button class="chip active" onclick="toggleModalPlay()" id="playPauseBtn">⏸ Pause</button>
+          <button class="chip" onclick="skipSeconds(-10)">⏪ -10s</button>
+          <button class="chip" onclick="skipSeconds(10)">⏩ +10s</button>
+          <button class="chip" onclick="skipSeconds(85)">Skip Intro ⏩</button>
+        </div>
+        <div class="chip-group" id="serverSelectorGroup">
+          <button class="chip active" onclick="selectModalServer(0)">S-01</button>
+        </div>
+        <div class="chip-group">
+          <button class="chip active" id="subToggleBtn" onclick="toggleBanglaSub()">🇧🇩 Bangla Sub: ON</button>
+          <button class="chip" id="modalFsChip" onclick="toggleModalFullscreen()">⛶ Fullscreen [F]</button>
+        </div>
+      </div>
+      <div style="padding:10px 14px;background:#14151A;border-top:1px solid var(--border-color);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:12px;font-weight:800;color:#FFBADE;" id="modalWatchingBanner">You are watching Episode 1</span>
+          <span style="font-size:11px;color:var(--text-secondary);">HiAnime Episode List (Tap Episode #):</span>
+        </div>
+        <div id="modalEpisodeGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(42px,1fr));gap:6px;max-height:110px;overflow-y:auto;"></div>
+      </div>
+      <div class="kbd-hint-bar">
+        <div>⌨️ Shortcuts: <span class="kbd-tag">Space</span> Play/Pause • <span class="kbd-tag">←</span> / <span class="kbd-tag">→</span> Seek ±10s • <span class="kbd-tag">↑</span> / <span class="kbd-tag">↓</span> Volume • <span class="kbd-tag">F</span> Fullscreen • <span class="kbd-tag">Esc</span> Exit</div>
+        <div id="kbdLastAction" style="color:#00FF66;">Ready</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Full-Featured Website Admin Panel Modal (Synced Live with Android App) -->
+  <div class="player-modal" id="webAdminModal" style="z-index:250;">
+    <div class="player-box" style="max-width:960px;max-height:92vh;display:flex;flex-direction:column;border-color:#FF7A00;">
+      <div class="player-header" style="background:#10131C;border-bottom:1px solid rgba(255,122,0,0.35);">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <img id="adminModalLogoImg" src="https://robiulislam.b-cdn.net/images/logo.png" alt="Bunny CDN" style="width:36px;height:36px;border-radius:8px;border:1.5px solid #FF7A00;object-fit:contain;background:#070B10;" onerror="this.style.display='none'" />
+          <div>
+            <div style="font-size:16px;font-weight:900;color:#fff;">🛡️ Robiul Website &amp; App Admin Panel</div>
+            <div style="font-size:11px;color:#FF7A00;font-family:monospace;" id="adminSyncSubtitle">🐰 Bunny.net CDN • Paid Server API • HTML / Iframe • Episode Streams</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button class="btn btn-outline" onclick="openNativeAdminFromWebModal()" style="border-color:#00E676;color:#00E676;">📱 App Admin</button>
+          <button class="btn btn-outline" onclick="loadLiveCatalogAndVersion(); showAdminToast('🔄 Synced Website & App!');">🔄 Sync Now</button>
+          <button class="btn btn-outline" style="border-color:#FF2A5F;color:#FF2A5F;" onclick="lockAndHideWebAdmin()">🔒 Lock &amp; Hide</button>
+          <button class="btn btn-primary" onclick="closeWebAdminModal()">✕ Close</button>
+        </div>
+      </div>
+
+      <div id="webAdminToast" style="display:none;background:rgba(0,230,118,0.16);border-bottom:1px solid #00E676;color:#00E676;padding:8px 16px;font-size:12px;font-weight:800;font-family:monospace;"></div>
+
+      <div style="display:flex;gap:8px;padding:10px 16px;background:#0D0F16;border-bottom:1px solid var(--border-color);overflow-x:auto;">
+        <button class="chip active" id="adminTabBtn0" onclick="switchWebAdminTab(0)">🐰 Paid CDN • API • HTML</button>
+        <button class="chip" id="adminTabBtn1" onclick="switchWebAdminTab(1)">🎬 Episode Streams</button>
+        <button class="chip" id="adminTabBtn2" onclick="switchWebAdminTab(2)">📚 Anime Catalog</button>
+        <button class="chip" id="adminTabBtn3" onclick="switchWebAdminTab(3)">🕵️‍♂️ Site API • Video • CDN Inspector</button>
+      </div>
+
+      <div style="padding:16px;overflow-y:auto;flex:1;">
+        <div id="webAdminTab0">
+          <div class="admin-card" style="border-color:rgba(255,122,0,0.45);">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+              <div>
+                <div style="font-size:14px;font-weight:900;color:#fff;">🐰 Bunny.net &amp; All Paid Servers Hub (CDN • API • HTML)</div>
+                <div style="font-size:11px;color:var(--text-secondary);">Active Pull Zone: <span id="adminActiveBunnyBase" style="color:#00F0FF;font-family:monospace;">https://robiulislam.b-cdn.net</span></div>
+              </div>
+              <span class="badge" style="background:rgba(0,230,118,0.18);color:#00E676;border:1px solid #00E676;">LIVE SYNC</span>
+            </div>
+
+            <div style="font-size:11px;font-weight:800;color:#00F0FF;margin-bottom:6px;">1. Select Integration Mode:</div>
+            <div class="chip-group" style="margin-bottom:12px;">
+              <button class="chip active" id="srvModeBtn_CDN" onclick="setWebServerMode('CDN')">🌐 CDN URL</button>
+              <button class="chip" id="srvModeBtn_API" onclick="setWebServerMode('API')">🔑 Paid API</button>
+              <button class="chip" id="srvModeBtn_HTML" onclick="setWebServerMode('HTML')">📄 HTML / Iframe</button>
+            </div>
+
+            <div style="font-size:11px;font-weight:800;color:#FFB800;margin-bottom:6px;">2. Paid Server Presets (1-Click Fill):</div>
+            <div class="chip-group" style="margin-bottom:12px;">
+              <button class="chip" onclick="fillWebServerPreset('bunny_cdn')">🐰 Bunny.net CDN</button>
+              <button class="chip" onclick="fillWebServerPreset('bunny_embed')">🐰 Bunny Iframe</button>
+              <button class="chip" onclick="fillWebServerPreset('cf_stream')">☁️ Cloudflare Stream</button>
+              <button class="chip" onclick="fillWebServerPreset('mux')">🎞️ Mux Video</button>
+              <button class="chip" onclick="fillWebServerPreset('aws')">🚀 AWS CloudFront</button>
+              <button class="chip" onclick="fillWebServerPreset('vidsrc')">🔥 VidSrc / Filemoon</button>
+              <button class="chip" onclick="fillWebServerPreset('html_video')">📄 Custom &lt;video&gt; HTML</button>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div>
+                <label style="font-size:11px;color:var(--text-secondary);font-weight:700;">Paid Server / CDN Name</label>
+                <input id="webSrvNameInput" class="admin-input" value="Robiul Bunny.net CDN (robiulislam.b-cdn.net)" />
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--text-secondary);font-weight:700;">Paid API Key / Token (Optional)</label>
+                <input id="webSrvKeyInput" class="admin-input" placeholder="AccessKey / Bearer Token..." />
+              </div>
+            </div>
+
+            <div style="margin-top:10px;">
+              <label id="webSrvPayloadLabel" style="font-size:11px;color:#00F0FF;font-weight:700;">CDN Pull Zone / Direct Stream URL (.m3u8 / .mp4 / .b-cdn.net)</label>
+              <textarea id="webSrvPayloadInput" class="admin-input" rows="3" style="font-family:monospace;">https://robiulislam.b-cdn.net</textarea>
+            </div>
+
+            <div style="margin-top:10px;display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+              <div style="flex:1;min-width:220px;">
+                <label style="font-size:11px;color:var(--text-secondary);font-weight:700;">Bunny.net / Custom Logo URL</label>
+                <input id="webBunnyLogoInput" class="admin-input" value="https://robiulislam.b-cdn.net/images/logo.png" />
+              </div>
+              <button class="btn btn-outline" onclick="saveBunnyLogoFromWebModal()">🖼️ Update Website &amp; App Logo</button>
+            </div>
+
+            <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
+              <button class="btn" style="background:#FF7A00;color:#fff;flex:1;" onclick="savePaidServerFromWebModal()">➕ Save Paid Server / CDN / HTML to Website &amp; App</button>
+            </div>
+          </div>
+
+          <div style="font-size:13px;font-weight:800;margin:12px 0 8px;color:#00F0FF;">🌐 Active Paid Servers, CDNs &amp; HTML Players (<span id="webServersCount">0</span>)</div>
+          <div id="webAdminServersList"></div>
+        </div>
+
+        <div id="webAdminTab1" style="display:none;">
+          <div class="admin-card" style="border-color:rgba(0,240,255,0.45);">
+            <div style="font-size:14px;font-weight:900;color:#fff;margin-bottom:4px;">🎬 Inject Episode Stream (CDN URL • Paid API • HTML / Iframe)</div>
+            <div style="font-size:11px;color:var(--text-secondary);margin-bottom:10px;">Any stream saved here plays immediately on both the Website and the Android App!</div>
+
+            <div class="chip-group" style="margin-bottom:10px;">
+              <button class="chip" onclick="document.getElementById('webStreamUrlInput').value='https://robiulislam.b-cdn.net/anime/episode-1/playlist.m3u8'">🐰 Bunny.net HLS</button>
+              <button class="chip" onclick="document.getElementById('webStreamUrlInput').value='<iframe src=&quot;https://iframe.mediadelivery.net/embed/library_id/video_id?autoplay=true&quot; allowfullscreen style=&quot;width:100%;height:100%;border:0;&quot;></iframe>'">📄 Bunny Iframe HTML</button>
+              <button class="chip" onclick="document.getElementById('webStreamUrlInput').value='<iframe src=&quot;https://vidsrc.xyz/embed/anime/frieren/1&quot; allowfullscreen style=&quot;width:100%;height:100%;border:0;&quot;></iframe>'">🔥 VidSrc / Filemoon Iframe</button>
+              <button class="chip" onclick="document.getElementById('webStreamUrlInput').value='https://v.animethemes.moe/SousouNoFrieren-OP1.webm'">🎞️ Direct 1080p WebM</button>
+            </div>
+
+            <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;">
+              <div>
+                <label style="font-size:11px;color:var(--text-secondary);font-weight:700;">Anime Title (Select or Type Any Anime)</label>
+                <input id="webStreamAnimeTitle" class="admin-input" list="webCatalogTitlesList" value="Frieren: Beyond Journey's End" placeholder="e.g. Solo Leveling, Naruto..." />
+                <datalist id="webCatalogTitlesList"></datalist>
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--text-secondary);font-weight:700;">Episode #</label>
+                <input id="webStreamEpNum" type="number" class="admin-input" value="1" min="1" />
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--text-secondary);font-weight:700;">Server Label</label>
+                <input id="webStreamServerName" class="admin-input" value="Bunny.net CDN • 1080p" />
+              </div>
+            </div>
+
+            <div style="margin-top:10px;">
+              <label style="font-size:11px;color:#00F0FF;font-weight:700;">Direct Stream URL (.m3u8 / .mp4) OR Raw &lt;iframe&gt; / &lt;video&gt; HTML Code</label>
+              <textarea id="webStreamUrlInput" class="admin-input" rows="3" style="font-family:monospace;" placeholder="https://robiulislam.b-cdn.net/anime/ep1.m3u8 or <iframe src='...'></iframe>">https://v.animethemes.moe/SousouNoFrieren-OP1.webm</textarea>
+            </div>
+
+            <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
+              <button class="btn btn-primary" style="flex:1;" onclick="saveEpisodeStreamFromWebModal()">💾 Save Episode Stream to Website &amp; App</button>
+              <button class="btn btn-outline" onclick="testAndPlayWebAdminStream()">▶ Test &amp; Play Now</button>
+            </div>
+          </div>
+
+          <div style="font-size:13px;font-weight:800;margin:12px 0 8px;color:#00E676;">🎬 Active Episode Streams (<span id="webStreamsCount">0</span>)</div>
+          <div id="webAdminStreamsList"></div>
+        </div>
+
+        <div id="webAdminTab2" style="display:none;">
+          <div class="admin-card" style="border-color:rgba(138,43,226,0.45);">
+            <div style="font-size:14px;font-weight:900;color:#fff;margin-bottom:4px;">📚 Add New Anime to Website &amp; App Catalog</div>
+            <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-top:8px;">
+              <div>
+                <label style="font-size:11px;color:var(--text-secondary);font-weight:700;">Anime Title</label>
+                <input id="webNewAnimeTitle" class="admin-input" placeholder="e.g. Dandadan" />
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--text-secondary);font-weight:700;">Studio / Type</label>
+                <input id="webNewAnimeStudio" class="admin-input" value="Science SARU" />
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--text-secondary);font-weight:700;">Episodes</label>
+                <input id="webNewAnimeEps" type="number" class="admin-input" value="12" />
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;">
+              <div>
+                <label style="font-size:11px;color:var(--text-secondary);font-weight:700;">Poster Image URL</label>
+                <input id="webNewAnimePoster" class="admin-input" value="https://cdn.myanimelist.net/images/anime/1015/138006l.jpg" />
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--text-secondary);font-weight:700;">Episode 1 Stream URL or &lt;iframe&gt; HTML (Optional)</label>
+                <input id="webNewAnimeStream" class="admin-input" placeholder="https://robiulislam.b-cdn.net/anime/ep1.m3u8" />
+              </div>
+            </div>
+            <button class="btn btn-primary" style="margin-top:12px;width:100%;" onclick="addNewAnimeFromWebModal()">➕ Add Anime to Website &amp; App</button>
+          </div>
+        </div>
+
+        <!-- TAB 3: Website URL Inspector (API • Scraped Video • CDN • Embed Extractor) -->
+        <div id="webAdminTab3" style="display:none;">
+          <div class="admin-card" style="border-color:rgba(0,240,255,0.5);">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+              <div>
+                <div style="font-size:15px;font-weight:900;color:#fff;">🕵️‍♂️ Website URL Inspector (API • Scraped Video • CDN Extractor)</div>
+                <div style="font-size:11px;color:var(--text-secondary);">যেকোনো ওয়েবসাইটের URL দিলে সেই ওয়েবসাইট যে API, Scraped Video (.m3u8 / .mp4 / .webm), CDN বা HTML Iframe ব্যবহার করে তা অটোমেটিক বের হয়ে আসবে।</div>
+              </div>
+              <span class="badge" style="background:rgba(0,240,255,0.16);color:#00F0FF;border:1px solid #00F0FF;">DEEP SCANNER</span>
+            </div>
+
+            <div style="font-size:11px;font-weight:800;color:#FFB800;margin-bottom:6px;">Quick Test Website &amp; API Targets (1-Click):</div>
+            <div class="chip-group" style="margin-bottom:10px;">
+              <button class="chip" onclick="setInspectorPresetUrl('https://api.animethemes.moe/anime?include=animethemes.animethemeentries.videos&page[size]=3')">🎞️ AnimeThemes API</button>
+              <button class="chip" onclick="setInspectorPresetUrl('https://api.jikan.moe/v4/top/anime?limit=5')">⚡ Jikan v4 API</button>
+              <button class="chip" onclick="setInspectorPresetUrl('https://graphql.anilist.co')">🔮 AniList GraphQL</button>
+              <button class="chip" onclick="setInspectorPresetUrl('https://iframe.mediadelivery.net/embed/212800/a1b2c3d4')">🐰 Bunny.net Stream</button>
+            </div>
+
+            <div style="display:grid;grid-template-columns:3fr 1fr;gap:10px;align-items:end;">
+              <div>
+                <label style="font-size:11px;color:#00F0FF;font-weight:700;">Enter Any Website or API URL to Inspect</label>
+                <input id="webInspectorUrlInput" class="admin-input" value="https://api.animethemes.moe/anime?include=animethemes.animethemeentries.videos&page[size]=3" placeholder="https://example-anime-site.com or API URL..." />
+              </div>
+              <button id="webInspectorScanBtn" class="btn btn-primary" style="height:40px;" onclick="inspectExternalWebsiteFromAdmin()">🔍 Scan Website</button>
+            </div>
+
+            <div class="chip-group" style="margin-top:12px;" id="webInspectorFilterGroup">
+              <button class="chip active" onclick="filterWebInspectorResults('ALL', this)">All Discovered</button>
+              <button class="chip" onclick="filterWebInspectorResults('VIDEO', this)">🎬 Scraped Videos</button>
+              <button class="chip" onclick="filterWebInspectorResults('CDN', this)">📦 CDN Servers</button>
+              <button class="chip" onclick="filterWebInspectorResults('API', this)">🔌 API Endpoints</button>
+              <button class="chip" onclick="filterWebInspectorResults('EMBED', this)">🖼️ HTML Embeds</button>
+            </div>
+          </div>
+
+          <div id="webInspectorSummaryBox" style="display:none;margin-bottom:10px;padding:10px 14px;background:#10131C;border:1px solid rgba(0,230,118,0.4);border-radius:10px;font-size:12px;color:#00E676;font-family:monospace;"></div>
+          <div id="webInspectorResultsContainer"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stealth Admin Password Gate Modal (Protected by robiul1000 + Anti-DDoS & Anti-Hack WAF) -->
+  <div class="player-modal" id="adminPasswordGateModal" style="z-index:260;">
+    <div class="player-box" style="max-width:440px;border-color:#FF2A5F;background:#0D1017;padding:22px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+        <div style="width:44px;height:44px;border-radius:50%;background:rgba(255,42,95,0.16);border:1.5px solid #FF2A5F;display:flex;align-items:center;justify-content:center;font-size:20px;">🛡️</div>
+        <div>
+          <div style="font-size:17px;font-weight:900;color:#fff;">Stealth Admin Security Gate</div>
+          <div style="font-size:11px;color:#00E676;font-family:monospace;">Anti-DDoS • WAF Shield • Brute-Force Lockout Active</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">
+        Admin Panel is hidden in Stealth Mode. Enter your master admin password to unlock CDN, API, and Website URL Inspector controls.
+      </div>
+      <div>
+        <label style="font-size:11px;color:#00F0FF;font-weight:700;">Admin Master Password</label>
+        <input id="adminGatePasswordInput" type="password" class="admin-input" placeholder="Enter Admin Password..." onkeydown="if(event.key==='Enter') verifyStealthAdminPassword()" />
+      </div>
+      <div id="adminGateErrorText" style="display:none;color:#FF2A5F;font-size:11px;font-weight:800;margin-top:8px;font-family:monospace;"></div>
+      <div style="display:flex;gap:10px;margin-top:16px;">
+        <button class="btn btn-outline" style="flex:1;" onclick="closeAdminPasswordGate()">Cancel</button>
+        <button class="btn btn-primary" style="flex:1;" onclick="verifyStealthAdminPassword()">🔓 Unlock Admin</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const UPSTREAM_SERVERS = [
+      { code: "HD-1", name: "HD-1 (VidStreaming • SUB 1080p)", url: "https://v.animethemes.moe/SousouNoFrieren-OP1.webm", isHls: false },
+      { code: "HD-2", name: "HD-2 (MegaCloud • SUB 1080p)", url: "https://v.animethemes.moe/JujutsuKaisenS2-OP1.webm", isHls: false },
+      { code: "SSB", name: "StreamSB (HiAnime • 1080p)", url: "https://v.animethemes.moe/ChainsawMan-OP1.webm", isHls: false },
+      { code: "STape", name: "StreamTape (Fast Cloud • 1080p)", url: "https://v.animethemes.moe/SousouNoFrieren-ED1.webm", isHls: false },
+      { code: "CF-R2", name: "Cloudflare R2 + CDN (1080p)", url: "https://v.animethemes.moe/JujutsuKaisen-OP1.webm", isHls: false },
+      { code: "AWS-CF", name: "AWS S3 + CloudFront (1080p)", url: "https://v.animethemes.moe/SousouNoFrieren-ED1v2.webm", isHls: false },
+      { code: "Bunny", name: "Bunny.net Storage + CDN (robiulislam.b-cdn.net • 1080p)", url: "https://v.animethemes.moe/SpyXFamily-ED1.webm", logoUrl: "https://robiulislam.b-cdn.net/images/logo.png", isHls: false },
+      { code: "CF-Str", name: "Cloudflare Stream (1080p)", url: "https://v.animethemes.moe/JujutsuKaisen-OP1v2.webm", isHls: false },
+      { code: "Mux", name: "Mux Professional Video (1080p)", url: "https://v.animethemes.moe/SousouNoFrieren-ED1v3.webm", isHls: false },
+      { code: "DUB-1", name: "HD-1 (VidStreaming • DUB 1080p)", url: "https://v.animethemes.moe/SousouNoFrieren-OP1.webm", isHls: false },
+      { code: "DUB-2", name: "HD-2 (MegaCloud • DUB 1080p)", url: "https://v.animethemes.moe/JujutsuKaisen-OP1.webm", isHls: false }
+    ];
+
+    const INITIAL_CATALOG = [
+      { id: "anime_1", title: "Frieren: Beyond Journey's End", studio: "Madhouse", score: "9.38", episodes: 28, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1015/138006l.jpg", serverIdx: 0 },
+      { id: "anime_3", title: "Solo Leveling", studio: "A-1 Pictures", score: "8.85", episodes: 12, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1801/142390l.jpg", serverIdx: 1 },
+      { id: "anime_2", title: "Jujutsu Kaisen Season 2", studio: "MAPPA", score: "8.92", episodes: 23, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1792/138022l.jpg", serverIdx: 2 },
+      { id: "anime_4", title: "Demon Slayer: Hashira Training Arc", studio: "ufotable", score: "8.74", episodes: 8, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1286/99889l.jpg", serverIdx: 0 },
+      { id: "anime_9", title: "One Piece: Egghead Arc", studio: "Toei Animation", score: "9.12", episodes: 1100, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/6/73245l.jpg", serverIdx: 1 },
+      { id: "anime_5", title: "Chainsaw Man", studio: "MAPPA", score: "8.65", episodes: 12, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1806/126216l.jpg", serverIdx: 2 },
+      { id: "anime_6", title: "Attack on Titan: The Final Season", studio: "MAPPA", score: "9.15", episodes: 28, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1000/110531l.jpg", serverIdx: 0 },
+      { id: "anime_7", title: "Cyberpunk: Edgerunners", studio: "Studio Trigger", score: "8.78", episodes: 10, type: "ONA", poster: "https://cdn.myanimelist.net/images/anime/1818/126431l.jpg", serverIdx: 1 },
+      { id: "anime_8", title: "SPY x FAMILY Season 2", studio: "Wit Studio & CloverWorks", score: "8.62", episodes: 12, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1506/138982l.jpg", serverIdx: 2 },
+      { id: "anime_10", title: "Naruto: Shippuden", studio: "Pierrot", score: "8.82", episodes: 500, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1565/111305l.jpg", serverIdx: 0 },
+      { id: "anime_11", title: "Bleach: Thousand-Year Blood War", studio: "Pierrot", score: "9.08", episodes: 26, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1908/135431l.jpg", serverIdx: 1 },
+      { id: "anime_12", title: "Dandadan", studio: "Science SARU", score: "8.90", episodes: 12, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1584/143719l.jpg", serverIdx: 2 },
+      { id: "anime_13", title: "Oshi no Ko", studio: "Doga Kobo", score: "8.84", episodes: 24, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1812/134736l.jpg", serverIdx: 0 },
+      { id: "anime_14", title: "Blue Lock", studio: "8bit", score: "8.52", episodes: 38, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1258/126929l.jpg", serverIdx: 1 },
+      { id: "anime_15", title: "Death Note", studio: "Madhouse", score: "8.98", episodes: 37, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1079/138100l.jpg", serverIdx: 2 },
+      { id: "anime_16", title: "My Hero Academia Season 7", studio: "Bones", score: "8.45", episodes: 21, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/10/78745l.jpg", serverIdx: 0 },
+      { id: "anime_17", title: "Kaiju No. 8", studio: "Production I.G", score: "8.58", episodes: 12, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1370/140362l.jpg", serverIdx: 1 },
+      { id: "anime_18", title: "Vinland Saga Season 2", studio: "MAPPA", score: "9.04", episodes: 24, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1170/124312l.jpg", serverIdx: 2 },
+      { id: "anime_19", title: "Hunter x Hunter (2011)", studio: "Madhouse", score: "9.28", episodes: 148, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1337/99013l.jpg", serverIdx: 0 },
+      { id: "anime_20", title: "Fullmetal Alchemist: Brotherhood", studio: "Bones", score: "9.35", episodes: 64, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1208/94745l.jpg", serverIdx: 1 },
+      { id: "anime_21", title: "Steins;Gate", studio: "White Fox", score: "9.18", episodes: 24, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1935/127974l.jpg", serverIdx: 2 },
+      { id: "anime_22", title: "Mob Psycho 100 III", studio: "Bones", score: "8.88", episodes: 12, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1228/125011l.jpg", serverIdx: 0 },
+      { id: "anime_23", title: "Mushoku Tensei: Jobless Reincarnation", studio: "Studio Bind", score: "8.68", episodes: 24, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1530/117776l.jpg", serverIdx: 1 },
+      { id: "anime_24", title: "Re:Zero -Starting Life in Another World-", studio: "White Fox", score: "8.72", episodes: 50, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1522/128039l.jpg", serverIdx: 2 },
+      { id: "anime_25", title: "Black Clover", studio: "Pierrot", score: "8.54", episodes: 170, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/2/88336l.jpg", serverIdx: 0 },
+      { id: "anime_26", title: "Tokyo Ghoul", studio: "Pierrot", score: "8.35", episodes: 12, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1498/134443l.jpg", serverIdx: 1 },
+      { id: "anime_27", title: "Code Geass: Lelouch of the Rebellion", studio: "Sunrise", score: "9.05", episodes: 25, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/1032/135088l.jpg", serverIdx: 2 },
+      { id: "anime_28", title: "Haikyuu!!", studio: "Production I.G", score: "8.86", episodes: 25, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/7/76014l.jpg", serverIdx: 0 },
+      { id: "anime_29", title: "Sword Art Online", studio: "A-1 Pictures", score: "8.22", episodes: 25, type: "TV", poster: "https://cdn.myanimelist.net/images/anime/11/39717l.jpg", serverIdx: 1 },
+      { id: "anime_30", title: "Your Name. (Kimi no Na wa.)", studio: "CoMix Wave Films", score: "9.16", episodes: 1, type: "MOVIE", poster: "https://cdn.myanimelist.net/images/anime/5/87048l.jpg", serverIdx: 2 }
+    ];
+
+    const HERO_RANDOM_POOL = [
+      { title: "Solo Leveling", score: "★ 8.9 MAL", desc: "In a world where hunters awaken supernatural powers, the weakest hunter Sung Jinwoo unlocks a secret leveling system to command the Shadow Army.", url: "https://v.animethemes.moe/SoloLeveling-OP1.webm", serverLabel: "RANDOM LIVE • Solo Leveling (1080p)" },
+      { title: "Jujutsu Kaisen Season 2", score: "★ 9.0 MAL", desc: "Satoru Gojo and Suguru Geto's past collides with the catastrophic Shibuya Incident in 1080p high-bitrate streaming.", url: "https://v.animethemes.moe/JujutsuKaisenS2-OP1.webm", serverLabel: "RANDOM LIVE • Jujutsu Kaisen S2 (1080p)" },
+      { title: "Demon Slayer: Hashira Training Arc", score: "★ 8.8 MAL", desc: "Tanjiro Kamado and the Demon Slayer Corps undergo intense training with the elite Hashira before the final battle against Muzan Kibutsuji.", url: "https://v.animethemes.moe/KimetsuNoYaiba-OP1.webm", serverLabel: "RANDOM LIVE • Demon Slayer (1080p)" },
+      { title: "Chainsaw Man", score: "★ 8.7 MAL", desc: "Denji merges with his chainsaw devil Pochita to become Chainsaw Man and join Public Safety Devil Hunters.", url: "https://v.animethemes.moe/ChainsawMan-OP1.webm", serverLabel: "RANDOM LIVE • Chainsaw Man (1080p)" },
+      { title: "Attack on Titan: The Final Season", score: "★ 9.2 MAL", desc: "Eren Yeager unleashes the Rumbling as former allies and enemies unite in a desperate struggle for humanity's future.", url: "https://v.animethemes.moe/ShingekiNoKyojin-OP1.webm", serverLabel: "RANDOM LIVE • Attack on Titan (1080p)" },
+      { title: "Cyberpunk: Edgerunners", score: "★ 8.8 MAL", desc: "Street kid David Martinez installs experimental military cyberware and joins a crew of edgerunners in Night City.", url: "https://v.animethemes.moe/CyberpunkEdgerunners-OP1.webm", serverLabel: "RANDOM LIVE • Cyberpunk: Edgerunners (1080p)" },
+      { title: "SPY x FAMILY Season 2", score: "★ 8.6 MAL", desc: "Master spy Twilight, assassin Yor, and telepathic Anya embark on an undercover family cruise mission.", url: "https://v.animethemes.moe/SpyXFamily-OP1.webm", serverLabel: "RANDOM LIVE • SPY x FAMILY (1080p)" },
+      { title: "Dandadan", score: "★ 8.9 MAL", desc: "Momo Ayase and Okarun clash with Turbo Granny and alien invaders in an explosive supernatural showdown.", url: "https://v.animethemes.moe/Dandadan-OP1.webm", serverLabel: "RANDOM LIVE • Dandadan (1080p)" },
+      { title: "Oshi no Ko", score: "★ 8.8 MAL", desc: "Reborn as the twin children of legendary idol Ai Hoshino, Aqua and Ruby navigate the dazzling and dark world of showbiz.", url: "https://v.animethemes.moe/OshiNoKo-OP1.webm", serverLabel: "RANDOM LIVE • Oshi no Ko (1080p)" },
+      { title: "Blue Lock", score: "★ 8.5 MAL", desc: "Three hundred high school strikers compete inside the Blue Lock facility to become Japan's ultimate egoist forward.", url: "https://v.animethemes.moe/BlueLock-OP1.webm", serverLabel: "RANDOM LIVE • Blue Lock (1080p)" },
+      { title: "One Piece: Egghead Arc", score: "★ 9.1 MAL", desc: "Monkey D. Luffy and the Straw Hat Pirates arrive at the futuristic island of Egghead, home to Dr. Vegapunk.", url: "https://v.animethemes.moe/OnePiece-OP1-NCDVD480.webm", serverLabel: "RANDOM LIVE • One Piece (HD)" },
+      { title: "Naruto: Shippuden", score: "★ 8.8 MAL", desc: "Naruto Uzumaki returns to Konoha to face the Akatsuki organization and fulfill his promise to bring Sasuke back.", url: "https://v.animethemes.moe/Naruto-OP1.webm", serverLabel: "RANDOM LIVE • Naruto Shippuden (1080p)" },
+      { title: "Bleach: Thousand-Year Blood War", score: "★ 9.1 MAL", desc: "Ichigo Kurosaki unleashes his true Zanpakuto as the Soul Society faces Yhwach and the Wandenreich.", url: "https://v.animethemes.moe/Bleach-OP1.webm", serverLabel: "RANDOM LIVE • Bleach TYBW (1080p)" },
+      { title: "Frieren: Beyond Journey's End", score: "★ 9.4 MAL", desc: "After a ten-year quest alongside hero Himmel, elven mage Frieren embarks on a new journey to understand humanity.", url: "https://v.animethemes.moe/SousouNoFrieren-OP1.webm", serverLabel: "RANDOM LIVE • Frieren (1080p)" }
+    ];
+
+    let heroServerIndex = 0;
+    let activeHeroItem = HERO_RANDOM_POOL[0];
+    let currentCatalogFullList = [...INITIAL_CATALOG];
+    let currentCatalogFilter = "ALL";
+    let currentLivePage = 1;
+    let currentModalServerIndex = 0;
+    let currentPlayingAnime = null;
+    let heroHls = null;
+    let modalHls = null;
+    let heroWatchdog = null;
+    let modalWatchdog = null;
+    let banglaSubEnabled = true;
+    const WEB_ADMIN_SERVERS_KEY = "robiul_admin_servers_v1";
+    const WEB_ADMIN_STREAMS_KEY = "robiul_admin_streams_v1";
+    const WEB_ADMIN_CATALOG_KEY = "robiul_admin_catalog_v1";
+    const WEB_BUNNY_LOGO_KEY = "robiul_bunny_logo_v1";
+    let adminServersList = [];
+    let adminEpisodeStreamsList = [];
+    let adminCustomCatalogList = [];
+    let currentWebServerMode = "CDN";
+
+    function loadPersistedWebAdminState() {
+      try {
+        const s = localStorage.getItem(WEB_ADMIN_SERVERS_KEY);
+        if (s) adminServersList = JSON.parse(s) || [];
+      } catch (e) {}
+      try {
+        const st = localStorage.getItem(WEB_ADMIN_STREAMS_KEY);
+        if (st) adminEpisodeStreamsList = JSON.parse(st) || [];
+      } catch (e) {}
+      try {
+        const c = localStorage.getItem(WEB_ADMIN_CATALOG_KEY);
+        if (c) adminCustomCatalogList = JSON.parse(c) || [];
+      } catch (e) {}
+      try {
+        const logo = localStorage.getItem(WEB_BUNNY_LOGO_KEY);
+        if (logo) applyBunnyLogoOnWeb(logo);
+      } catch (e) {}
+    }
+
+    function applyBunnyLogoOnWeb(logoUrl, baseUrl) {
+      if (!logoUrl) return;
+      try { localStorage.setItem(WEB_BUNNY_LOGO_KEY, logoUrl); } catch (e) {}
+      const hImg = document.getElementById("headerBunnyLogoImg");
+      if (hImg) { hImg.style.display = "block"; hImg.src = logoUrl; }
+      const aImg = document.getElementById("adminModalLogoImg");
+      if (aImg) { aImg.style.display = "block"; aImg.src = logoUrl; }
+      const lInput = document.getElementById("webBunnyLogoInput");
+      if (lInput) lInput.value = logoUrl;
+      if (baseUrl) {
+        const bEl = document.getElementById("adminActiveBunnyBase");
+        if (bEl) bEl.textContent = baseUrl;
+      }
+    }
+
+    function getCombinedServersForPlayer() {
+      const customMapped = (adminServersList || []).filter(s => s.isEnabled !== false).map((s, idx) => ({
+        code: "ADM-" + (idx + 1),
+        name: s.name || "Paid Server",
+        url: s.baseUrl || "",
+        isHls: (s.baseUrl || "").toLowerCase().includes(".m3u8")
+      }));
+      return [...customMapped, ...UPSTREAM_SERVERS];
+    }
+
+    function renderModalServerButtons() {
+      const group = document.getElementById("serverSelectorGroup");
+      if (!group) return;
+      group.innerHTML = UPSTREAM_SERVERS.map((srv, idx) =>
+        `<button class="chip ${idx === currentModalServerIndex ? 'active' : ''}" onclick="selectModalServer(${idx})" title="${srv.name}">${srv.code}</button>`
+      ).join("");
+    }
+
+    function autoFailoverNextServer(isHero) {
+      if (isHero) {
+        heroServerIndex = (heroServerIndex + 1) % UPSTREAM_SERVERS.length;
+        initHeroStream();
+      } else {
+        const nextIdx = (currentModalServerIndex + 1) % UPSTREAM_SERVERS.length;
+        showPlayerKeyToast(`⚡ Auto-Switching → ${UPSTREAM_SERVERS[nextIdx].code}`);
+        selectModalServer(nextIdx);
+      }
+    }
+
+    function attachStream(videoEl, streamObj, isHero) {
+      if (isHero && heroHls) { heroHls.destroy(); heroHls = null; }
+      if (!isHero && modalHls) { modalHls.destroy(); modalHls = null; }
+      if (isHero && heroWatchdog) { clearTimeout(heroWatchdog); heroWatchdog = null; }
+      if (!isHero && modalWatchdog) { clearTimeout(modalWatchdog); modalWatchdog = null; }
+
+      videoEl.onerror = () => {
+        autoFailoverNextServer(isHero);
+      };
+
+      const startWatchdog = () => {
+        const timer = setTimeout(() => {
+          if (videoEl.readyState < 2 || (videoEl.paused && videoEl.currentTime === 0)) {
+            autoFailoverNextServer(isHero);
+          }
+        }, 4500);
+        if (isHero) heroWatchdog = timer; else modalWatchdog = timer;
+      };
+
+      startWatchdog();
+
+      if (streamObj.isHls && window.Hls && Hls.isSupported()) {
+        const hls = new Hls({ enableWorker: true });
+        hls.loadSource(streamObj.url);
+        hls.attachMedia(videoEl);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          videoEl.play().catch(() => {});
+        });
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          if (data && data.fatal) {
+            autoFailoverNextServer(isHero);
+          }
+        });
+        if (isHero) heroHls = hls; else modalHls = hls;
+      } else {
+        videoEl.src = streamObj.url;
+        videoEl.load();
+        const playPromise = videoEl.play();
+        if (playPromise && typeof playPromise.catch === "function") {
+          playPromise.catch(() => {
+            if (!isHero) {
+              videoEl.muted = false;
+              videoEl.play().catch(() => {});
+            }
+          });
+        }
+      }
+    }
+
+    function getHeroRandomPoolWithAdminStreams() {
+      const adminDirectStreams = (adminEpisodeStreamsList || []).filter(st =>
+        st && st.streamUrl && !st.streamUrl.trim().startsWith("<") && !st.streamUrl.includes("/embed/")
+      ).map(st => ({
+        title: st.animeTitle || "Featured Anime",
+        score: "★ 9.5 LIVE",
+        desc: `Streaming Episode ${st.episodeNumber || 1} directly from ${st.serverName || 'Paid Server CDN'} in 1080p Full HD.`,
+        url: st.streamUrl,
+        serverLabel: `RANDOM LIVE • ${st.animeTitle} (${st.serverName || 'Paid CDN'})`
+      }));
+      return [...adminDirectStreams, ...HERO_RANDOM_POOL];
+    }
+
+    function playRandomHeroVideo() {
+      const pool = getHeroRandomPoolWithAdminStreams();
+      if (!pool.length) return;
+      let nextIdx = Math.floor(Math.random() * pool.length);
+      if (pool.length > 1 && pool[nextIdx].url === (activeHeroItem && activeHeroItem.url)) {
+        nextIdx = (nextIdx + 1) % pool.length;
+      }
+      heroServerIndex = nextIdx;
+      activeHeroItem = pool[heroServerIndex];
+
+      const video = document.getElementById("heroVideo");
+      const titleEl = document.getElementById("heroTitle");
+      const descEl = document.getElementById("heroDesc");
+      const scoreEl = document.getElementById("heroScoreBadge");
+      const labelEl = document.getElementById("heroServerLabel");
+      const watchBtn = document.getElementById("heroWatchBtn");
+
+      if (titleEl) titleEl.textContent = activeHeroItem.title;
+      if (descEl) descEl.textContent = activeHeroItem.desc;
+      if (scoreEl) scoreEl.textContent = activeHeroItem.score || "★ 9.1 MAL";
+      if (labelEl) labelEl.textContent = "🎲 " + (activeHeroItem.serverLabel || ("RANDOM LIVE • " + activeHeroItem.title));
+      if (watchBtn) watchBtn.textContent = `▶ Watch ${activeHeroItem.title} Ep 1`;
+
+      attachStream(video, {
+        code: "RND",
+        name: activeHeroItem.serverLabel || activeHeroItem.title,
+        url: activeHeroItem.url,
+        isHls: (activeHeroItem.url || "").toLowerCase().includes(".m3u8")
+      }, true);
+    }
+
+    function openHeroActiveAnimePlayer() {
+      const title = (activeHeroItem && activeHeroItem.title) ? activeHeroItem.title : "Frieren: Beyond Journey's End";
+      openPlayerModal(title, 1, 0);
+    }
+
+    function initHeroStream() {
+      playRandomHeroVideo();
+    }
+
+    function cycleHeroServer() {
+      playRandomHeroVideo();
+    }
+
+    function toggleHeroMute() {
+      const video = document.getElementById("heroVideo");
+      video.muted = !video.muted;
+      document.getElementById("heroMuteBtn").textContent = video.muted ? "🔇 Unmute Live Stream" : "🔊 Mute Live Stream";
+    }
+
+    function filterWebCatalogCategory(category, btnEl) {
+      currentCatalogFilter = category || "ALL";
+      const chipContainer = document.getElementById("catalogCategoryChips");
+      if (chipContainer && btnEl) {
+        Array.from(chipContainer.querySelectorAll(".chip")).forEach(b => b.classList.remove("active"));
+        btnEl.classList.add("active");
+      }
+      renderStreamsAndCatalog(currentCatalogFullList, true);
+    }
+
+    function renderStreamsAndCatalog(list, skipFullUpdate) {
+      if (!skipFullUpdate && Array.isArray(list) && list.length > 0) {
+        currentCatalogFullList = list;
+      }
+      const sourceList = (Array.isArray(list) && list.length > 0) ? list : currentCatalogFullList;
+      let displayList = sourceList;
+      if (currentCatalogFilter === "TOP") {
+        displayList = sourceList.filter(a => parseFloat(a.score || "8.8") >= 8.9);
+      } else if (currentCatalogFilter === "MOVIE") {
+        displayList = sourceList.filter(a => (a.type || "").toUpperCase() === "MOVIE" || Number(a.episodes) === 1);
+      } else if (currentCatalogFilter === "TRENDING") {
+        displayList = sourceList.slice(0, 40);
+      }
+      if (!displayList.length) displayList = sourceList;
+
+      const streamRow = document.getElementById("liveStreamRow");
+      const grid = document.getElementById("animeGrid");
+      const statusEl = document.getElementById("catalogStatus");
+      if (statusEl) {
+        statusEl.textContent = `Showing ${displayList.length} Anime • Live Jikan v4 & AniList GraphQL`;
+      }
+
+      streamRow.innerHTML = sourceList.slice(0, 14).map((item, idx) => {
+        const srv = UPSTREAM_SERVERS[idx % UPSTREAM_SERVERS.length];
+        return `
+          <div class="stream-card" onclick="openPlayerModal('${(item.title || "").replace(/'/g, "\\'")}', 1, ${idx % UPSTREAM_SERVERS.length})">
+            <div class="stream-thumb">
+              <img src="${item.poster}" alt="${item.title}" loading="lazy" />
+              <div class="stream-server-tag"><span class="dot-live"></span> ${srv.name}</div>
+              <div class="stream-play-btn">▶</div>
+            </div>
+            <div class="stream-meta">
+              <h4>${item.title}</h4>
+              <p>Episode 1 • 1080p SUB/DUB • ${item.studio || 'Simulcast'}</p>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      grid.innerHTML = displayList.map((item, idx) => `
+        <div class="anime-card" onclick="openPlayerModal('${(item.title || "").replace(/'/g, "\\'")}', 1, ${idx % UPSTREAM_SERVERS.length})">
+          <div class="anime-poster">
+            <img src="${item.poster}" alt="${item.title}" loading="lazy" />
+            <div class="anime-score">★ ${item.score || '8.9'}</div>
+          </div>
+          <div class="anime-info">
+            <h4>${item.title}</h4>
+            <p>${item.episodes || 12} Eps • ${item.type || 'TV'} • 1080p</p>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    // Format seconds to MM:SS or HH:MM:SS
+    function formatTimeSec(sec) {
+      if (!sec || isNaN(sec) || sec < 0) return "00:00";
+      const total = Math.floor(sec);
+      const h = Math.floor(total / 3600);
+      const m = Math.floor((total % 3600) / 60);
+      const s = total % 60;
+      const pad = n => String(n).padStart(2, "0");
+      return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+    }
+
+    function openPlayerModal(title, ep, serverIdx) {
+      document.getElementById("heroVideo").pause();
+      document.getElementById("modalAnimeTitle").textContent = title;
+      document.getElementById("playerModal").classList.add("active");
+      currentPlayingAnime = { title: title, episode: ep || 1, serverIdx: serverIdx || 0 };
+      selectModalServer(serverIdx || 0);
+    }
+
+    function closePlayerModal() {
+      const v = document.getElementById("modalVideo");
+      v.pause();
+      document.getElementById("playerModal").classList.remove("active");
+      document.getElementById("heroVideo").play().catch(() => {});
+    }
+
+    function resolveExactAnimeStreamUrl(animeTitle, variantIndex) {
+      const t = (animeTitle || "").toLowerCase();
+      let pool = [];
+      if (t.includes("frieren")) {
+        pool = ["https://v.animethemes.moe/SousouNoFrieren-OP1.webm", "https://v.animethemes.moe/SousouNoFrieren-ED1.webm", "https://v.animethemes.moe/SousouNoFrieren-OP1-NCBD1080.webm"];
+      } else if (t.includes("jujutsu")) {
+        pool = ["https://v.animethemes.moe/JujutsuKaisenS2-OP1.webm", "https://v.animethemes.moe/JujutsuKaisen-OP1.webm"];
+      } else if (t.includes("solo leveling") || t.includes("ore dake")) {
+        pool = ["https://v.animethemes.moe/SoloLeveling-OP1.webm", "https://v.animethemes.moe/SoloLeveling-ED1.webm"];
+      } else if (t.includes("demon slayer") || t.includes("kimetsu")) {
+        pool = ["https://v.animethemes.moe/KimetsuNoYaiba-OP1.webm", "https://v.animethemes.moe/KimetsuNoYaiba-OP1-NCBD1080.webm"];
+      } else if (t.includes("chainsaw")) {
+        pool = ["https://v.animethemes.moe/ChainsawMan-OP1.webm", "https://v.animethemes.moe/ChainsawMan-ED1.webm"];
+      } else if (t.includes("attack on titan") || t.includes("shingeki")) {
+        pool = ["https://v.animethemes.moe/ShingekiNoKyojin-OP1.webm", "https://v.animethemes.moe/ShingekiNoKyojin-OP2.webm"];
+      } else if (t.includes("cyberpunk") || t.includes("edgerunners")) {
+        pool = ["https://v.animethemes.moe/CyberpunkEdgerunners-OP1.webm", "https://v.animethemes.moe/CyberpunkEdgerunners-ED1.webm"];
+      } else if (t.includes("spy") && t.includes("family")) {
+        pool = ["https://v.animethemes.moe/SpyXFamily-OP1.webm", "https://v.animethemes.moe/SpyXFamily-ED1.webm"];
+      } else if (t.includes("one piece")) {
+        pool = ["https://v.animethemes.moe/OnePiece-OP1-NCDVD480.webm", "https://v.animethemes.moe/OnePiece-OP2-NCDVD480.webm"];
+      } else if (t.includes("naruto")) {
+        pool = ["https://v.animethemes.moe/Naruto-OP1.webm", "https://v.animethemes.moe/Naruto-OP2.webm"];
+      } else if (t.includes("bleach")) {
+        pool = ["https://v.animethemes.moe/Bleach-OP1.webm", "https://v.animethemes.moe/Bleach-OP2.webm"];
+      } else if (t.includes("blue lock")) {
+        pool = ["https://v.animethemes.moe/BlueLock-OP1.webm", "https://v.animethemes.moe/BlueLock-OP1-NCBD1080.webm"];
+      } else if (t.includes("vinland")) {
+        pool = ["https://v.animethemes.moe/VinlandSaga-OP1.webm", "https://v.animethemes.moe/VinlandSagaS2-OP1.webm"];
+      } else if (t.includes("hunter x hunter") || t.includes("hunter×hunter")) {
+        pool = ["https://v.animethemes.moe/HunterXHunter2011-OP1.webm", "https://v.animethemes.moe/HunterXHunter2011-ED1.webm"];
+      } else if (t.includes("fullmetal") || t.includes("hagane no renkinjutsushi")) {
+        pool = ["https://v.animethemes.moe/FullmetalAlchemistBrotherhood-OP1.webm", "https://v.animethemes.moe/FullmetalAlchemistBrotherhood-ED1.webm"];
+      } else if (t.includes("dandadan") || t.includes("dan da dan")) {
+        pool = ["https://v.animethemes.moe/Dandadan-OP1.webm", "https://v.animethemes.moe/Dandadan-ED1.webm"];
+      } else if (t.includes("steins")) {
+        pool = ["https://v.animethemes.moe/SteinsGate-OP1.webm", "https://v.animethemes.moe/SteinsGate-ED1.webm"];
+      } else if (t.includes("death note")) {
+        pool = ["https://v.animethemes.moe/DeathNote-OP1.webm", "https://v.animethemes.moe/DeathNote-ED1.webm"];
+      } else if (t.includes("mob psycho")) {
+        pool = ["https://v.animethemes.moe/MobPsycho100-OP1.webm", "https://v.animethemes.moe/MobPsycho100S2-OP1.webm"];
+      } else if (t.includes("code geass")) {
+        pool = ["https://v.animethemes.moe/CodeGeass-OP1.webm", "https://v.animethemes.moe/CodeGeassR2-OP1.webm"];
+      }
+      if (!pool.length) return "";
+      return pool[Math.abs(variantIndex || 0) % pool.length];
+    }
+
+    function selectModalServer(idx) {
+      const allServers = getCombinedServersForPlayer();
+      currentModalServerIndex = idx % allServers.length;
+      const srv = allServers[currentModalServerIndex];
+      const epNum = currentPlayingAnime ? currentPlayingAnime.episode : 1;
+      const animeTitle = currentPlayingAnime ? currentPlayingAnime.title : "";
+
+      const normTitle = (animeTitle || "").trim().toLowerCase();
+      const matchedAdminStream = (adminEpisodeStreamsList || []).find(st =>
+        (st.animeTitle || "").trim().toLowerCase() === normTitle && Number(st.episodeNumber) === Number(epNum)
+      ) || (adminEpisodeStreamsList || []).find(st =>
+        (st.animeTitle || "").trim().toLowerCase() === normTitle
+      );
+
+      const isCustomServerDirect = srv.code && srv.code.startsWith("ADM-") && srv.url && (
+        srv.url.trim().startsWith("<") ||
+        srv.url.includes(".m3u8") ||
+        srv.url.includes(".mp4") ||
+        srv.url.includes(".webm") ||
+        srv.url.includes("/embed/") ||
+        srv.url.includes("mediadelivery.net") ||
+        srv.url.includes("cloudflarestream.com") ||
+        srv.url.includes("vidsrc") ||
+        srv.url.includes("filemoon")
+      );
+
+      const candidatePayload = matchedAdminStream
+        ? matchedAdminStream.streamUrl
+        : (isCustomServerDirect ? srv.url : resolveExactAnimeStreamUrl(animeTitle, currentModalServerIndex + epNum - 1));
+
+      const activeServerName = matchedAdminStream ? (matchedAdminStream.serverName || srv.name) : srv.name;
+      const corner = document.getElementById("modalEpCornerBadge");
+      const htmlStage = document.getElementById("modalHtmlEmbedStage");
+      const unavailOverlay = document.getElementById("modalUnavailableOverlay");
+      const v = document.getElementById("modalVideo");
+
+      const group = document.getElementById("serverSelectorGroup");
+      if (group) {
+        group.innerHTML = allServers.map((sItem, sIdx) =>
+          `<button class="chip ${sIdx === currentModalServerIndex ? 'active' : ''}" onclick="selectModalServer(${sIdx})" title="${sItem.name}">${sItem.code}</button>`
+        ).join("");
+      }
+
+      if (!candidatePayload || !candidatePayload.trim()) {
+        if (v) { v.pause(); v.removeAttribute("src"); v.load(); }
+        if (htmlStage) { htmlStage.style.display = "none"; htmlStage.innerHTML = ""; }
+        if (unavailOverlay) unavailOverlay.style.display = "flex";
+        document.getElementById("modalEpisodeSub").textContent = "Video not available right now";
+        if (corner) corner.textContent = "Video not available right now";
+        showPlayerKeyToast("Video not available right now");
+        return;
+      }
+
+      if (unavailOverlay) unavailOverlay.style.display = "none";
+      const trimmed = candidatePayload.trim();
+      const isHtmlOrEmbed = trimmed.startsWith("<") ||
+        trimmed.toLowerCase().includes("<iframe") ||
+        trimmed.toLowerCase().includes("<video") ||
+        trimmed.toLowerCase().includes("mediadelivery.net/embed") ||
+        trimmed.toLowerCase().includes("cloudflarestream.com") ||
+        trimmed.toLowerCase().includes("vidsrc") ||
+        trimmed.toLowerCase().includes("filemoon") ||
+        trimmed.toLowerCase().includes("streamwish") ||
+        trimmed.toLowerCase().includes("dood") ||
+        (trimmed.toLowerCase().includes("/embed/") && !trimmed.toLowerCase().includes("youtube.com"));
+
+      document.getElementById("modalEpisodeSub").textContent = `Episode ${epNum} • ${activeServerName}`;
+      if (corner) corner.textContent = `EP ${epNum} • ${srv.code}`;
+
+      if (isHtmlOrEmbed && htmlStage) {
+        if (v) { v.pause(); v.removeAttribute("src"); v.load(); }
+        htmlStage.style.display = "block";
+        htmlStage.innerHTML = trimmed.startsWith("<")
+          ? trimmed
+          : `<iframe src="${trimmed}" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen style="width:100%;height:100%;border:0;"></iframe>`;
+        return;
+      }
+
+      if (htmlStage) { htmlStage.style.display = "none"; htmlStage.innerHTML = ""; }
+      attachStream(v, { ...srv, url: trimmed, isHls: trimmed.toLowerCase().includes(".m3u8") }, false);
+    }
+
+    function toggleModalPlay() {
+      const v = document.getElementById("modalVideo");
+      if (v.paused) {
+        v.play().catch(() => {});
+        document.getElementById("playPauseBtn").textContent = "⏸ Pause";
+        showPlayerKeyToast("▶ Playing [Space]");
+      } else {
+        v.pause();
+        document.getElementById("playPauseBtn").textContent = "▶ Play";
+        showPlayerKeyToast("⏸ Paused [Space]");
+      }
+    }
+
+    function skipSeconds(delta) {
+      const v = document.getElementById("modalVideo");
+      const maxDur = (v.duration && !isNaN(v.duration) && v.duration > 0) ? v.duration : 1440;
+      v.currentTime = Math.max(0, Math.min(maxDur, (v.currentTime || 0) + delta));
+      const label = delta > 0 ? `⏩ Forward +${delta}s [→]` : `⏪ Rewind ${delta}s [←]`;
+      showPlayerKeyToast(`${label} • ${formatTimeSec(v.currentTime)}`);
+    }
+
+    let keyToastTimer = null;
+    function showPlayerKeyToast(message) {
+      const toast = document.getElementById("playerKeyToast");
+      const statusEl = document.getElementById("kbdLastAction");
+      if (statusEl) statusEl.textContent = message;
+      if (!toast) return;
+      toast.textContent = message;
+      toast.classList.add("visible");
+      if (keyToastTimer) clearTimeout(keyToastTimer);
+      keyToastTimer = setTimeout(() => {
+        toast.classList.remove("visible");
+      }, 1300);
+    }
+
+    function toggleModalFullscreen() {
+      const box = document.getElementById("playerBox");
+      const fsBtn = document.getElementById("fullscreenBtn");
+      const fsChip = document.getElementById("modalFsChip");
+      if (!box) return;
+
+      const isNativeFs = !!document.fullscreenElement || !!document.webkitFullscreenElement;
+      const isCssFs = box.classList.contains("fullscreen-active");
+
+      if (!isNativeFs && !isCssFs) {
+        box.classList.add("fullscreen-active");
+        if (box.requestFullscreen) {
+          box.requestFullscreen().catch(() => {});
+        } else if (box.webkitRequestFullscreen) {
+          box.webkitRequestFullscreen();
+        }
+        if (fsBtn) fsBtn.textContent = "🗗 Exit Fullscreen (F)";
+        if (fsChip) fsChip.textContent = "🗗 Exit Fullscreen [F]";
+        showPlayerKeyToast("⛶ Fullscreen Mode ON [F]");
+      } else {
+        box.classList.remove("fullscreen-active");
+        if (document.fullscreenElement && document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        } else if (document.webkitFullscreenElement && document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        }
+        if (fsBtn) fsBtn.textContent = "⛶ Fullscreen (F)";
+        if (fsChip) fsChip.textContent = "⛶ Fullscreen [F]";
+        showPlayerKeyToast("🗗 Fullscreen Mode OFF [F]");
+      }
+    }
+
+    document.addEventListener("fullscreenchange", () => {
+      const box = document.getElementById("playerBox");
+      const fsBtn = document.getElementById("fullscreenBtn");
+      const fsChip = document.getElementById("modalFsChip");
+      if (!document.fullscreenElement && box) {
+        box.classList.remove("fullscreen-active");
+        if (fsBtn) fsBtn.textContent = "⛶ Fullscreen (F)";
+        if (fsChip) fsChip.textContent = "⛶ Fullscreen [F]";
+      }
+    });
+
+    // Keyboard Event Listeners for Video Player Modal:
+    // - Spacebar: Play / Pause
+    // - ArrowLeft / ArrowRight: Seek backward / forward 10s
+    // - ArrowUp / ArrowDown: Volume up / down 10%
+    // - 'F' / 'f': Fullscreen toggle
+    // - 'Escape': Exit fullscreen or close modal
+    window.addEventListener("keydown", (e) => {
+      const modal = document.getElementById("playerModal");
+      if (!modal || !modal.classList.contains("active")) return;
+
+      const tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : "";
+      if (tag === "INPUT" || tag === "TEXTAREA" || (e.target && e.target.isContentEditable)) return;
+
+      if (e.code === "Space" || e.key === " ") {
+        e.preventDefault();
+        toggleModalPlay();
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        skipSeconds(-10);
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        skipSeconds(10);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        const v = document.getElementById("modalVideo");
+        v.muted = false;
+        v.volume = Math.min(1, Math.round((v.volume + 0.1) * 10) / 10);
+        showPlayerKeyToast(`🔊 Volume ${Math.round(v.volume * 100)}% [↑]`);
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        const v = document.getElementById("modalVideo");
+        v.volume = Math.max(0, Math.round((v.volume - 0.1) * 10) / 10);
+        showPlayerKeyToast(`🔉 Volume ${Math.round(v.volume * 100)}% [↓]`);
+      } else if (e.key === "f" || e.key === "F" || e.code === "KeyF") {
+        e.preventDefault();
+        toggleModalFullscreen();
+      } else if (e.key === "Escape") {
+        const box = document.getElementById("playerBox");
+        if (box && box.classList.contains("fullscreen-active")) {
+          e.preventDefault();
+          toggleModalFullscreen();
+        } else {
+          closePlayerModal();
+        }
+      }
+    });
+
+    function seekFromProgressBar(e) {
+      const bar = document.getElementById("customProgressBar");
+      const rect = bar.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const v = document.getElementById("modalVideo");
+      if (v.duration && !isNaN(v.duration)) {
+        v.currentTime = ratio * v.duration;
+      }
+    }
+
+    function toggleBanglaSub() {
+      banglaSubEnabled = !banglaSubEnabled;
+      document.getElementById("banglaSubOverlay").style.display = banglaSubEnabled ? "block" : "none";
+      const btn = document.getElementById("subToggleBtn");
+      btn.textContent = banglaSubEnabled ? "🇧🇩 Bangla Sub: ON" : "🇧🇩 Bangla Sub: OFF";
+      btn.classList.toggle("active", banglaSubEnabled);
+    }
+
+    // Bind custom progress bar updates to video element
+    const modalVideoEl = document.getElementById("modalVideo");
+    modalVideoEl.addEventListener("timeupdate", () => {
+      const cur = modalVideoEl.currentTime || 0;
+      const dur = (modalVideoEl.duration && !isNaN(modalVideoEl.duration) && modalVideoEl.duration > 0) ? modalVideoEl.duration : 1440;
+      const pct = Math.min(100, Math.max(0, (cur / dur) * 100));
+      document.getElementById("progressActiveBar").style.width = pct + "%";
+      document.getElementById("progressThumb").style.left = pct + "%";
+      document.getElementById("currentTimeText").textContent = formatTimeSec(cur);
+      document.getElementById("totalDurationText").textContent = formatTimeSec(dur);
+      document.getElementById("remainingTimeText").textContent = "-" + formatTimeSec(Math.max(0, dur - cur)) + ` (${Math.round(pct)}%)`;
+
+      if (modalVideoEl.buffered && modalVideoEl.buffered.length > 0) {
+        const bufEnd = modalVideoEl.buffered.end(modalVideoEl.buffered.length - 1);
+        const bufPct = Math.min(100, Math.round((bufEnd / dur) * 100));
+        document.getElementById("progressBufferBar").style.width = bufPct + "%";
+        document.getElementById("bufferPctText").textContent = `Buffer ${bufPct}%`;
+      }
+    });
+
+    // 24/7 Anime Radio
+    function toggleRadio() {
+      const audio = document.getElementById("radioAudio");
+      const btn = document.getElementById("radioPlayBtn");
+      if (audio.paused) {
+        audio.play();
+        btn.textContent = "⏸ Pause Radio";
+      } else {
+        audio.pause();
+        btn.textContent = "▶ Play 24/7 Radio";
+      }
+    }
+
+    function copyCurrentWebUrl() {
+      const urlEl = document.getElementById("currentWebUrlDisplay");
+      const activeUrl = (urlEl && urlEl.textContent) ? urlEl.textContent.trim() : "http://127.0.0.1:8080";
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(activeUrl).catch(() => {});
+      }
+      showPlayerKeyToast("🔗 Website Link Copied: " + activeUrl);
+    }
+
+    let lastCatalogFetchAction = () => loadLiveCatalogAndVersion();
+
+    function updateOfflineIndicator(contextLabel) {
+      const banner = document.getElementById("offlineModeBanner");
+      const alertText = document.getElementById("offlineModeAlertText");
+      const isOnline = navigator.onLine !== false;
+      if (!isOnline) {
+        if (banner) banner.style.display = "flex";
+        if (alertText) {
+          alertText.textContent = contextLabel
+            ? `Alert: Connection lost (navigator.onLine = false) while attempting to fetch ${contextLabel}. Showing cached catalog.`
+            : "Offline Mode Active (navigator.onLine = false): Internet connection lost.";
+        }
+      } else if (banner) {
+        banner.style.display = "none";
+      }
+      return isOnline;
+    }
+
+    function showFetchErrorNotification(errorMessage, retryAction) {
+      if (typeof retryAction === "function") {
+        lastCatalogFetchAction = retryAction;
+      }
+      const box = document.getElementById("fetchErrorNotification");
+      const msgEl = document.getElementById("fetchErrorMessageText");
+      if (msgEl) msgEl.textContent = errorMessage || "Failed to fetch catalog data. Tap Retry to re-attempt the connection.";
+      if (box) box.style.display = "flex";
+    }
+
+    function hideFetchErrorNotification() {
+      const box = document.getElementById("fetchErrorNotification");
+      if (box) box.style.display = "none";
+    }
+
+    function retryLastCatalogFetch() {
+      hideFetchErrorNotification();
+      updateOfflineIndicator("catalog data");
+      if (typeof lastCatalogFetchAction === "function") {
+        lastCatalogFetchAction();
+      } else {
+        loadLiveCatalogAndVersion();
+      }
+    }
+
+    window.addEventListener("offline", () => {
+      updateOfflineIndicator("catalog data");
+      showFetchErrorNotification("Connection lost (navigator.onLine = false) while fetching catalog data. Click 'Retry' to reconnect.", () => loadLiveCatalogAndVersion());
+    });
+
+    window.addEventListener("online", () => {
+      updateOfflineIndicator();
+      hideFetchErrorNotification();
+      loadLiveCatalogAndVersion();
+    });
+
+    function applyUnifiedPayloadToWeb(data) {
+      if (!data) return;
+      if (data.bunnyCdnLogoUrl) {
+        applyBunnyLogoOnWeb(data.bunnyCdnLogoUrl, data.bunnyCdnBaseUrl);
+      }
+      if (Array.isArray(data.servers)) {
+        adminServersList = data.servers;
+        try { localStorage.setItem(WEB_ADMIN_SERVERS_KEY, JSON.stringify(adminServersList)); } catch (e) {}
+      }
+      if (Array.isArray(data.episodeStreams)) {
+        adminEpisodeStreamsList = data.episodeStreams;
+        try { localStorage.setItem(WEB_ADMIN_STREAMS_KEY, JSON.stringify(adminEpisodeStreamsList)); } catch (e) {}
+      }
+      if (Array.isArray(data.anime) && data.anime.length > 0) {
+        adminCustomCatalogList = data.anime;
+        try { localStorage.setItem(WEB_ADMIN_CATALOG_KEY, JSON.stringify(adminCustomCatalogList)); } catch (e) {}
+      }
+      renderWebAdminLists();
+    }
+
+    function mergeCatalogWithAdminItems(remoteList) {
+      const merged = new Map();
+      (adminCustomCatalogList || []).forEach(item => {
+        if (item && item.title) merged.set(item.title.toLowerCase(), item);
+      });
+      (remoteList || []).forEach(item => {
+        if (item && item.title && !merged.has(item.title.toLowerCase())) {
+          merged.set(item.title.toLowerCase(), item);
+        }
+      });
+      (INITIAL_CATALOG || []).forEach(item => {
+        if (item && item.title && !merged.has(item.title.toLowerCase())) {
+          merged.set(item.title.toLowerCase(), item);
+        }
+      });
+      return Array.from(merged.values());
+    }
+
+    async function loadLiveCatalogAndVersion() {
+      lastCatalogFetchAction = () => loadLiveCatalogAndVersion();
+      loadPersistedWebAdminState();
+      const urlDisplay = document.getElementById("currentWebUrlDisplay");
+      if (urlDisplay) {
+        if (window.location.protocol === "http:" || window.location.protocol === "https:") {
+          urlDisplay.textContent = window.location.origin + window.location.pathname;
+        } else {
+          urlDisplay.textContent = "http://127.0.0.1:8080";
+        }
+      }
+      renderStreamsAndCatalog(mergeCatalogWithAdminItems(INITIAL_CATALOG));
+      initHeroStream();
+
+      if (window.KuroStreamBridge && typeof window.KuroStreamBridge.getAppCatalogJson === "function") {
+        try {
+          const bridgeData = JSON.parse(window.KuroStreamBridge.getAppCatalogJson());
+          applyUnifiedPayloadToWeb(bridgeData);
+          if (bridgeData.anime && bridgeData.anime.length > 0) {
+            renderStreamsAndCatalog(mergeCatalogWithAdminItems(bridgeData.anime));
+            document.getElementById("syncStatusText").textContent = `App & Web Synced • v${bridgeData.versionName || '1.2.0'}`;
+          }
+          if (bridgeData.webPortalUrl && urlDisplay && !bridgeData.webPortalUrl.includes("ais-pre-")) {
+            urlDisplay.textContent = bridgeData.webPortalUrl;
+          }
+        } catch (err) {}
+      }
+
+      if (!updateOfflineIndicator("live catalog data")) {
+        document.getElementById("catalogStatus").textContent = "Offline Mode (navigator.onLine = false) • Cached Catalog";
+        showFetchErrorNotification(
+          "Lost connection (navigator.onLine = false) while attempting to fetch catalog data. Click 'Retry' to re-attempt the connection.",
+          () => loadLiveCatalogAndVersion()
+        );
+        return;
+      }
+
+      try {
+        const res = await fetch("./version.json", { cache: "no-store" });
+        if (res.ok) {
+          const ver = await res.json();
+          applyUnifiedPayloadToWeb(ver);
+          if (ver.versionName) {
+            document.getElementById("versionLabel").textContent = "v" + ver.versionName;
+            document.getElementById("syncStatusText").textContent = "App & Web Synced • v" + ver.versionName;
+          }
+          if (ver.apkDownloadUrl && !window.KuroStreamBridge) {
+            document.getElementById("apkDownloadBtn").href = ver.apkDownloadUrl;
+            document.getElementById("bannerApkLink").href = ver.apkDownloadUrl;
+          }
+        }
+      } catch (e) {}
+
+      try {
+        const jikanTopPromise = fetch("https://api.jikan.moe/v4/top/anime?limit=25")
+          .then(r => r.ok ? r.json() : { data: [] })
+          .catch(() => ({ data: [] }));
+        const jikanSeasonalPromise = fetch("https://api.jikan.moe/v4/seasons/now?limit=25")
+          .then(r => r.ok ? r.json() : { data: [] })
+          .catch(() => ({ data: [] }));
+        const gqlHomeQuery = `
+          query ($page: Int, $perPage: Int) {
+            Page(page: $page, perPage: $perPage) {
+              media(type: ANIME, isAdult: false, sort: [TRENDING_DESC, POPULARITY_DESC]) {
+                id
+                idMal
+                title { english romaji native }
+                format
+                episodes
+                averageScore
+                coverImage { extraLarge large }
+                studios(isMain: true) { nodes { name } }
+              }
+            }
+          }
+        `;
+        const gqlHomePromise = fetch("https://graphql.anilist.co", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify({ query: gqlHomeQuery, variables: { page: 1, perPage: 50 } })
+        }).then(r => r.ok ? r.json() : {}).catch(() => ({}));
+
+        const [jikanTopJson, jikanSeasonJson, gqlHomeJson] = await Promise.all([
+          jikanTopPromise,
+          jikanSeasonalPromise,
+          gqlHomePromise
+        ]);
+
+        const combinedRemote = [];
+        const addJikanItems = (arr) => {
+          (arr || []).forEach(a => {
+            if (!a) return;
+            combinedRemote.push({
+              id: "mal_" + a.mal_id,
+              title: a.title_english || a.title,
+              studio: (a.studios && a.studios[0]) ? a.studios[0].name : (a.type || "Jikan Live"),
+              score: a.score || "8.8",
+              episodes: a.episodes || 12,
+              type: a.type || "TV",
+              poster: a.images?.jpg?.large_image_url || a.images?.jpg?.image_url
+            });
+          });
+        };
+        addJikanItems(jikanTopJson.data);
+        addJikanItems(jikanSeasonJson.data);
+
+        const gqlMedia = (gqlHomeJson && gqlHomeJson.data && gqlHomeJson.data.Page && Array.isArray(gqlHomeJson.data.Page.media))
+          ? gqlHomeJson.data.Page.media
+          : [];
+        gqlMedia.forEach(m => {
+          if (!m) return;
+          const tObj = m.title || {};
+          const title = tObj.english || tObj.romaji || tObj.native || "Anime";
+          const studioNode = (m.studios && m.studios.nodes && m.studios.nodes[0]) ? m.studios.nodes[0].name : (m.format || "AniList GraphQL");
+          combinedRemote.push({
+            id: m.idMal ? ("mal_" + m.idMal) : ("gql_" + m.id),
+            title: title,
+            studio: studioNode,
+            score: m.averageScore ? (m.averageScore / 10).toFixed(1) : "8.6",
+            episodes: m.episodes || 12,
+            type: m.format || "TV",
+            poster: (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large)) || ""
+          });
+        });
+
+        if (combinedRemote.length > 0) {
+          renderStreamsAndCatalog(mergeCatalogWithAdminItems(combinedRemote));
+          hideFetchErrorNotification();
+        }
+      } catch (e) {
+        updateOfflineIndicator("live catalog data");
+        showFetchErrorNotification(
+          `Catalog fetch failed (${e.message || "Network error"}). Click 'Retry' to re-attempt the connection.`,
+          () => loadLiveCatalogAndVersion()
+        );
+      }
+    }
+
+    async function loadMoreLiveAnime() {
+      currentLivePage += 1;
+      const btn = document.getElementById("loadMoreAnimeBtn");
+      if (btn) btn.textContent = `⏳ Loading Page ${currentLivePage} from Jikan v4 & GraphQL...`;
+      try {
+        const jikanNextPromise = fetch(`https://api.jikan.moe/v4/top/anime?page=${currentLivePage}&limit=25`)
+          .then(r => r.ok ? r.json() : { data: [] })
+          .catch(() => ({ data: [] }));
+        const gqlNextQuery = `
+          query ($page: Int, $perPage: Int) {
+            Page(page: $page, perPage: $perPage) {
+              media(type: ANIME, isAdult: false, sort: [POPULARITY_DESC, SCORE_DESC]) {
+                id
+                idMal
+                title { english romaji native }
+                format
+                episodes
+                averageScore
+                coverImage { extraLarge large }
+                studios(isMain: true) { nodes { name } }
+              }
+            }
+          }
+        `;
+        const gqlNextPromise = fetch("https://graphql.anilist.co", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify({ query: gqlNextQuery, variables: { page: currentLivePage, perPage: 50 } })
+        }).then(r => r.ok ? r.json() : {}).catch(() => ({}));
+
+        const [jikanJson, gqlJson] = await Promise.all([jikanNextPromise, gqlNextPromise]);
+        const moreItems = [];
+        (jikanJson.data || []).forEach(a => {
+          moreItems.push({
+            id: "mal_" + a.mal_id,
+            title: a.title_english || a.title,
+            studio: (a.studios && a.studios[0]) ? a.studios[0].name : (a.type || "Jikan Live"),
+            score: a.score || "8.6",
+            episodes: a.episodes || 12,
+            type: a.type || "TV",
+            poster: a.images?.jpg?.large_image_url || a.images?.jpg?.image_url
+          });
+        });
+        const gqlMedia = (gqlJson && gqlJson.data && gqlJson.data.Page && Array.isArray(gqlJson.data.Page.media))
+          ? gqlJson.data.Page.media
+          : [];
+        gqlMedia.forEach(m => {
+          const tObj = m.title || {};
+          const title = tObj.english || tObj.romaji || tObj.native || "Anime";
+          const studioNode = (m.studios && m.studios.nodes && m.studios.nodes[0]) ? m.studios.nodes[0].name : (m.format || "AniList");
+          moreItems.push({
+            id: m.idMal ? ("mal_" + m.idMal) : ("gql_" + m.id),
+            title: title,
+            studio: studioNode,
+            score: m.averageScore ? (m.averageScore / 10).toFixed(1) : "8.5",
+            episodes: m.episodes || 12,
+            type: m.format || "TV",
+            poster: (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large)) || ""
+          });
+        });
+
+        const merged = mergeCatalogWithAdminItems([...currentCatalogFullList, ...moreItems]);
+        renderStreamsAndCatalog(merged);
+        if (btn) btn.textContent = `➕ Load More Anime (Showing ${merged.length} Anime • Page ${currentLivePage + 1})`;
+      } catch (e) {
+        if (btn) btn.textContent = "➕ Load More Anime (Jikan v4 + AniList GraphQL)";
+      }
+    }
+
+    // =========================================================================
+    // STEALTH ADMIN SECURITY GATE (PASSWORD: robiul1000) + ANTI-DDOS & WAF SHIELD
+    // =========================================================================
+    let isWebAdminAuthenticated = false;
+    let stealthLogoTapCount = 0;
+    let lastStealthLogoTapTime = 0;
+    let failedAdminAttempts = 0;
+    let adminLockoutUntilMs = 0;
+    let pendingAdminTabIdx = 0;
+    let ddosActionTimestamps = [];
+    let lastWebsiteInspectionReport = null;
+    let currentInspectorCategoryFilter = "ALL";
+
+    // XOR-obfuscated master password bytes for "robiul1000" (key 0x5A)
+    const OBFUSCATED_ADMIN_KEY = [40, 53, 56, 51, 47, 54, 107, 106, 106, 106];
+
+    function decodeMasterKey() {
+      return OBFUSCATED_ADMIN_KEY.map(b => String.fromCharCode(b ^ 0x5A)).join("");
+    }
+
+    function checkWebAntiDdosRateLimit() {
+      const now = Date.now();
+      ddosActionTimestamps = ddosActionTimestamps.filter(t => now - t < 10000);
+      if (ddosActionTimestamps.length >= 60) {
+        showAdminToast("🛡️ Anti-DDoS Shield: Rate limit exceeded! Slow down requests.");
+        return false;
+      }
+      ddosActionTimestamps.push(now);
+      return true;
+    }
+
+    function inspectAndSanitizeWaf(input) {
+      const str = String(input || "").trim();
+      const lower = str.toLowerCase();
+      const blocked = ["union select", "drop table", "javascript:", "onerror=", "onload=", "../", "..\\"];
+      for (const pat of blocked) {
+        if (lower.includes(pat)) {
+          throw new Error("WAF Security Alert: Malicious payload blocked (" + pat + ")");
+        }
+      }
+      return str;
+    }
+
+    function triggerStealthAdminLogoTap() {
+      const now = Date.now();
+      if (now - lastStealthLogoTapTime > 2500) {
+        stealthLogoTapCount = 1;
+      } else {
+        stealthLogoTapCount++;
+      }
+      lastStealthLogoTapTime = now;
+      if (stealthLogoTapCount >= 5) {
+        stealthLogoTapCount = 0;
+        openWebAdminModal(0);
+      }
+    }
+
+    // Keyboard shortcut Ctrl+Shift+A to open Stealth Admin Password Gate
+    document.addEventListener("keydown", function(e) {
+      if (e.ctrlKey && e.shiftKey && (e.key === "A" || e.key === "a")) {
+        e.preventDefault();
+        openWebAdminModal(0);
+      }
+    });
+
+    function revealUnlockedAdminButtons(show) {
+      ["publicHeaderAdminBtn", "publicBannerAdminBtn", "unavailableAdminBtn"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = show ? "inline-flex" : "none";
+      });
+    }
+
+    function closeAdminPasswordGate() {
+      const gate = document.getElementById("adminPasswordGateModal");
+      if (gate) gate.classList.remove("active");
+    }
+
+    function verifyStealthAdminPassword() {
+      if (!checkWebAntiDdosRateLimit()) return;
+      const errEl = document.getElementById("adminGateErrorText");
+      const now = Date.now();
+      if (now < adminLockoutUntilMs) {
+        const rem = Math.ceil((adminLockoutUntilMs - now) / 1000);
+        if (errEl) {
+          errEl.textContent = `🛡️ Brute-Force Lockout Active! Try again in ${rem}s.`;
+          errEl.style.display = "block";
+        }
+        return;
+      }
+
+      const inp = document.getElementById("adminGatePasswordInput");
+      const pwd = inp ? inp.value.trim() : "";
+      let matched = (pwd === decodeMasterKey());
+
+      if (!matched && window.KuroStreamBridge && typeof window.KuroStreamBridge.authenticateAdminFromWeb === "function") {
+        try {
+          matched = Boolean(window.KuroStreamBridge.authenticateAdminFromWeb(pwd));
+        } catch (e) {}
+      } else if (matched && window.KuroStreamBridge && typeof window.KuroStreamBridge.authenticateAdminFromWeb === "function") {
+        try { window.KuroStreamBridge.authenticateAdminFromWeb(pwd); } catch (e) {}
+      }
+
+      if (matched) {
+        isWebAdminAuthenticated = true;
+        failedAdminAttempts = 0;
+        adminLockoutUntilMs = 0;
+        if (inp) inp.value = "";
+        if (errEl) errEl.style.display = "none";
+        closeAdminPasswordGate();
+        revealUnlockedAdminButtons(true);
+        openWebAdminModal(pendingAdminTabIdx, true);
+      } else {
+        failedAdminAttempts++;
+        if (failedAdminAttempts >= 5) {
+          adminLockoutUntilMs = Date.now() + 30000;
+          if (errEl) {
+            errEl.textContent = "🛡️ Anti-DDoS Lockout: 5 failed attempts! Locked for 30 seconds.";
+            errEl.style.display = "block";
+          }
+        } else {
+          if (errEl) {
+            errEl.textContent = `❌ Access Denied! Invalid password (${5 - failedAdminAttempts} attempts remaining).`;
+            errEl.style.display = "block";
+          }
+        }
+      }
+    }
+
+    function lockAndHideWebAdmin() {
+      isWebAdminAuthenticated = false;
+      revealUnlockedAdminButtons(false);
+      closeWebAdminModal();
+    }
+
+    function showAdminToast(msg) {
+      const el = document.getElementById("webAdminToast");
+      if (!el) return;
+      el.textContent = msg;
+      el.style.display = "block";
+      setTimeout(() => { el.style.display = "none"; }, 3500);
+    }
+
+    function openWebAdminModal(tabIdx, forceUnlocked) {
+      if (forceUnlocked === true) {
+        isWebAdminAuthenticated = true;
+        revealUnlockedAdminButtons(true);
+      }
+      if (!isWebAdminAuthenticated) {
+        pendingAdminTabIdx = (typeof tabIdx === "number") ? tabIdx : 0;
+        const gate = document.getElementById("adminPasswordGateModal");
+        if (gate) {
+          gate.classList.add("active");
+          const inp = document.getElementById("adminGatePasswordInput");
+          if (inp) setTimeout(() => inp.focus(), 80);
+        }
+        return;
+      }
+      const modal = document.getElementById("webAdminModal");
+      if (!modal) return;
+      modal.classList.add("active");
+      if (typeof tabIdx === "number") switchWebAdminTab(tabIdx);
+      if (window.KuroStreamBridge && typeof window.KuroStreamBridge.getAppCatalogJson === "function") {
+        try {
+          applyUnifiedPayloadToWeb(JSON.parse(window.KuroStreamBridge.getAppCatalogJson()));
+        } catch (e) {}
+      }
+      renderWebAdminLists();
+    }
+
+    function closeWebAdminModal() {
+      const modal = document.getElementById("webAdminModal");
+      if (modal) modal.classList.remove("active");
+    }
+
+    function switchWebAdminTab(idx) {
+      [0, 1, 2, 3].forEach(i => {
+        const tab = document.getElementById("webAdminTab" + i);
+        const btn = document.getElementById("adminTabBtn" + i);
+        if (tab) tab.style.display = (i === idx) ? "block" : "none";
+        if (btn) btn.classList.toggle("active", i === idx);
+      });
+      renderWebAdminLists();
+    }
+
+    // =========================================================================
+    // WEBSITE URL INSPECTOR (EXTRACTS APIs, SCRAPED VIDEOS, CDNs & EMBEDS)
+    // =========================================================================
+    function setInspectorPresetUrl(url) {
+      const inp = document.getElementById("webInspectorUrlInput");
+      if (inp) inp.value = url;
+      inspectExternalWebsiteFromAdmin();
+    }
+
+    function filterWebInspectorResults(category, btnEl) {
+      currentInspectorCategoryFilter = category;
+      const grp = document.getElementById("webInspectorFilterGroup");
+      if (grp && btnEl) {
+        Array.from(grp.querySelectorAll(".chip")).forEach(c => c.classList.remove("active"));
+        btnEl.classList.add("active");
+      }
+      renderWebsiteInspectorReport(lastWebsiteInspectionReport);
+    }
+
+    function classifyWebResource(url) {
+      const lower = url.toLowerCase();
+      if (lower.includes(".m3u8") || lower.includes(".mp4") || lower.includes(".webm") || lower.includes(".mpd") || lower.includes("animethemes.moe/")) {
+        const fmt = lower.includes(".m3u8") ? "HLS (.m3u8)" : (lower.includes(".webm") ? "WebM 1080p" : "MP4 Stream");
+        const prov = lower.includes("b-cdn.net") ? "Bunny.net Video CDN" : (lower.includes("animethemes") ? "AnimeThemes Media CDN" : "Direct Scraped Video");
+        return {
+          id: "vid_" + Math.random().toString(36).slice(2, 9),
+          url: url,
+          category: "VIDEO",
+          providerName: prov,
+          formatBadge: fmt,
+          readyHtmlEmbed: `<video src="${url}" controls autoplay playsinline style="width:100%;height:100%;background:#000;"></video>`
+        };
+      }
+      if (lower.includes("/embed/") || lower.includes("mediadelivery.net") || lower.includes("vidsrc") || lower.includes("filemoon") || lower.includes("streamtape") || lower.includes("megacloud") || lower.includes("dood")) {
+        return {
+          id: "emb_" + Math.random().toString(36).slice(2, 9),
+          url: url,
+          category: "EMBED",
+          providerName: lower.includes("mediadelivery") ? "Bunny.net Stream Player" : "HTML5 Iframe Embed Player",
+          formatBadge: "Iframe Player",
+          readyHtmlEmbed: `<iframe src="${url}" allowfullscreen style="width:100%;height:100%;border:0;"></iframe>`
+        };
+      }
+      if (lower.includes("b-cdn.net") || lower.includes("bunnycdn") || lower.includes("cloudflare") || lower.includes("cloudfront.net") || lower.includes("jsdelivr") || lower.includes("myanimelist.net") || lower.includes("anilist") || lower.includes("akamai") || lower.includes("fastly") || lower.includes("cdn.")) {
+        const prov = lower.includes("b-cdn") ? "Bunny.net Edge CDN" : (lower.includes("cloudflare") ? "Cloudflare CDN" : (lower.includes("cloudfront") ? "AWS CloudFront CDN" : "Global Content CDN"));
+        return {
+          id: "cdn_" + Math.random().toString(36).slice(2, 9),
+          url: url,
+          category: "CDN",
+          providerName: prov,
+          formatBadge: "CDN Edge Node",
+          readyHtmlEmbed: `<link rel="preconnect" href="${url}" crossorigin />`
+        };
+      }
+      return {
+        id: "api_" + Math.random().toString(36).slice(2, 9),
+        url: url,
+        category: "API",
+        providerName: lower.includes("graphql") ? "GraphQL API" : (lower.includes("jikan") ? "Jikan REST API" : "Website REST/JSON API"),
+        formatBadge: lower.includes("graphql") ? "GraphQL" : "REST / JSON API",
+        readyHtmlEmbed: `fetch("${url}").then(r => r.json())`
+      };
+    }
+
+    async function inspectExternalWebsiteFromAdmin() {
+      if (!checkWebAntiDdosRateLimit()) return;
+      const inp = document.getElementById("webInspectorUrlInput");
+      let rawUrl = inp ? inp.value.trim() : "";
+      if (!rawUrl) return;
+      if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
+        rawUrl = "https://" + rawUrl;
+        if (inp) inp.value = rawUrl;
+      }
+
+      const btn = document.getElementById("webInspectorScanBtn");
+      if (btn) btn.textContent = "⏳ Scanning...";
+
+      try {
+        if (window.KuroStreamBridge && typeof window.KuroStreamBridge.inspectWebsiteFromWeb === "function") {
+          const rawJson = window.KuroStreamBridge.inspectWebsiteFromWeb(rawUrl);
+          const parsed = JSON.parse(rawJson);
+          if (parsed && parsed.status === "ok") {
+            lastWebsiteInspectionReport = parsed;
+            renderWebsiteInspectorReport(parsed);
+            if (btn) btn.textContent = "🔍 Scan Website";
+            showAdminToast(`✅ Extracted ${(parsed.allResources || []).length} APIs, Videos & CDNs from ${parsed.host}!`);
+            return;
+          }
+        }
+
+        try {
+          const lanRes = await fetch(`./api/admin/inspect?url=${encodeURIComponent(rawUrl)}`, { cache: "no-store" });
+          if (lanRes.ok) {
+            const parsed = await lanRes.json();
+            if (parsed && parsed.status === "ok") {
+              lastWebsiteInspectionReport = parsed;
+              renderWebsiteInspectorReport(parsed);
+              if (btn) btn.textContent = "🔍 Scan Website";
+              showAdminToast(`✅ Extracted ${(parsed.allResources || []).length} APIs, Videos & CDNs from ${parsed.host}!`);
+              return;
+            }
+          }
+        } catch (e) {}
+
+        let bodyText = "";
+        let httpStatus = 200;
+        try {
+          const directResp = await fetch(rawUrl);
+          httpStatus = directResp.status;
+          bodyText = await directResp.text();
+        } catch (corsErr) {
+          const proxyResp = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(rawUrl)}`);
+          httpStatus = proxyResp.status;
+          bodyText = await proxyResp.text();
+        }
+
+        const normalizedBody = bodyText.replace(/\\\//g, "/");
+        const urlRegex = /https?:\/\/[^\s"'<>\\)\]]+/gi;
+        const matches = normalizedBody.match(urlRegex) || [];
+        const uniqueUrls = Array.from(new Set([rawUrl, ...matches])).slice(0, 60);
+
+        const allResources = uniqueUrls.map(u => classifyWebResource(u.replace(/[.,;]+$/, "")));
+        const hostObj = new URL(rawUrl);
+        const report = {
+          status: "ok",
+          targetUrl: rawUrl,
+          host: hostObj.host,
+          httpStatus: httpStatus,
+          detectedFramework: "Deep Browser & CORS Inspector",
+          scrapedVideos: allResources.filter(r => r.category === "VIDEO"),
+          detectedCdns: allResources.filter(r => r.category === "CDN"),
+          detectedApis: allResources.filter(r => r.category === "API"),
+          embedPlayers: allResources.filter(r => r.category === "EMBED"),
+          allResources: allResources
+        };
+        lastWebsiteInspectionReport = report;
+        renderWebsiteInspectorReport(report);
+        showAdminToast(`✅ Extracted ${allResources.length} APIs, Videos & CDNs from ${report.host}!`);
+      } catch (err) {
+        showAdminToast(`⚠️ Inspection error: ${err.message || "Could not reach target URL"}`);
+      } finally {
+        if (btn) btn.textContent = "🔍 Scan Website";
+      }
+    }
+
+    function renderWebsiteInspectorReport(report) {
+      const container = document.getElementById("webInspectorResultsContainer");
+      const summaryBox = document.getElementById("webInspectorSummaryBox");
+      if (!container) return;
+      if (!report || !Array.isArray(report.allResources)) {
+        container.innerHTML = `<div style="color:var(--text-muted);font-size:12px;padding:10px;">Enter any website URL above and click "Scan Website" to extract its APIs, Scraped Videos, CDNs, and HTML Embed Players.</div>`;
+        return;
+      }
+
+      if (summaryBox) {
+        summaryBox.style.display = "block";
+        summaryBox.innerHTML = `🌐 Host: <b>${report.host || report.targetUrl}</b> • HTTP ${report.httpStatus || 200} • 🎬 Videos: <b>${(report.scrapedVideos || []).length}</b> • 📦 CDNs: <b>${(report.detectedCdns || []).length}</b> • 🔌 APIs: <b>${(report.detectedApis || []).length}</b> • 🖼️ Embeds: <b>${(report.embedPlayers || []).length}</b>`;
+      }
+
+      const list = currentInspectorCategoryFilter === "ALL"
+        ? report.allResources
+        : report.allResources.filter(r => r.category === currentInspectorCategoryFilter);
+
+      if (list.length === 0) {
+        container.innerHTML = `<div style="color:var(--text-muted);font-size:12px;padding:10px;">No resources in category "${currentInspectorCategoryFilter}". Switch to "All Discovered" to view all items.</div>`;
+        return;
+      }
+
+      container.innerHTML = list.map(res => {
+        const badgeColor = res.category === "VIDEO" ? "#00E676" : (res.category === "CDN" ? "#FFB800" : (res.category === "API" ? "#00F0FF" : "#FF2A5F"));
+        const safeUrl = (res.url || "").replace(/'/g, "\\'");
+        const safeProvider = (res.providerName || "Extracted Server").replace(/'/g, "\\'");
+        return `
+          <div style="background:#14161D;border:1px solid ${badgeColor}55;border-radius:10px;padding:12px;margin-bottom:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
+              <div>
+                <span style="background:${badgeColor}22;color:${badgeColor};border:1px solid ${badgeColor};font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;margin-right:6px;">${res.category}</span>
+                <b style="color:#fff;font-size:13px;">${res.providerName || 'Discovered Resource'}</b>
+              </div>
+              <span style="color:#00F0FF;font-size:11px;font-family:monospace;">${res.formatBadge || ''}</span>
+            </div>
+            <div style="background:#090B10;padding:8px 10px;border-radius:6px;font-family:monospace;font-size:11px;color:#E2E8F0;word-break:break-all;margin-bottom:8px;">
+              ${(res.url || '').replace(/</g, '&lt;')}
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-outline" style="padding:5px 10px;font-size:11px;" onclick="navigator.clipboard.writeText('${safeUrl}'); showAdminToast('✅ Copied URL to Clipboard!');">📋 Copy URL</button>
+              <button class="btn" style="background:#FF7A00;color:#fff;padding:5px 10px;font-size:11px;" onclick="quickAddInspectedServer('${safeProvider}', '${safeUrl}', '${res.category}')">➕ Add to Server Pool</button>
+              ${(res.category === 'VIDEO' || res.category === 'EMBED') ? `<button class="btn btn-primary" style="padding:5px 10px;font-size:11px;" onclick="quickAttachInspectedVideo('${safeUrl}', '${safeProvider}')">🎬 Attach to Anime Ep 1</button>` : ''}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function quickAddInspectedServer(providerName, url, category) {
+      document.getElementById("webSrvNameInput").value = providerName;
+      document.getElementById("webSrvPayloadInput").value = url;
+      setWebServerMode(category === "EMBED" ? "HTML" : (category === "API" ? "API" : "CDN"));
+      savePaidServerFromWebModal();
+    }
+
+    function quickAttachInspectedVideo(url, providerName) {
+      document.getElementById("webStreamUrlInput").value = url;
+      document.getElementById("webStreamServerName").value = providerName + " • 1080p";
+      saveEpisodeStreamFromWebModal();
+    }
+
+    function setWebServerMode(mode) {
+      currentWebServerMode = mode;
+      ["CDN", "API", "HTML"].forEach(m => {
+        const b = document.getElementById("srvModeBtn_" + m);
+        if (b) b.classList.toggle("active", m === mode);
+      });
+      const lbl = document.getElementById("webSrvPayloadLabel");
+      const inp = document.getElementById("webSrvPayloadInput");
+      if (mode === "CDN") {
+        if (lbl) lbl.textContent = "CDN Pull Zone / Direct Stream URL (.m3u8 / .mp4 / .b-cdn.net)";
+        if (inp && inp.value.startsWith("<")) inp.value = "https://robiulislam.b-cdn.net/anime/ep1/playlist.m3u8";
+      } else if (mode === "API") {
+        if (lbl) lbl.textContent = "Paid Server REST API Endpoint URL (JSON / HLS Resolver)";
+        if (inp) inp.value = "https://video.bunnycdn.com/library/1000/videos";
+      } else {
+        if (lbl) lbl.textContent = "Raw HTML / Iframe Embed Code (<iframe> or <video>)";
+        if (inp && !inp.value.startsWith("<")) {
+          inp.value = '<iframe src="https://iframe.mediadelivery.net/embed/library_id/video_id?autoplay=true" allowfullscreen style="width:100%;height:100%;border:0;"></iframe>';
+        }
+      }
+    }
+
+    function fillWebServerPreset(preset) {
+      const nameEl = document.getElementById("webSrvNameInput");
+      const payloadEl = document.getElementById("webSrvPayloadInput");
+      if (preset === "bunny_cdn") {
+        setWebServerMode("CDN");
+        nameEl.value = "Robiul Bunny.net CDN (robiulislam.b-cdn.net)";
+        payloadEl.value = "https://robiulislam.b-cdn.net";
+      } else if (preset === "bunny_embed") {
+        setWebServerMode("HTML");
+        nameEl.value = "Bunny Stream HTML5 Embed Player";
+        payloadEl.value = '<iframe src="https://iframe.mediadelivery.net/embed/library_id/video_id?autoplay=true" loading="lazy" style="border:none;width:100%;height:100%;" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture;" allowfullscreen="true"></iframe>';
+      } else if (preset === "cf_stream") {
+        setWebServerMode("CDN");
+        nameEl.value = "Cloudflare Stream & R2 Edge CDN";
+        payloadEl.value = "https://customer-stream.cloudflarestream.com/manifest/video.m3u8";
+      } else if (preset === "mux") {
+        setWebServerMode("CDN");
+        nameEl.value = "Mux Paid Video HLS CDN";
+        payloadEl.value = "https://stream.mux.com/PLAYBACK_ID.m3u8";
+      } else if (preset === "aws") {
+        setWebServerMode("CDN");
+        nameEl.value = "AWS S3 + CloudFront Media CDN";
+        payloadEl.value = "https://d111111abcdef8.cloudfront.net/anime/master.m3u8";
+      } else if (preset === "vidsrc") {
+        setWebServerMode("HTML");
+        nameEl.value = "VidSrc / Filemoon Paid Embed Server";
+        payloadEl.value = '<iframe src="https://vidsrc.xyz/embed/anime/frieren/1" allowfullscreen style="width:100%;height:100%;border:0;"></iframe>';
+      } else if (preset === "html_video") {
+        setWebServerMode("HTML");
+        nameEl.value = "Custom HTML5 Video Player";
+        payloadEl.value = '<video src="https://robiulislam.b-cdn.net/anime/ep1.mp4" controls autoplay playsinline style="width:100%;height:100%;background:#000;"></video>';
+      }
+    }
+
+    async function sendWebAdminActionToLan(paramsObj) {
+      try {
+        const qs = Object.entries(paramsObj).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v || "")}`).join("&");
+        const r = await fetch(`./api/admin/action?${qs}`, { cache: "no-store" });
+        if (r.ok) {
+          const updated = await r.json();
+          applyUnifiedPayloadToWeb(updated);
+          return true;
+        }
+      } catch (e) {}
+      return false;
+    }
+
+    async function saveBunnyLogoFromWebModal() {
+      const logoUrl = document.getElementById("webBunnyLogoInput").value.trim();
+      const baseUrl = document.getElementById("webSrvPayloadInput").value.trim();
+      if (!logoUrl) return;
+      applyBunnyLogoOnWeb(logoUrl, baseUrl.startsWith("http") ? baseUrl : null);
+      if (window.KuroStreamBridge && typeof window.KuroStreamBridge.updateBunnyLogoFromWeb === "function") {
+        try {
+          const res = JSON.parse(window.KuroStreamBridge.updateBunnyLogoFromWeb(logoUrl, baseUrl));
+          applyUnifiedPayloadToWeb(res);
+        } catch (e) {}
+      } else {
+        await sendWebAdminActionToLan({ type: "update_logo", logoUrl: logoUrl, baseUrl: baseUrl });
+      }
+      showAdminToast("✅ Bunny.net Logo Updated across Website & App!");
+    }
+
+    async function savePaidServerFromWebModal() {
+      const name = document.getElementById("webSrvNameInput").value.trim() || "Paid Server";
+      const payload = document.getElementById("webSrvPayloadInput").value.trim();
+      const apiKey = document.getElementById("webSrvKeyInput").value.trim();
+      if (!payload) return;
+      const category = currentWebServerMode === "HTML" ? "HTML_EMBED" : (currentWebServerMode === "API" ? "PAID_API" : "STREAMING");
+
+      if (window.KuroStreamBridge && typeof window.KuroStreamBridge.addPaidServerFromWeb === "function") {
+        try {
+          const updated = JSON.parse(window.KuroStreamBridge.addPaidServerFromWeb(name, payload, category, apiKey, payload.includes("b-cdn.net")));
+          applyUnifiedPayloadToWeb(updated);
+        } catch (e) {}
+      } else {
+        const ok = await sendWebAdminActionToLan({ type: "add_server", name: name, url: payload, category: category, apiKey: apiKey });
+        if (!ok) {
+          adminServersList = [{ id: "srv_" + Date.now(), name: name, baseUrl: payload, category: category, isEnabled: true, statusMessage: "200 OK" }, ...adminServersList];
+          try { localStorage.setItem(WEB_ADMIN_SERVERS_KEY, JSON.stringify(adminServersList)); } catch (e) {}
+        }
+      }
+      renderWebAdminLists();
+      showAdminToast(`✅ Saved ${name} (${category}) to Website & App!`);
+    }
+
+    async function saveEpisodeStreamFromWebModal() {
+      const title = document.getElementById("webStreamAnimeTitle").value.trim() || "Frieren: Beyond Journey's End";
+      const ep = parseInt(document.getElementById("webStreamEpNum").value || "1", 10) || 1;
+      const srvName = document.getElementById("webStreamServerName").value.trim() || "Paid Server • 1080p";
+      const streamUrl = document.getElementById("webStreamUrlInput").value.trim();
+      if (!streamUrl) return;
+
+      if (window.KuroStreamBridge && typeof window.KuroStreamBridge.addEpisodeStreamFromWeb === "function") {
+        try {
+          const updated = JSON.parse(window.KuroStreamBridge.addEpisodeStreamFromWeb("", title, ep, streamUrl, srvName, "1080p Full HD"));
+          applyUnifiedPayloadToWeb(updated);
+        } catch (e) {}
+      } else {
+        const ok = await sendWebAdminActionToLan({ type: "add_stream", animeTitle: title, ep: ep, streamUrl: streamUrl, serverName: srvName, quality: "1080p Full HD" });
+        if (!ok) {
+          adminEpisodeStreamsList = [{ id: "st_" + Date.now(), animeTitle: title, episodeNumber: ep, streamUrl: streamUrl, serverName: srvName, quality: "1080p Full HD" }, ...adminEpisodeStreamsList];
+          try { localStorage.setItem(WEB_ADMIN_STREAMS_KEY, JSON.stringify(adminEpisodeStreamsList)); } catch (e) {}
+        }
+      }
+      renderWebAdminLists();
+      showAdminToast(`✅ Stream Attached for ${title} • Episode ${ep}!`);
+    }
+
+    function testAndPlayWebAdminStream() {
+      const title = document.getElementById("webStreamAnimeTitle").value.trim() || "Frieren: Beyond Journey's End";
+      const ep = parseInt(document.getElementById("webStreamEpNum").value || "1", 10) || 1;
+      saveEpisodeStreamFromWebModal();
+      closeWebAdminModal();
+      openPlayerModal(title, ep, 0);
+    }
+
+    async function deleteWebAdminServer(id) {
+      if (window.KuroStreamBridge && typeof window.KuroStreamBridge.deleteServerFromWeb === "function") {
+        try {
+          applyUnifiedPayloadToWeb(JSON.parse(window.KuroStreamBridge.deleteServerFromWeb(id)));
+        } catch (e) {}
+      } else {
+        const ok = await sendWebAdminActionToLan({ type: "delete_server", id: id });
+        if (!ok) {
+          adminServersList = adminServersList.filter(s => s.id !== id);
+          try { localStorage.setItem(WEB_ADMIN_SERVERS_KEY, JSON.stringify(adminServersList)); } catch (e) {}
+        }
+      }
+      renderWebAdminLists();
+      showAdminToast("🗑️ Removed Server");
+    }
+
+    async function deleteWebAdminStream(id) {
+      if (window.KuroStreamBridge && typeof window.KuroStreamBridge.deleteEpisodeStreamFromWeb === "function") {
+        try {
+          applyUnifiedPayloadToWeb(JSON.parse(window.KuroStreamBridge.deleteEpisodeStreamFromWeb(id)));
+        } catch (e) {}
+      } else {
+        const ok = await sendWebAdminActionToLan({ type: "delete_stream", id: id });
+        if (!ok) {
+          adminEpisodeStreamsList = adminEpisodeStreamsList.filter(s => s.id !== id);
+          try { localStorage.setItem(WEB_ADMIN_STREAMS_KEY, JSON.stringify(adminEpisodeStreamsList)); } catch (e) {}
+        }
+      }
+      renderWebAdminLists();
+      showAdminToast("🗑️ Removed Episode Stream");
+    }
+
+    async function addNewAnimeFromWebModal() {
+      const title = document.getElementById("webNewAnimeTitle").value.trim();
+      const studio = document.getElementById("webNewAnimeStudio").value.trim() || "Studio";
+      const eps = parseInt(document.getElementById("webNewAnimeEps").value || "12", 10) || 12;
+      const poster = document.getElementById("webNewAnimePoster").value.trim() || "https://cdn.myanimelist.net/images/anime/1015/138006l.jpg";
+      const streamUrl = document.getElementById("webNewAnimeStream").value.trim();
+      if (!title) return;
+
+      if (window.KuroStreamBridge && typeof window.KuroStreamBridge.addAnimeFromWeb === "function") {
+        try {
+          const updated = JSON.parse(window.KuroStreamBridge.addAnimeFromWeb(title, studio, eps, 4.8, poster, streamUrl));
+          applyUnifiedPayloadToWeb(updated);
+        } catch (e) {}
+      } else {
+        const ok = await sendWebAdminActionToLan({ type: "add_anime", title: title, genre: studio, episodes: eps, rating: 4.8, poster: poster, streamUrl: streamUrl });
+        if (!ok) {
+          adminCustomCatalogList = [{ id: "custom_" + Date.now(), title: title, studio: studio, score: "9.2", episodes: eps, poster: poster }, ...adminCustomCatalogList];
+          try { localStorage.setItem(WEB_ADMIN_CATALOG_KEY, JSON.stringify(adminCustomCatalogList)); } catch (e) {}
+        }
+      }
+      renderStreamsAndCatalog(mergeCatalogWithAdminItems(INITIAL_CATALOG));
+      renderWebAdminLists();
+      showAdminToast(`✅ Added "${title}" to Website & App Catalog!`);
+    }
+
+    function openNativeAdminFromWebModal() {
+      if (window.KuroStreamBridge && typeof window.KuroStreamBridge.openNativeAdminPanel === "function") {
+        window.KuroStreamBridge.openNativeAdminPanel();
+      } else {
+        showAdminToast("ℹ️ You are already inside the full Website Admin Panel!");
+      }
+    }
+
+    function renderWebAdminLists() {
+      const srvContainer = document.getElementById("webAdminServersList");
+      const srvCount = document.getElementById("webServersCount");
+      if (srvCount) srvCount.textContent = String((adminServersList || []).length);
+      if (srvContainer) {
+        if (!adminServersList || adminServersList.length === 0) {
+          srvContainer.innerHTML = `<div style="color:var(--text-muted);font-size:12px;padding:8px;">No custom servers saved yet. Add a Bunny.net CDN, Paid API, or HTML embed above!</div>`;
+        } else {
+          srvContainer.innerHTML = adminServersList.map(s => `
+            <div style="background:#14161D;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+              <div style="flex:1;min-width:200px;">
+                <div style="font-size:13px;font-weight:800;color:#fff;">${s.name || 'Server'} <span class="badge badge-cyan" style="margin-left:6px;">${s.category || 'CDN'}</span></div>
+                <div style="font-size:11px;color:#00F0FF;font-family:monospace;word-break:break-all;margin-top:3px;">${(s.baseUrl || '').replace(/</g, '&lt;')}</div>
+              </div>
+              <button class="btn btn-outline" style="border-color:#FF2A5F;color:#FF2A5F;padding:5px 10px;" onclick="deleteWebAdminServer('${s.id}')">🗑 Delete</button>
+            </div>
+          `).join("");
+        }
+      }
+
+      const stContainer = document.getElementById("webAdminStreamsList");
+      const stCount = document.getElementById("webStreamsCount");
+      if (stCount) stCount.textContent = String((adminEpisodeStreamsList || []).length);
+      if (stContainer) {
+        if (!adminEpisodeStreamsList || adminEpisodeStreamsList.length === 0) {
+          stContainer.innerHTML = `<div style="color:var(--text-muted);font-size:12px;padding:8px;">No custom episode streams saved yet.</div>`;
+        } else {
+          stContainer.innerHTML = adminEpisodeStreamsList.map(st => {
+            const safeT = (st.animeTitle || "Anime").replace(/'/g, "\\'");
+            return `
+              <div style="background:#14161D;border:1px solid rgba(0,230,118,0.28);border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+                <div style="flex:1;min-width:200px;">
+                  <div style="font-size:13px;font-weight:800;color:#fff;">${st.animeTitle} • <span style="color:#00E676;">Episode ${st.episodeNumber || 1}</span> (${st.serverName || 'Paid Server'})</div>
+                  <div style="font-size:11px;color:#00F0FF;font-family:monospace;word-break:break-all;margin-top:3px;">${(st.streamUrl || '').replace(/</g, '&lt;')}</div>
+                </div>
+                <div style="display:flex;gap:6px;">
+                  <button class="btn btn-primary" style="padding:5px 10px;" onclick="closeWebAdminModal(); openPlayerModal('${safeT}', ${st.episodeNumber || 1}, 0)">▶ Play</button>
+                  <button class="btn btn-outline" style="border-color:#FF2A5F;color:#FF2A5F;padding:5px 10px;" onclick="deleteWebAdminStream('${st.id}')">🗑</button>
+                </div>
+              </div>
+            `;
+          }).join("");
+        }
+      }
+
+      const dl = document.getElementById("webCatalogTitlesList");
+      if (dl) {
+        const titles = mergeCatalogWithAdminItems(INITIAL_CATALOG).map(a => a.title);
+        dl.innerHTML = titles.map(t => `<option value="${t.replace(/"/g, '&quot;')}"></option>`).join("");
+      }
+    }
+
+    if (window.location.hash === "#admin") {
+      setTimeout(() => openWebAdminModal(0), 200);
+    }
+
+    async function syncCrunchyrollWeb() {
+      lastCatalogFetchAction = () => syncCrunchyrollWeb();
+      if (!updateOfflineIndicator("Crunchyroll Simulcast catalog data")) {
+        document.getElementById("catalogStatus").textContent = "Offline Mode • Connection Lost";
+        showFetchErrorNotification(
+          "Lost connection (navigator.onLine = false) while attempting to fetch Crunchyroll Simulcast catalog data. Click 'Retry' to reconnect.",
+          () => syncCrunchyrollWeb()
+        );
+        return;
+      }
+      document.getElementById("catalogStatus").textContent = "Syncing Crunchyroll Simulcast API...";
+      try {
+        const r = await fetch("https://api.jikan.moe/v4/anime?producers=1468&order_by=popularity&sort=asc&limit=12");
+        if (!r.ok) {
+          throw new Error(`HTTP ${r.status} from Crunchyroll Simulcast endpoint`);
+        }
+        const json = await r.json();
+        if (json.data && json.data.length > 0) {
+          const crList = json.data.map(a => ({
+            id: "cr_" + a.mal_id,
+            title: a.title_english || a.title,
+            studio: "Crunchyroll Simulcast",
+            score: a.score || "8.9",
+            episodes: a.episodes || 12,
+            poster: a.images?.jpg?.large_image_url || a.images?.jpg?.image_url
+          }));
+          document.getElementById("catalogSectionTitle").textContent = "⚡ Crunchyroll Simulcast Catalog (Live API)";
+          document.getElementById("catalogStatus").textContent = `Synced ${crList.length} Crunchyroll Simulcast Series`;
+          renderStreamsAndCatalog(crList);
+          hideFetchErrorNotification();
+        }
+      } catch (e) {
+        updateOfflineIndicator("Crunchyroll Simulcast catalog data");
+        showFetchErrorNotification(
+          `Failed to fetch Crunchyroll Simulcast catalog (${e.message || "Network error"}). Click 'Retry' to re-attempt connection.`,
+          () => syncCrunchyrollWeb()
+        );
+      }
+    }
+
+    async function searchAnime() {
+      const q = document.getElementById("searchInput").value.trim();
+      if (!q) return loadLiveCatalogAndVersion();
+      lastCatalogFetchAction = () => searchAnime();
+      if (!updateOfflineIndicator(`search catalog results for "${q}"`)) {
+        document.getElementById("catalogStatus").textContent = "Offline Mode • Search Failed";
+        showFetchErrorNotification(
+          `Lost connection (navigator.onLine = false) while attempting to fetch catalog search results for "${q}". Click 'Retry' to re-attempt.`,
+          () => searchAnime()
+        );
+        return;
+      }
+      document.getElementById("catalogStatus").textContent = `Searching Jikan v4 + Anime GraphQL for "${q}"...`;
+      try {
+        const jikanPromise = fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(q)}&limit=25`).then(r => r.ok ? r.json() : { data: [] }).catch(() => ({ data: [] }));
+        const gqlQuery = `
+          query ($search: String) {
+            Page(page: 1, perPage: 25) {
+              media(search: $search, type: ANIME, sort: [SEARCH_MATCH, POPULARITY_DESC]) {
+                id
+                idMal
+                title { english romaji native }
+                format
+                episodes
+                averageScore
+                coverImage { extraLarge large }
+              }
+            }
+          }
+        `;
+        const gqlPromise = fetch("https://graphql.anilist.co", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify({ query: gqlQuery, variables: { search: q } })
+        }).then(r => r.ok ? r.json() : {}).catch(() => ({}));
+
+        const [jikanJson, gqlJson] = await Promise.all([jikanPromise, gqlPromise]);
+        const jikanList = Array.isArray(jikanJson.data) ? jikanJson.data : [];
+        const gqlList = (gqlJson && gqlJson.data && gqlJson.data.Page && Array.isArray(gqlJson.data.Page.media)) ? gqlJson.data.Page.media : [];
+
+        const merged = new Map();
+        jikanList.forEach(a => {
+          const title = a.title_english || a.title || "Anime";
+          const key = a.mal_id ? `mal_${a.mal_id}` : title.toLowerCase();
+          merged.set(key, {
+            id: "search_" + (a.mal_id || title),
+            title: title,
+            studio: (a.studios && a.studios[0]) ? a.studios[0].name : (a.type || "Anime"),
+            score: a.score || "8.5",
+            episodes: a.episodes || 12,
+            poster: a.images?.jpg?.large_image_url || a.images?.jpg?.image_url || ""
+          });
+        });
+
+        gqlList.forEach(m => {
+          const titleObj = m.title || {};
+          const title = titleObj.english || titleObj.romaji || titleObj.native || "Anime";
+          const key = m.idMal ? `mal_${m.idMal}` : title.toLowerCase();
+          if (!merged.has(key)) {
+            merged.set(key, {
+              id: "gql_" + m.id,
+              title: title,
+              studio: m.format || "Anime",
+              score: m.averageScore ? (m.averageScore / 10).toFixed(1) : "8.4",
+              episodes: m.episodes || 12,
+              poster: (m.coverImage && (m.coverImage.extraLarge || m.coverImage.large)) || ""
+            });
+          }
+        });
+
+        const results = Array.from(merged.values());
+        document.getElementById("catalogSectionTitle").textContent = `🔍 Jikan + GraphQL Search Results for "${q}"`;
+        document.getElementById("catalogStatus").textContent = `${results.length} results found`;
+        renderStreamsAndCatalog(results);
+        hideFetchErrorNotification();
+      } catch (e) {
+        updateOfflineIndicator(`search catalog results for "${q}"`);
+        showFetchErrorNotification(
+          `Search catalog fetch failed for "${q}" (${e.message || "Network error"}). Click 'Retry' to re-attempt the connection.`,
+          () => searchAnime()
+        );
+      }
+    }
+
+    loadLiveCatalogAndVersion();
+  </script>
+</body>
+</html>

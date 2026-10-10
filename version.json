@@ -1,0 +1,12 @@
+{
+  "appName": "Robiul",
+  "versionCode": 141,
+  "versionName": "1.1.41",
+  "commitSha": "97e42138364f27f41ca526707bcedb5c48e35d49",
+  "publishedAt": "2026-10-10T03:26:45Z",
+  "forceUpdate": false,
+  "repositorySlug": "HACKERBOYDEVILYT/anime-app",
+  "apkDownloadUrl": "https://github.com/HACKERBOYDEVILYT/anime-app/releases/latest/download/Robiul-Release.apk",
+  "webPortalUrl": "https://hackerboydevilyt.github.io/anime-app/",
+  "changelog": "Robiul [RS] Update (1.1.41): feat(admin): implement deep site inspector and secure auth  - Add Website Inspection engine for video, CDN, and API discovery - Hardened admin authentication with disabled auto-login and expanded security telemetry - Refined UI dashboard and removed public Admin Panel access from home screen "
+}
