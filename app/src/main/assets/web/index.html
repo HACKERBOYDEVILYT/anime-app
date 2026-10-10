@@ -258,7 +258,7 @@
 <body>
 
   <header>
-    <div class="brand" onclick="openWebAdminModal()" title="Click to open Admin Panel">
+    <div class="brand" onclick="triggerStealthAdminLogoTap()" title="Robiul [RS]">
       <div class="brand-logo" style="position:relative;overflow:hidden;">
         <img id="headerBunnyLogoImg" src="https://robiulislam.b-cdn.net/images/logo.png" alt="Robiul Bunny.net CDN Logo" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;" onerror="this.style.display='none'" />
         <span style="position:relative;z-index:1;color:#00E5FF;font-size:16px;">▶</span>
@@ -274,7 +274,7 @@
 
     <div class="header-actions">
       <input type="text" id="searchInput" class="search-box" placeholder="Search anime (Jikan + GraphQL)..." onkeydown="if(event.key==='Enter') searchAnime()" />
-      <button class="btn" style="background:#FF7A00;color:#fff;box-shadow:0 4px 14px rgba(255,122,0,0.4);" onclick="openWebAdminModal()">🛡️ Admin Panel</button>
+      <button id="publicHeaderAdminBtn" class="btn" style="display:none;background:#FF7A00;color:#fff;box-shadow:0 4px 14px rgba(255,122,0,0.4);" onclick="openWebAdminModal()">🛡️ Admin Panel</button>
       <button class="btn btn-outline" onclick="syncCrunchyrollWeb()">⚡ Crunchyroll Simulcast</button>
       <a id="apkDownloadBtn" href="./download/Robiul-Release.apk" onclick="if(window.KuroStreamBridge && window.KuroStreamBridge.releaseApkFromWeb){window.KuroStreamBridge.releaseApkFromWeb(); return false;}" class="btn btn-primary">
         📲 Download Robiul-Release.apk
@@ -353,7 +353,7 @@
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn" style="background:#FF7A00;color:#fff;" onclick="openWebAdminModal()">🛡️ Open Admin Panel</button>
+        <button id="publicBannerAdminBtn" class="btn" style="display:none;background:#FF7A00;color:#fff;" onclick="openWebAdminModal()">🛡️ Open Admin Panel</button>
         <button class="btn btn-outline" onclick="copyCurrentWebUrl()">🔗 Copy Website Link</button>
         <a id="bannerApkLink" href="./download/Robiul-Release.apk" onclick="if(window.KuroStreamBridge && window.KuroStreamBridge.releaseApkFromWeb){window.KuroStreamBridge.releaseApkFromWeb(); return false;}" class="btn btn-primary">⬇️ Robiul-Release.apk (<span id="versionLabel">v1.1.0</span>)</a>
       </div>
@@ -412,8 +412,8 @@
         <div id="modalUnavailableOverlay" style="display:none;position:absolute;inset:0;background:rgba(8,10,15,0.96);z-index:10;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;" onclick="event.stopPropagation()">
           <div style="font-size:38px;margin-bottom:10px;">📡</div>
           <div style="font-size:20px;font-weight:900;color:#FF2A5F;margin-bottom:6px;">Video not available right now</div>
-          <div style="font-size:12px;color:#A0AAB8;max-width:440px;margin-bottom:16px;">This anime does not have an active stream on the server yet. You can add a Bunny.net CDN, Paid Server API, or HTML / Iframe embed from the Admin Panel.</div>
-          <button class="btn" style="background:#FF7A00;color:#fff;" onclick="closePlayerModal(); openWebAdminModal(1);">🛡️ Add Stream in Admin Panel</button>
+          <div style="font-size:12px;color:#A0AAB8;max-width:440px;margin-bottom:16px;">This anime does not have an active stream on the server yet. Please check back soon.</div>
+          <button id="unavailableAdminBtn" class="btn" style="display:none;background:#FF7A00;color:#fff;" onclick="closePlayerModal(); openWebAdminModal(1);">🛡️ Add Stream in Admin Panel</button>
         </div>
         <div class="player-key-toast" id="playerKeyToast">▶ Playing [Space]</div>
         <div id="modalEpCornerBadge" style="position:absolute;top:12px;left:12px;background:rgba(0,0,0,0.72);border:1px solid #FFBADE;color:#FFBADE;font-size:11px;font-weight:800;padding:4px 10px;border-radius:6px;pointer-events:none;z-index:12;">EP 1 • SUB • HD-1</div>
@@ -482,6 +482,7 @@
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <button class="btn btn-outline" onclick="openNativeAdminFromWebModal()" style="border-color:#00E676;color:#00E676;">📱 App Admin</button>
           <button class="btn btn-outline" onclick="loadLiveCatalogAndVersion(); showAdminToast('🔄 Synced Website & App!');">🔄 Sync Now</button>
+          <button class="btn btn-outline" style="border-color:#FF2A5F;color:#FF2A5F;" onclick="lockAndHideWebAdmin()">🔒 Lock &amp; Hide</button>
           <button class="btn btn-primary" onclick="closeWebAdminModal()">✕ Close</button>
         </div>
       </div>
@@ -494,6 +495,7 @@
         <button class="chip active" id="adminTabBtn0" onclick="switchWebAdminTab(0)">🐰 Paid CDN • API • HTML</button>
         <button class="chip" id="adminTabBtn1" onclick="switchWebAdminTab(1)">🎬 Episode Streams</button>
         <button class="chip" id="adminTabBtn2" onclick="switchWebAdminTab(2)">📚 Anime Catalog</button>
+        <button class="chip" id="adminTabBtn3" onclick="switchWebAdminTab(3)">🕵️‍♂️ Site API • Video • CDN Inspector</button>
       </div>
 
       <!-- Admin Tab Content Body -->
@@ -640,6 +642,71 @@
             <button class="btn btn-primary" style="margin-top:12px;width:100%;" onclick="addNewAnimeFromWebModal()">➕ Add Anime to Website &amp; App</button>
           </div>
         </div>
+
+        <!-- TAB 3: Website URL Inspector (API • Scraped Video • CDN • Embed Extractor) -->
+        <div id="webAdminTab3" style="display:none;">
+          <div class="admin-card" style="border-color:rgba(0,240,255,0.5);">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+              <div>
+                <div style="font-size:15px;font-weight:900;color:#fff;">🕵️‍♂️ Website URL Inspector (API • Scraped Video • CDN Extractor)</div>
+                <div style="font-size:11px;color:var(--text-secondary);">যেকোনো ওয়েবসাইটের URL দিলে সেই ওয়েবসাইট যে API, Scraped Video (.m3u8 / .mp4 / .webm), CDN বা HTML Iframe ব্যবহার করে তা অটোমেটিক বের হয়ে আসবে।</div>
+              </div>
+              <span class="badge" style="background:rgba(0,240,255,0.16);color:#00F0FF;border:1px solid #00F0FF;">DEEP SCANNER</span>
+            </div>
+
+            <div style="font-size:11px;font-weight:800;color:#FFB800;margin-bottom:6px;">Quick Test Website &amp; API Targets (1-Click):</div>
+            <div class="chip-group" style="margin-bottom:10px;">
+              <button class="chip" onclick="setInspectorPresetUrl('https://api.animethemes.moe/anime?include=animethemes.animethemeentries.videos&page[size]=3')">🎞️ AnimeThemes API</button>
+              <button class="chip" onclick="setInspectorPresetUrl('https://api.jikan.moe/v4/top/anime?limit=5')">⚡ Jikan v4 API</button>
+              <button class="chip" onclick="setInspectorPresetUrl('https://graphql.anilist.co')">🔮 AniList GraphQL</button>
+              <button class="chip" onclick="setInspectorPresetUrl('https://iframe.mediadelivery.net/embed/212800/a1b2c3d4')">🐰 Bunny.net Stream</button>
+            </div>
+
+            <div style="display:grid;grid-template-columns:3fr 1fr;gap:10px;align-items:end;">
+              <div>
+                <label style="font-size:11px;color:#00F0FF;font-weight:700;">Enter Any Website or API URL to Inspect</label>
+                <input id="webInspectorUrlInput" class="admin-input" value="https://api.animethemes.moe/anime?include=animethemes.animethemeentries.videos&page[size]=3" placeholder="https://example-anime-site.com or API URL..." />
+              </div>
+              <button id="webInspectorScanBtn" class="btn btn-primary" style="height:40px;" onclick="inspectExternalWebsiteFromAdmin()">🔍 Scan Website</button>
+            </div>
+
+            <div class="chip-group" style="margin-top:12px;" id="webInspectorFilterGroup">
+              <button class="chip active" onclick="filterWebInspectorResults('ALL', this)">All Discovered</button>
+              <button class="chip" onclick="filterWebInspectorResults('VIDEO', this)">🎬 Scraped Videos</button>
+              <button class="chip" onclick="filterWebInspectorResults('CDN', this)">📦 CDN Servers</button>
+              <button class="chip" onclick="filterWebInspectorResults('API', this)">🔌 API Endpoints</button>
+              <button class="chip" onclick="filterWebInspectorResults('EMBED', this)">🖼️ HTML Embeds</button>
+            </div>
+          </div>
+
+          <div id="webInspectorSummaryBox" style="display:none;margin-bottom:10px;padding:10px 14px;background:#10131C;border:1px solid rgba(0,230,118,0.4);border-radius:10px;font-size:12px;color:#00E676;font-family:monospace;"></div>
+          <div id="webInspectorResultsContainer"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stealth Admin Password Gate Modal (Protected by robiul1000 + Anti-DDoS & Anti-Hack WAF) -->
+  <div class="player-modal" id="adminPasswordGateModal" style="z-index:260;">
+    <div class="player-box" style="max-width:440px;border-color:#FF2A5F;background:#0D1017;padding:22px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+        <div style="width:44px;height:44px;border-radius:50%;background:rgba(255,42,95,0.16);border:1.5px solid #FF2A5F;display:flex;align-items:center;justify-content:center;font-size:20px;">🛡️</div>
+        <div>
+          <div style="font-size:17px;font-weight:900;color:#fff;">Stealth Admin Security Gate</div>
+          <div style="font-size:11px;color:#00E676;font-family:monospace;">Anti-DDoS • WAF Shield • Brute-Force Lockout Active</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">
+        Admin Panel is hidden in Stealth Mode. Enter your master admin password to unlock CDN, API, and Website URL Inspector controls.
+      </div>
+      <div>
+        <label style="font-size:11px;color:#00F0FF;font-weight:700;">Admin Master Password</label>
+        <input id="adminGatePasswordInput" type="password" class="admin-input" placeholder="Enter Admin Password..." onkeydown="if(event.key==='Enter') verifyStealthAdminPassword()" />
+      </div>
+      <div id="adminGateErrorText" style="display:none;color:#FF2A5F;font-size:11px;font-weight:800;margin-top:8px;font-family:monospace;"></div>
+      <div style="display:flex;gap:10px;margin-top:16px;">
+        <button class="btn btn-outline" style="flex:1;" onclick="closeAdminPasswordGate()">Cancel</button>
+        <button class="btn btn-primary" style="flex:1;" onclick="verifyStealthAdminPassword()">🔓 Unlock Admin</button>
       </div>
     </div>
   </div>
@@ -1729,6 +1796,140 @@
     }
 
     // =========================================================================
+    // STEALTH ADMIN SECURITY GATE (PASSWORD: robiul1000) + ANTI-DDOS & WAF SHIELD
+    // =========================================================================
+    let isWebAdminAuthenticated = false;
+    let stealthLogoTapCount = 0;
+    let lastStealthLogoTapTime = 0;
+    let failedAdminAttempts = 0;
+    let adminLockoutUntilMs = 0;
+    let pendingAdminTabIdx = 0;
+    let ddosActionTimestamps = [];
+    let lastWebsiteInspectionReport = null;
+    let currentInspectorCategoryFilter = "ALL";
+
+    // XOR-obfuscated master password bytes for "robiul1000" (key 0x5A)
+    const OBFUSCATED_ADMIN_KEY = [40, 53, 56, 51, 47, 54, 107, 106, 106, 106];
+
+    function decodeMasterKey() {
+      return OBFUSCATED_ADMIN_KEY.map(b => String.fromCharCode(b ^ 0x5A)).join("");
+    }
+
+    function checkWebAntiDdosRateLimit() {
+      const now = Date.now();
+      ddosActionTimestamps = ddosActionTimestamps.filter(t => now - t < 10000);
+      if (ddosActionTimestamps.length >= 60) {
+        showAdminToast("🛡️ Anti-DDoS Shield: Rate limit exceeded! Slow down requests.");
+        return false;
+      }
+      ddosActionTimestamps.push(now);
+      return true;
+    }
+
+    function inspectAndSanitizeWaf(input) {
+      const str = String(input || "").trim();
+      const lower = str.toLowerCase();
+      const blocked = ["union select", "drop table", "javascript:", "onerror=", "onload=", "../", "..\\"];
+      for (const pat of blocked) {
+        if (lower.includes(pat)) {
+          throw new Error("WAF Security Alert: Malicious payload blocked (" + pat + ")");
+        }
+      }
+      return str;
+    }
+
+    function triggerStealthAdminLogoTap() {
+      const now = Date.now();
+      if (now - lastStealthLogoTapTime > 2500) {
+        stealthLogoTapCount = 1;
+      } else {
+        stealthLogoTapCount++;
+      }
+      lastStealthLogoTapTime = now;
+      if (stealthLogoTapCount >= 5) {
+        stealthLogoTapCount = 0;
+        openWebAdminModal(0);
+      }
+    }
+
+    // Keyboard shortcut Ctrl+Shift+A to open Stealth Admin Password Gate
+    document.addEventListener("keydown", function(e) {
+      if (e.ctrlKey && e.shiftKey && (e.key === "A" || e.key === "a")) {
+        e.preventDefault();
+        openWebAdminModal(0);
+      }
+    });
+
+    function revealUnlockedAdminButtons(show) {
+      ["publicHeaderAdminBtn", "publicBannerAdminBtn", "unavailableAdminBtn"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = show ? "inline-flex" : "none";
+      });
+    }
+
+    function closeAdminPasswordGate() {
+      const gate = document.getElementById("adminPasswordGateModal");
+      if (gate) gate.classList.remove("active");
+    }
+
+    function verifyStealthAdminPassword() {
+      if (!checkWebAntiDdosRateLimit()) return;
+      const errEl = document.getElementById("adminGateErrorText");
+      const now = Date.now();
+      if (now < adminLockoutUntilMs) {
+        const rem = Math.ceil((adminLockoutUntilMs - now) / 1000);
+        if (errEl) {
+          errEl.textContent = `🛡️ Brute-Force Lockout Active! Try again in ${rem}s.`;
+          errEl.style.display = "block";
+        }
+        return;
+      }
+
+      const inp = document.getElementById("adminGatePasswordInput");
+      const pwd = inp ? inp.value.trim() : "";
+      let matched = (pwd === decodeMasterKey());
+
+      if (!matched && window.KuroStreamBridge && typeof window.KuroStreamBridge.authenticateAdminFromWeb === "function") {
+        try {
+          matched = Boolean(window.KuroStreamBridge.authenticateAdminFromWeb(pwd));
+        } catch (e) {}
+      } else if (matched && window.KuroStreamBridge && typeof window.KuroStreamBridge.authenticateAdminFromWeb === "function") {
+        try { window.KuroStreamBridge.authenticateAdminFromWeb(pwd); } catch (e) {}
+      }
+
+      if (matched) {
+        isWebAdminAuthenticated = true;
+        failedAdminAttempts = 0;
+        adminLockoutUntilMs = 0;
+        if (inp) inp.value = "";
+        if (errEl) errEl.style.display = "none";
+        closeAdminPasswordGate();
+        revealUnlockedAdminButtons(true);
+        openWebAdminModal(pendingAdminTabIdx, true);
+      } else {
+        failedAdminAttempts++;
+        if (failedAdminAttempts >= 5) {
+          adminLockoutUntilMs = Date.now() + 30000;
+          if (errEl) {
+            errEl.textContent = "🛡️ Anti-DDoS Lockout: 5 failed attempts! Locked for 30 seconds.";
+            errEl.style.display = "block";
+          }
+        } else {
+          if (errEl) {
+            errEl.textContent = `❌ Access Denied! Invalid password (${5 - failedAdminAttempts} attempts remaining).`;
+            errEl.style.display = "block";
+          }
+        }
+      }
+    }
+
+    function lockAndHideWebAdmin() {
+      isWebAdminAuthenticated = false;
+      revealUnlockedAdminButtons(false);
+      closeWebAdminModal();
+    }
+
+    // =========================================================================
     // WEBSITE ADMIN PANEL FUNCTIONS (TWO-WAY SYNC WITH ANDROID APP & LAN API)
     // =========================================================================
     function showAdminToast(msg) {
@@ -1739,7 +1940,21 @@
       setTimeout(() => { el.style.display = "none"; }, 3500);
     }
 
-    function openWebAdminModal(tabIdx) {
+    function openWebAdminModal(tabIdx, forceUnlocked) {
+      if (forceUnlocked === true) {
+        isWebAdminAuthenticated = true;
+        revealUnlockedAdminButtons(true);
+      }
+      if (!isWebAdminAuthenticated) {
+        pendingAdminTabIdx = (typeof tabIdx === "number") ? tabIdx : 0;
+        const gate = document.getElementById("adminPasswordGateModal");
+        if (gate) {
+          gate.classList.add("active");
+          const inp = document.getElementById("adminGatePasswordInput");
+          if (inp) setTimeout(() => inp.focus(), 80);
+        }
+        return;
+      }
       const modal = document.getElementById("webAdminModal");
       if (!modal) return;
       modal.classList.add("active");
@@ -1758,13 +1973,223 @@
     }
 
     function switchWebAdminTab(idx) {
-      [0, 1, 2].forEach(i => {
+      [0, 1, 2, 3].forEach(i => {
         const tab = document.getElementById("webAdminTab" + i);
         const btn = document.getElementById("adminTabBtn" + i);
         if (tab) tab.style.display = (i === idx) ? "block" : "none";
         if (btn) btn.classList.toggle("active", i === idx);
       });
       renderWebAdminLists();
+    }
+
+    // =========================================================================
+    // WEBSITE URL INSPECTOR (EXTRACTS APIs, SCRAPED VIDEOS, CDNs & EMBEDS)
+    // =========================================================================
+    function setInspectorPresetUrl(url) {
+      const inp = document.getElementById("webInspectorUrlInput");
+      if (inp) inp.value = url;
+      inspectExternalWebsiteFromAdmin();
+    }
+
+    function filterWebInspectorResults(category, btnEl) {
+      currentInspectorCategoryFilter = category;
+      const grp = document.getElementById("webInspectorFilterGroup");
+      if (grp && btnEl) {
+        Array.from(grp.querySelectorAll(".chip")).forEach(c => c.classList.remove("active"));
+        btnEl.classList.add("active");
+      }
+      renderWebsiteInspectorReport(lastWebsiteInspectionReport);
+    }
+
+    function classifyWebResource(url) {
+      const lower = url.toLowerCase();
+      if (lower.includes(".m3u8") || lower.includes(".mp4") || lower.includes(".webm") || lower.includes(".mpd") || lower.includes("animethemes.moe/")) {
+        const fmt = lower.includes(".m3u8") ? "HLS (.m3u8)" : (lower.includes(".webm") ? "WebM 1080p" : "MP4 Stream");
+        const prov = lower.includes("b-cdn.net") ? "Bunny.net Video CDN" : (lower.includes("animethemes") ? "AnimeThemes Media CDN" : "Direct Scraped Video");
+        return {
+          id: "vid_" + Math.random().toString(36).slice(2, 9),
+          url: url,
+          category: "VIDEO",
+          providerName: prov,
+          formatBadge: fmt,
+          readyHtmlEmbed: `<video src="${url}" controls autoplay playsinline style="width:100%;height:100%;background:#000;"></video>`
+        };
+      }
+      if (lower.includes("/embed/") || lower.includes("mediadelivery.net") || lower.includes("vidsrc") || lower.includes("filemoon") || lower.includes("streamtape") || lower.includes("megacloud") || lower.includes("dood")) {
+        return {
+          id: "emb_" + Math.random().toString(36).slice(2, 9),
+          url: url,
+          category: "EMBED",
+          providerName: lower.includes("mediadelivery") ? "Bunny.net Stream Player" : "HTML5 Iframe Embed Player",
+          formatBadge: "Iframe Player",
+          readyHtmlEmbed: `<iframe src="${url}" allowfullscreen style="width:100%;height:100%;border:0;"></iframe>`
+        };
+      }
+      if (lower.includes("b-cdn.net") || lower.includes("bunnycdn") || lower.includes("cloudflare") || lower.includes("cloudfront.net") || lower.includes("jsdelivr") || lower.includes("myanimelist.net") || lower.includes("anilist") || lower.includes("akamai") || lower.includes("fastly") || lower.includes("cdn.")) {
+        const prov = lower.includes("b-cdn") ? "Bunny.net Edge CDN" : (lower.includes("cloudflare") ? "Cloudflare CDN" : (lower.includes("cloudfront") ? "AWS CloudFront CDN" : "Global Content CDN"));
+        return {
+          id: "cdn_" + Math.random().toString(36).slice(2, 9),
+          url: url,
+          category: "CDN",
+          providerName: prov,
+          formatBadge: "CDN Edge Node",
+          readyHtmlEmbed: `<link rel="preconnect" href="${url}" crossorigin />`
+        };
+      }
+      return {
+        id: "api_" + Math.random().toString(36).slice(2, 9),
+        url: url,
+        category: "API",
+        providerName: lower.includes("graphql") ? "GraphQL API" : (lower.includes("jikan") ? "Jikan REST API" : "Website REST/JSON API"),
+        formatBadge: lower.includes("graphql") ? "GraphQL" : "REST / JSON API",
+        readyHtmlEmbed: `fetch("${url}").then(r => r.json())`
+      };
+    }
+
+    async function inspectExternalWebsiteFromAdmin() {
+      if (!checkWebAntiDdosRateLimit()) return;
+      const inp = document.getElementById("webInspectorUrlInput");
+      let rawUrl = inp ? inp.value.trim() : "";
+      if (!rawUrl) return;
+      if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
+        rawUrl = "https://" + rawUrl;
+        if (inp) inp.value = rawUrl;
+      }
+
+      const btn = document.getElementById("webInspectorScanBtn");
+      if (btn) btn.textContent = "⏳ Scanning...";
+
+      try {
+        // 1. Try Native Android Bridge first if running inside the app
+        if (window.KuroStreamBridge && typeof window.KuroStreamBridge.inspectWebsiteFromWeb === "function") {
+          const rawJson = window.KuroStreamBridge.inspectWebsiteFromWeb(rawUrl);
+          const parsed = JSON.parse(rawJson);
+          if (parsed && parsed.status === "ok") {
+            lastWebsiteInspectionReport = parsed;
+            renderWebsiteInspectorReport(parsed);
+            if (btn) btn.textContent = "🔍 Scan Website";
+            showAdminToast(`✅ Extracted ${(parsed.allResources || []).length} APIs, Videos & CDNs from ${parsed.host}!`);
+            return;
+          }
+        }
+
+        // 2. Try Local LAN Server endpoint (/api/admin/inspect)
+        try {
+          const lanRes = await fetch(`./api/admin/inspect?url=${encodeURIComponent(rawUrl)}`, { cache: "no-store" });
+          if (lanRes.ok) {
+            const parsed = await lanRes.json();
+            if (parsed && parsed.status === "ok") {
+              lastWebsiteInspectionReport = parsed;
+              renderWebsiteInspectorReport(parsed);
+              if (btn) btn.textContent = "🔍 Scan Website";
+              showAdminToast(`✅ Extracted ${(parsed.allResources || []).length} APIs, Videos & CDNs from ${parsed.host}!`);
+              return;
+            }
+          }
+        } catch (e) {}
+
+        // 3. Browser-side Deep Fetch & Regex Extractor (with CORS Proxy fallback for external sites)
+        let bodyText = "";
+        let httpStatus = 200;
+        try {
+          const directResp = await fetch(rawUrl);
+          httpStatus = directResp.status;
+          bodyText = await directResp.text();
+        } catch (corsErr) {
+          const proxyResp = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(rawUrl)}`);
+          httpStatus = proxyResp.status;
+          bodyText = await proxyResp.text();
+        }
+
+        const normalizedBody = bodyText.replace(/\\\//g, "/");
+        const urlRegex = /https?:\/\/[^\s"'<>\\)\]]+/gi;
+        const matches = normalizedBody.match(urlRegex) || [];
+        const uniqueUrls = Array.from(new Set([rawUrl, ...matches])).slice(0, 60);
+
+        const allResources = uniqueUrls.map(u => classifyWebResource(u.replace(/[.,;]+$/, "")));
+        const hostObj = new URL(rawUrl);
+        const report = {
+          status: "ok",
+          targetUrl: rawUrl,
+          host: hostObj.host,
+          httpStatus: httpStatus,
+          detectedFramework: "Deep Browser & CORS Inspector",
+          scrapedVideos: allResources.filter(r => r.category === "VIDEO"),
+          detectedCdns: allResources.filter(r => r.category === "CDN"),
+          detectedApis: allResources.filter(r => r.category === "API"),
+          embedPlayers: allResources.filter(r => r.category === "EMBED"),
+          allResources: allResources
+        };
+        lastWebsiteInspectionReport = report;
+        renderWebsiteInspectorReport(report);
+        showAdminToast(`✅ Extracted ${allResources.length} APIs, Videos & CDNs from ${report.host}!`);
+      } catch (err) {
+        showAdminToast(`⚠️ Inspection error: ${err.message || "Could not reach target URL"}`);
+      } finally {
+        if (btn) btn.textContent = "🔍 Scan Website";
+      }
+    }
+
+    function renderWebsiteInspectorReport(report) {
+      const container = document.getElementById("webInspectorResultsContainer");
+      const summaryBox = document.getElementById("webInspectorSummaryBox");
+      if (!container) return;
+      if (!report || !Array.isArray(report.allResources)) {
+        container.innerHTML = `<div style="color:var(--text-muted);font-size:12px;padding:10px;">Enter any website URL above and click "Scan Website" to extract its APIs, Scraped Videos, CDNs, and HTML Embed Players.</div>`;
+        return;
+      }
+
+      if (summaryBox) {
+        summaryBox.style.display = "block";
+        summaryBox.innerHTML = `🌐 Host: <b>${report.host || report.targetUrl}</b> • HTTP ${report.httpStatus || 200} • 🎬 Videos: <b>${(report.scrapedVideos || []).length}</b> • 📦 CDNs: <b>${(report.detectedCdns || []).length}</b> • 🔌 APIs: <b>${(report.detectedApis || []).length}</b> • 🖼️ Embeds: <b>${(report.embedPlayers || []).length}</b>`;
+      }
+
+      const list = currentInspectorCategoryFilter === "ALL"
+        ? report.allResources
+        : report.allResources.filter(r => r.category === currentInspectorCategoryFilter);
+
+      if (list.length === 0) {
+        container.innerHTML = `<div style="color:var(--text-muted);font-size:12px;padding:10px;">No resources in category "${currentInspectorCategoryFilter}". Switch to "All Discovered" to view all items.</div>`;
+        return;
+      }
+
+      container.innerHTML = list.map(res => {
+        const badgeColor = res.category === "VIDEO" ? "#00E676" : (res.category === "CDN" ? "#FFB800" : (res.category === "API" ? "#00F0FF" : "#FF2A5F"));
+        const safeUrl = (res.url || "").replace(/'/g, "\\'");
+        const safeProvider = (res.providerName || "Extracted Server").replace(/'/g, "\\'");
+        return `
+          <div style="background:#14161D;border:1px solid ${badgeColor}55;border-radius:10px;padding:12px;margin-bottom:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
+              <div>
+                <span style="background:${badgeColor}22;color:${badgeColor};border:1px solid ${badgeColor};font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;margin-right:6px;">${res.category}</span>
+                <b style="color:#fff;font-size:13px;">${res.providerName || 'Discovered Resource'}</b>
+              </div>
+              <span style="color:#00F0FF;font-size:11px;font-family:monospace;">${res.formatBadge || ''}</span>
+            </div>
+            <div style="background:#090B10;padding:8px 10px;border-radius:6px;font-family:monospace;font-size:11px;color:#E2E8F0;word-break:break-all;margin-bottom:8px;">
+              ${(res.url || '').replace(/</g, '&lt;')}
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-outline" style="padding:5px 10px;font-size:11px;" onclick="navigator.clipboard.writeText('${safeUrl}'); showAdminToast('✅ Copied URL to Clipboard!');">📋 Copy URL</button>
+              <button class="btn" style="background:#FF7A00;color:#fff;padding:5px 10px;font-size:11px;" onclick="quickAddInspectedServer('${safeProvider}', '${safeUrl}', '${res.category}')">➕ Add to Server Pool</button>
+              ${(res.category === 'VIDEO' || res.category === 'EMBED') ? `<button class="btn btn-primary" style="padding:5px 10px;font-size:11px;" onclick="quickAttachInspectedVideo('${safeUrl}', '${safeProvider}')">🎬 Attach to Anime Ep 1</button>` : ''}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function quickAddInspectedServer(providerName, url, category) {
+      document.getElementById("webSrvNameInput").value = providerName;
+      document.getElementById("webSrvPayloadInput").value = url;
+      setWebServerMode(category === "EMBED" ? "HTML" : (category === "API" ? "API" : "CDN"));
+      savePaidServerFromWebModal();
+    }
+
+    function quickAttachInspectedVideo(url, providerName) {
+      document.getElementById("webStreamUrlInput").value = url;
+      document.getElementById("webStreamServerName").value = providerName + " • 1080p";
+      saveEpisodeStreamFromWebModal();
     }
 
     function setWebServerMode(mode) {

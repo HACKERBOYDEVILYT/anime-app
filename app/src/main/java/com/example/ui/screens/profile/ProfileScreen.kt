@@ -389,11 +389,27 @@ fun ProfileScreen(
                             .padding(20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
+                        var secretTapCount by remember { mutableIntStateOf(0) }
+                        var lastSecretTap by remember { mutableStateOf(0L) }
                         Box(
                             modifier = Modifier
                                 .size(64.dp)
                                 .background(SurfaceVariantDark, CircleShape)
-                                .border(2.dp, CrimsonNeon.copy(alpha = 0.6f), CircleShape),
+                                .border(2.dp, CrimsonNeon.copy(alpha = 0.6f), CircleShape)
+                                .clickable {
+                                    val now = System.currentTimeMillis()
+                                    if (now - lastSecretTap < 1500L) {
+                                        secretTapCount++
+                                        if (secretTapCount >= 5) {
+                                            secretTapCount = 0
+                                            onAdminClick()
+                                        }
+                                    } else {
+                                        secretTapCount = 1
+                                    }
+                                    lastSecretTap = now
+                                }
+                                .testTag("profile_open_admin_btn"),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
@@ -441,14 +457,6 @@ fun ProfileScreen(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 13.sp
                                 )
-                            }
-
-                            OutlinedButton(
-                                onClick = onAdminClick,
-                                shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier.testTag("profile_open_admin_btn")
-                            ) {
-                                Text("Admin Panel", color = CyanAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         }
 
@@ -614,14 +622,6 @@ fun ProfileScreen(
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 12.sp
                                 )
-                            }
-
-                            OutlinedButton(
-                                onClick = onAdminClick,
-                                shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Admin Panel", color = CyanAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         }
 

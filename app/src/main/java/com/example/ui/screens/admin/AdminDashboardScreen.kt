@@ -67,7 +67,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -80,6 +83,7 @@ import com.example.data.local.entity.ScrapedVideoEntity
 import com.example.data.model.Anime
 import com.example.data.model.ApiConfig
 import com.example.data.model.ModeratedUser
+import com.example.data.repository.AdminRepository
 import com.example.ui.theme.BackgroundDark
 import com.example.ui.theme.CardBorder
 import com.example.ui.theme.CrimsonNeon
@@ -177,7 +181,7 @@ fun AdminDashboardScreen(
         "🐰 Paid CDN • API • HTML",
         "🎬 Episode Streams",
         "📚 Anime Catalog",
-        "🕸️ Stream Catcher",
+        "🕵️‍♂️ Site API • Video • CDN Inspector",
         "⚙️ Settings & Users"
     )
 
@@ -219,9 +223,10 @@ fun AdminDashboardScreen(
                     fontWeight = FontWeight.ExtraBold
                 )
                 Text(
-                    text = "Bunny.net CDN • Video Servers • Episode Streams • Catalog",
-                    color = TextSecondary,
-                    fontSize = 11.sp
+                    text = "🛡️ Stealth Mode • Anti-DDoS & WAF Active • CDN & API Inspector",
+                    color = EmeraldSuccess,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
 
@@ -416,6 +421,7 @@ fun AdminDashboardScreen(
                 3 -> CleanStreamCatcherTab(
                     catalog = catalog,
                     caughtUrls = uiState.extractedVideoLinks,
+                    inspectionReport = uiState.websiteInspectionReport,
                     isCatching = uiState.isExtractingLinks,
                     onCatchStreams = { url ->
                         viewModel.updateWebPageScrapeUrl(url)
@@ -428,12 +434,24 @@ fun AdminDashboardScreen(
                             episodeNumber = epNum,
                             episodeTitle = "$animeTitle - Episode $epNum",
                             streamUrl = url,
-                            qualityLabel = if (url.contains(".m3u8")) "1080p HLS" else "1080p MP4",
+                            qualityLabel = if (url.contains(".m3u8")) "1080p HLS" else if (url.contains(".webm")) "1080p WebM" else "1080p MP4",
                             subtitleUrl = "",
                             subtitleLanguage = "Bangla",
                             audioLanguage = "Japanese [Original]",
-                            serverSource = "GitHub Stream Catcher"
+                            serverSource = "Site URL Inspector"
                         )
+                    },
+                    onAddExtractedServer = { name, baseUrl, keyOrEmbed, provider ->
+                        viewModel.addBunnyOrCustomCdn(
+                            name = name,
+                            cdnUrl = baseUrl,
+                            category = provider,
+                            apiKey = keyOrEmbed,
+                            setAsLogoCdn = baseUrl.contains("b-cdn.net", ignoreCase = true)
+                        )
+                    },
+                    onApplyBunnyCdn = { baseUrl ->
+                        viewModel.updateBunnyLogoCdn(logoUrl = bunnyCdnLogoUrl, pullZoneHost = baseUrl)
                     }
                 )
                 4 -> CleanSettingsAndUsersTab(
@@ -1885,12 +1903,28 @@ private fun CleanCatalogTab(
 private fun CleanStreamCatcherTab(
     catalog: List<Anime>,
     caughtUrls: List<String>,
+    inspectionReport: AdminRepository.WebsiteInspectionReport?,
     isCatching: Boolean,
     onCatchStreams: (String) -> Unit,
-    onInjectStream: (String, String, Int, String) -> Unit
+    onInjectStream: (String, String, Int, String) -> Unit,
+    onAddExtractedServer: (String, String, String, String) -> Unit,
+    onApplyBunnyCdn: (String) -> Unit
 ) {
-    var targetWebUrl by remember { mutableStateOf("https://api.animethemes.moe/anime") }
+    val clipboardManager = LocalClipboardManager.current
+    var targetWebUrl by remember {
+        mutableStateOf("https://api.animethemes.moe/anime?include=animethemes.animethemeentries.videos&page[size]=3")
+    }
     var selectedAnime by remember(catalog) { mutableStateOf(catalog.firstOrNull()) }
+    var targetEpisodeNum by remember { mutableStateOf("1") }
+    var selectedCategoryFilter by remember { mutableStateOf("ALL") }
+    var copiedUrlFeedback by remember { mutableStateOf<String?>(null) }
+
+    val presetSites = listOf(
+        "AnimeThemes API" to "https://api.animethemes.moe/anime?include=animethemes.animethemeentries.videos&page[size]=3",
+        "Jikan v4 API" to "https://api.jikan.moe/v4/top/anime?limit=5",
+        "AniList GraphQL" to "https://graphql.anilist.co",
+        "Bunny.net Stream" to "https://iframe.mediadelivery.net/embed/212800/a1b2c3d4"
+    )
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -1903,40 +1937,139 @@ private fun CleanStreamCatcherTab(
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(1.dp, CardBorder, RoundedCornerShape(14.dp))
+                    .border(1.dp, CyanAccent.copy(alpha = 0.45f), RoundedCornerShape(14.dp))
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            color = CyanAccent.copy(alpha = 0.16f),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = "🕵️‍♂️ DEEP URL INSPECTOR",
+                                color = CyanAccent,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "API • Scraped Video • CDN • Embed",
+                            color = EmeraldSuccess,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     Text(
-                        text = "GitHub & Web Stream Catcher",
+                        text = "Website API, Video & CDN Extractor",
                         color = TextPrimary,
-                        fontSize = 15.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.ExtraBold
                     )
                     Text(
-                        text = "Extract direct .m3u8 and .mp4 streams from open-source anime endpoints",
+                        text = "যেকোনো ওয়েবসাইটের URL দিন — সেই ওয়েবসাইট যেসব API Endpoint, Scraped Video (.m3u8 / .mp4 / .webm), CDN Server (Bunny.net, Cloudflare, Aws, jsDelivr) এবং HTML Iframe Player ব্যবহার করে তা অটোমেটিক বের হয়ে আসবে।",
                         color = TextSecondary,
                         fontSize = 11.sp
                     )
 
                     Spacer(modifier = Modifier.height(10.dp))
 
+                    Text(
+                        text = "Quick Preset Targets (1-Tap Test):",
+                        color = TextSecondary,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(presetSites) { (label, url) ->
+                            FilterChip(
+                                selected = targetWebUrl == url,
+                                onClick = {
+                                    targetWebUrl = url
+                                    onCatchStreams(url)
+                                },
+                                label = { Text(label, fontSize = 11.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = CyanAccent.copy(alpha = 0.22f),
+                                    selectedLabelColor = CyanAccent,
+                                    containerColor = SurfaceVariantDark,
+                                    labelColor = TextSecondary
+                                )
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
                     OutlinedTextField(
                         value = targetWebUrl,
                         onValueChange = { targetWebUrl = it },
-                        label = { Text("Source URL to Scan") },
+                        label = { Text("Enter Any Website or API URL (https://...)") },
+                        placeholder = { Text("https://example-anime-site.com or API URL") },
                         leadingIcon = { Icon(Icons.Default.Link, contentDescription = null, tint = CyanAccent) },
                         singleLine = true,
                         colors = adminTextFieldColors(),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("inspector_url_input")
                     )
 
                     Spacer(modifier = Modifier.height(10.dp))
+
+                    // Target Anime & Episode selector for 1-click Video attachment
+                    if (catalog.isNotEmpty()) {
+                        Text(
+                            text = "Target Anime for 1-Click Video Attachment:",
+                            color = TextSecondary,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            items(catalog.take(10)) { anime ->
+                                val isSel = selectedAnime?.id == anime.id
+                                FilterChip(
+                                    selected = isSel,
+                                    onClick = { selectedAnime = anime },
+                                    label = {
+                                        Text(
+                                            text = anime.titleEnglish,
+                                            fontSize = 10.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = CrimsonNeon.copy(alpha = 0.22f),
+                                        selectedLabelColor = Color.White
+                                    )
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        OutlinedTextField(
+                            value = targetEpisodeNum,
+                            onValueChange = { targetEpisodeNum = it.filter { ch -> ch.isDigit() }.ifEmpty { "1" } },
+                            label = { Text("Attach to Episode #") },
+                            singleLine = true,
+                            colors = adminTextFieldColors(),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                    }
 
                     Button(
                         onClick = { onCatchStreams(targetWebUrl) },
                         colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon),
                         shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("inspector_scan_btn")
                     ) {
                         if (isCatching) {
                             CircularProgressIndicator(
@@ -1945,18 +2078,290 @@ private fun CleanStreamCatcherTab(
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Scanning for Video Streams...", fontWeight = FontWeight.Bold)
+                            Text("Deep Scanning Website HTML, JS, APIs & CDNs...", fontWeight = FontWeight.Bold)
                         } else {
                             Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Scan & Extract Video Streams", fontWeight = FontWeight.Bold)
+                            Text("Extract Website API • Scraped Video • CDN", fontWeight = FontWeight.Bold)
                         }
+                    }
+
+                    copiedUrlFeedback?.let { msg ->
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = msg,
+                            color = EmeraldSuccess,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }
         }
 
-        if (caughtUrls.isNotEmpty()) {
+        if (inspectionReport != null) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, EmeraldSuccess.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Host: ${inspectionReport.host}",
+                                    color = TextPrimary,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                                Text(
+                                    text = inspectionReport.detectedFramework,
+                                    color = CyanAccent,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Surface(
+                                color = EmeraldSuccess.copy(alpha = 0.18f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = "HTTP ${inspectionReport.httpStatus}",
+                                    color = EmeraldSuccess,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        val filterOptions = listOf(
+                            "ALL" to "All (${inspectionReport.allResources.size})",
+                            "VIDEO" to "🎬 Videos (${inspectionReport.scrapedVideos.size})",
+                            "CDN" to "📦 CDNs (${inspectionReport.detectedCdns.size})",
+                            "API" to "🔌 APIs (${inspectionReport.detectedApis.size})",
+                            "EMBED" to "🖼️ Embeds (${inspectionReport.embedPlayers.size})"
+                        )
+
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(filterOptions) { (key, label) ->
+                                FilterChip(
+                                    selected = selectedCategoryFilter == key,
+                                    onClick = { selectedCategoryFilter = key },
+                                    label = { Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = EmeraldSuccess.copy(alpha = 0.22f),
+                                        selectedLabelColor = EmeraldSuccess,
+                                        containerColor = SurfaceVariantDark,
+                                        labelColor = TextSecondary
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            val displayedResources = when (selectedCategoryFilter) {
+                "VIDEO" -> inspectionReport.scrapedVideos
+                "CDN" -> inspectionReport.detectedCdns
+                "API" -> inspectionReport.detectedApis
+                "EMBED" -> inspectionReport.embedPlayers
+                else -> inspectionReport.allResources
+            }
+
+            items(displayedResources, key = { it.id }) { res ->
+                val badgeColor = when (res.category) {
+                    "VIDEO" -> EmeraldSuccess
+                    "CDN" -> StarAmber
+                    "API" -> CyanAccent
+                    else -> CrimsonNeon
+                }
+                val categoryIconLabel = when (res.category) {
+                    "VIDEO" -> "🎬 SCRAPED VIDEO"
+                    "CDN" -> "📦 CDN SERVER"
+                    "API" -> "🔌 API ENDPOINT"
+                    else -> "🖼️ HTML EMBED PLAYER"
+                }
+
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, badgeColor.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Surface(
+                                    color = badgeColor.copy(alpha = 0.18f),
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Text(
+                                        text = categoryIconLabel,
+                                        color = badgeColor,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                                    )
+                                }
+                                Text(
+                                    text = res.providerName,
+                                    color = TextPrimary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            Surface(
+                                color = SurfaceVariantDark,
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    text = res.formatBadge,
+                                    color = CyanAccent,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Surface(
+                            color = BackgroundDark,
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = res.url,
+                                color = TextPrimary,
+                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace,
+                                modifier = Modifier.padding(10.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Text(
+                            text = "Ready Code / Embed: ${res.readyHtmlEmbed}",
+                            color = TextSecondary,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    clipboardManager.setText(AnnotatedString(res.url))
+                                    copiedUrlFeedback = "✅ Copied URL: ${res.url.take(45)}..."
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Copy URL", color = CyanAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    clipboardManager.setText(AnnotatedString(res.readyHtmlEmbed))
+                                    copiedUrlFeedback = "✅ Copied HTML/API Snippet for ${res.providerName}"
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Copy HTML/Code", color = StarAmber, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            if (res.category == "VIDEO" || res.category == "EMBED") {
+                                Button(
+                                    onClick = {
+                                        val target = selectedAnime ?: catalog.firstOrNull() ?: return@Button
+                                        val ep = targetEpisodeNum.toIntOrNull()?.coerceAtLeast(1) ?: 1
+                                        onInjectStream(target.id, target.titleEnglish, ep, res.url)
+                                        copiedUrlFeedback = "🎬 Attached ${res.formatBadge} to ${target.titleEnglish} Ep $ep!"
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldSuccess),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Attach to Anime Ep", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            if (res.category == "CDN") {
+                                Button(
+                                    onClick = {
+                                        onApplyBunnyCdn(res.url)
+                                        copiedUrlFeedback = "🐰 Applied ${res.url} as Active Global CDN!"
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = StarAmber),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Set Active CDN", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            Button(
+                                onClick = {
+                                    onAddExtractedServer(
+                                        "${res.providerName} (${res.category})",
+                                        res.url,
+                                        res.readyHtmlEmbed,
+                                        res.providerName
+                                    )
+                                    copiedUrlFeedback = "🚀 Added ${res.providerName} to Paid CDN/API Server Pool!"
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Add to Server Pool", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        } else if (caughtUrls.isNotEmpty()) {
             item {
                 Text(
                     text = "Extracted Video Streams (${caughtUrls.size})",
@@ -1980,7 +2385,7 @@ private fun CleanStreamCatcherTab(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = if (url.contains(".m3u8")) "1080p Adaptive HLS (.m3u8)" else "1080p Direct MP4 Stream",
+                                text = if (url.contains(".m3u8")) "1080p Adaptive HLS (.m3u8)" else "1080p Direct Video Stream",
                                 color = CyanAccent,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold

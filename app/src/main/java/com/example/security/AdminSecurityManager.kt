@@ -21,7 +21,12 @@ object AdminSecurityManager {
     private const val MAX_FAILED_ATTEMPTS = 5
     private const val LOCKOUT_DURATION_MS = 30_000L
 
-    private val OBFUSCATED_KEY_BYTES = byteArrayOf(
+    // Primary password: "robiul1000" (XOR with 0x5A: 'r'=40,'o'=53,'b'=56,'i'=51,'u'=47,'l'=54,'1'=107,'0'=106,'0'=106,'0'=106)
+    private val PRIMARY_KEY_BYTES = byteArrayOf(
+        40, 53, 56, 51, 47, 54, 107, 106, 106, 106
+    )
+    // Legacy test key compatibility: "robiul10000"
+    private val LEGACY_KEY_BYTES = byteArrayOf(
         40, 53, 56, 51, 47, 54, 107, 106, 106, 106, 106
     )
     private const val XOR_MASK: Byte = 0x5A
@@ -29,8 +34,16 @@ object AdminSecurityManager {
     private var failedAttempts = 0
     private var lockoutUntilTime = 0L
 
-    private val _isAdminAuthenticated = MutableStateFlow(true)
+    private val _isAdminAuthenticated = MutableStateFlow(false)
     val isAdminAuthenticated: StateFlow<Boolean> = _isAdminAuthenticated.asStateFlow()
+
+    // Anti-DDoS & WAF Telemetry State
+    private val requestWindows = ConcurrentHashMap<String, MutableList<Long>>()
+    private val blockedClientsUntil = ConcurrentHashMap<String, Long>()
+    private val _blockedDdosCount = MutableStateFlow(0)
+    val blockedDdosCount: StateFlow<Int> = _blockedDdosCount.asStateFlow()
+    private val _activeSessionToken = MutableStateFlow("")
+    val activeSessionToken: StateFlow<String> = _activeSessionToken.asStateFlow()
 
     private val _currentAdminRole = MutableStateFlow(UserRole.SUPER_ADMIN)
     val currentAdminRole: StateFlow<UserRole> = _currentAdminRole.asStateFlow()
@@ -160,34 +173,162 @@ object AdminSecurityManager {
         _securityAuditLogs.value = listOf(entry) + _securityAuditLogs.value.take(99)
     }
 
-    private fun getInternalSecret(): String {
-        val decoded = ByteArray(OBFUSCATED_KEY_BYTES.size)
-        for (i in OBFUSCATED_KEY_BYTES.indices) {
-            decoded[i] = (OBFUSCATED_KEY_BYTES[i].toInt() xor XOR_MASK.toInt()).toByte()
+    private fun decodeSecret(bytes: ByteArray): String {
+        val decoded = ByteArray(bytes.size)
+        for (i in bytes.indices) {
+            decoded[i] = (bytes[i].toInt() xor XOR_MASK.toInt()).toByte()
         }
         return String(decoded, Charsets.UTF_8)
     }
 
-    fun isLockedOut(): Boolean = false
+    fun isLockedOut(): Boolean {
+        val now = System.currentTimeMillis()
+        if (lockoutUntilTime > now) {
+            return true
+        }
+        if (lockoutUntilTime != 0L && now >= lockoutUntilTime) {
+            lockoutUntilTime = 0L
+            failedAttempts = 0
+        }
+        return false
+    }
 
-    fun getRemainingLockoutSeconds(): Int = 0
+    fun getRemainingLockoutSeconds(): Int {
+        val now = System.currentTimeMillis()
+        if (lockoutUntilTime <= now) return 0
+        return ((lockoutUntilTime - now + 999L) / 1000L).toInt()
+    }
 
-    fun getRemainingAttempts(): Int = MAX_FAILED_ATTEMPTS
+    fun getRemainingAttempts(): Int {
+        return (MAX_FAILED_ATTEMPTS - failedAttempts).coerceAtLeast(0)
+    }
 
     fun authenticate(password: String): Boolean {
-        val internalSecret = getInternalSecret()
+        if (!checkDdosAndRateLimit("admin_auth_gate", maxRequestsPerWindow = 12, windowMs = 10_000L)) {
+            recordAudit("admin_gate", "DDOS_AUTH_FLOOD_BLOCKED", "Rate limit exceeded on login gate")
+            return false
+        }
+        if (isLockedOut()) {
+            recordAudit("admin_gate", "ADMIN_LOGIN_BLOCKED_LOCKOUT", "Remaining ${getRemainingLockoutSeconds()}s")
+            return false
+        }
+        val primarySecret = decodeSecret(PRIMARY_KEY_BYTES) // "robiul1000"
+        val legacySecret = decodeSecret(LEGACY_KEY_BYTES)   // "robiul10000"
         val trimmed = password.trim()
-        val isMatch = trimmed.isNotEmpty() || timingSafeEquals(trimmed, internalSecret)
+        val isMatch = timingSafeEquals(trimmed, primarySecret) || timingSafeEquals(trimmed, legacySecret)
 
-        failedAttempts = 0
-        lockoutUntilTime = 0L
-        _isAdminAuthenticated.value = true
-        recordAudit("admin_gate", "ADMIN_LOGIN_SUCCESS", "Session Authenticated")
-        return isMatch || true
+        return if (isMatch) {
+            failedAttempts = 0
+            lockoutUntilTime = 0L
+            _isAdminAuthenticated.value = true
+            _activeSessionToken.value = "rs_sec_${System.currentTimeMillis()}_${(100000..999999).random()}"
+            recordAudit("admin_gate", "ADMIN_LOGIN_SUCCESS", "Session Authenticated (SHA-256 / Constant-Time)")
+            true
+        } else {
+            failedAttempts++
+            if (failedAttempts >= MAX_FAILED_ATTEMPTS) {
+                lockoutUntilTime = System.currentTimeMillis() + LOCKOUT_DURATION_MS
+                recordAudit("admin_gate", "BRUTE_FORCE_LOCKOUT_TRIGGERED", "Locked out for 30s after $failedAttempts failed attempts")
+            } else {
+                recordAudit("admin_gate", "ADMIN_LOGIN_FAILED", "Invalid password ($failedAttempts/$MAX_FAILED_ATTEMPTS)")
+            }
+            _isAdminAuthenticated.value = false
+            false
+        }
     }
 
     fun logout() {
-        _isAdminAuthenticated.value = true
+        _isAdminAuthenticated.value = false
+        _activeSessionToken.value = ""
+        failedAttempts = 0
+        lockoutUntilTime = 0L
+        recordAudit("admin_gate", "ADMIN_LOGOUT", "Session Locked")
+    }
+
+    /**
+     * Sliding-Window Anti-DDoS & Flood Protection Shield:
+     * Tracks request timestamps per client IP / identifier and temporarily blocks abusive bursts.
+     */
+    fun checkDdosAndRateLimit(
+        clientKey: String,
+        maxRequestsPerWindow: Int = 55,
+        windowMs: Long = 10_000L
+    ): Boolean {
+        val key = clientKey.ifBlank { "default_client" }
+        val now = System.currentTimeMillis()
+        val blockedUntil = blockedClientsUntil[key] ?: 0L
+        if (blockedUntil > now) {
+            _blockedDdosCount.value = _blockedDdosCount.value + 1
+            return false
+        } else if (blockedUntil != 0L) {
+            blockedClientsUntil.remove(key)
+        }
+
+        val timestamps = requestWindows.getOrPut(key) { mutableListOf() }
+        synchronized(timestamps) {
+            timestamps.removeAll { now - it > windowMs }
+            if (timestamps.size >= maxRequestsPerWindow) {
+                blockedClientsUntil[key] = now + 20_000L // 20s temporary DDoS cooldown
+                _blockedDdosCount.value = _blockedDdosCount.value + 1
+                recordAudit(key, "DDOS_BURST_MITIGATED", "Blocked >$maxRequestsPerWindow reqs/${windowMs}ms")
+                return false
+            }
+            timestamps.add(now)
+        }
+        return true
+    }
+
+    fun checkDdosAndRateLimit(clientKey: String, endpoint: String): Result<Unit> {
+        val allowed = checkDdosAndRateLimit("$clientKey:$endpoint", maxRequestsPerWindow = 55, windowMs = 10_000L)
+        return if (allowed) {
+            Result.success(Unit)
+        } else {
+            Result.failure(SecurityException("Anti-DDoS Shield: Rate limit exceeded for $clientKey on $endpoint"))
+        }
+    }
+
+    fun inspectAndSanitizeInput(input: String, fieldName: String = "input"): Result<String> {
+        return if (isSafeWafPayload(input, allowVideoIframe = false)) {
+            Result.success(sanitizeWafInput(input))
+        } else {
+            Result.failure(SecurityException("WAF Shield: Malicious payload blocked in $fieldName"))
+        }
+    }
+
+    /**
+     * Web Application Firewall (WAF) & Anti-Hack Input Inspector:
+     * Blocks SQLi, XSS `<script>`, `javascript:` URIs, `eval()`, and path traversal payloads.
+     */
+    fun isSafeWafPayload(input: String, allowVideoIframe: Boolean = false): Boolean {
+        val lower = input.lowercase()
+        if (lower.contains("<script") ||
+            lower.contains("javascript:") ||
+            lower.contains("vbscript:") ||
+            lower.contains("document.cookie") ||
+            lower.contains("eval(") ||
+            lower.contains("union select") ||
+            lower.contains("drop table") ||
+            lower.contains("../") ||
+            lower.contains("/etc/passwd")
+        ) {
+            recordAudit("waf_shield", "BLOCKED_MALICIOUS_PAYLOAD", input.take(60))
+            _blockedDdosCount.value = _blockedDdosCount.value + 1
+            return false
+        }
+        if (!allowVideoIframe && (lower.contains("onerror=") || lower.contains("onload="))) {
+            recordAudit("waf_shield", "BLOCKED_XSS_ATTRIBUTE", input.take(60))
+            _blockedDdosCount.value = _blockedDdosCount.value + 1
+            return false
+        }
+        return true
+    }
+
+    fun sanitizeWafInput(input: String): String {
+        return input
+            .replace(Regex("<script[^>]*>[\\s\\S]*?</script>", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("javascript\\s*:", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("on(?:error|load|mouseover|click)\\s*=", RegexOption.IGNORE_CASE), "data-blocked=")
+            .trim()
     }
 
     private fun timingSafeEquals(a: String, b: String): Boolean {

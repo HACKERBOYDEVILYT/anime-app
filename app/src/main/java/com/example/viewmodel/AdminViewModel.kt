@@ -47,10 +47,11 @@ data class AdminUiState(
     val scrapeSubtitleLanguage: String = "Bangla",
     val scrapeAudioLanguage: String = "Japanese [Original]",
 
-    // Auto Web Page Video Link Extractor State
+    // Auto Web Page Video, API & CDN Inspector State
     val webPageScrapeUrl: String = "",
     val isExtractingLinks: Boolean = false,
     val extractedVideoLinks: List<String> = emptyList(),
+    val websiteInspectionReport: AdminRepository.WebsiteInspectionReport? = null,
     val extractionMessage: String? = null,
 
     // Multi-Server API Management State
@@ -385,16 +386,23 @@ class AdminViewModel(
     }
 
     fun extractVideoLinksFromWeb() {
-        val url = _uiState.value.webPageScrapeUrl.trim().ifBlank { "https://api.animethemes.moe/anime?page[size]=3" }
+        val url = _uiState.value.webPageScrapeUrl.trim().ifBlank { "https://api.animethemes.moe/anime?include=animethemes.animethemeentries.videos&page[size]=3" }
 
-        _uiState.update { it.copy(isExtractingLinks = true, extractionMessage = "Scanning & resolving 1080p multi-server video streams...") }
+        _uiState.update {
+            it.copy(
+                isExtractingLinks = true,
+                extractionMessage = "🔍 Inspecting website for APIs, Scraped Videos, HTML Embeds & CDNs..."
+            )
+        }
         viewModelScope.launch {
-            val links = adminRepository.extractVideoLinksFromWebPage(url)
+            val report = adminRepository.inspectWebsiteForApisVideosAndCdns(url)
+            val allVideoAndEmbedUrls = (report.videos.map { it.url } + report.embeds.map { it.url }).distinct()
             _uiState.update {
                 it.copy(
                     isExtractingLinks = false,
-                    extractedVideoLinks = links,
-                    extractionMessage = "Found ${links.size} verified 1080p video streams (200 OK)! Tap any link to inject."
+                    websiteInspectionReport = report,
+                    extractedVideoLinks = allVideoAndEmbedUrls,
+                    extractionMessage = report.summaryMessage
                 )
             }
         }

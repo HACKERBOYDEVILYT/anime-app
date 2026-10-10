@@ -63,7 +63,7 @@ fun SecretAdminDialog(
     onDismiss: () -> Unit,
     onSuccess: () -> Unit
 ) {
-    var passwordInput by remember { mutableStateOf("robiul_root_2025") }
+    var passwordInput by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var lockoutSeconds by remember { mutableIntStateOf(AdminSecurityManager.getRemainingLockoutSeconds()) }

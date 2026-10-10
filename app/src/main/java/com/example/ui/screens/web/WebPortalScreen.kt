@@ -16,6 +16,7 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -81,6 +82,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.repository.AppUpdateRepository
+import com.example.security.AdminSecurityManager
 import com.example.ui.theme.BackgroundDark
 import com.example.ui.theme.CardBorder
 import com.example.ui.theme.CrimsonNeon
@@ -112,9 +114,12 @@ fun WebPortalScreen(
     BackHandler { onBack() }
 
     val updateState by appUpdateRepository.updateState.collectAsStateWithLifecycle()
+    val isAdminAuthenticated by AdminSecurityManager.isAdminAuthenticated.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var selectedTab by remember { mutableIntStateOf(0) }
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
+    var secretHeaderTapCount by remember { mutableIntStateOf(0) }
+    var lastHeaderTapTime by remember { mutableStateOf(0L) }
 
     var repoSlugInput by remember(updateState.repositorySlug) { mutableStateOf(updateState.repositorySlug) }
     var webUrlInput by remember(updateState.liveWebsiteUrl) { mutableStateOf(updateState.liveWebsiteUrl) }
@@ -143,7 +148,21 @@ fun WebPortalScreen(
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = TextPrimary)
                 }
                 Spacer(modifier = Modifier.width(4.dp))
-                Column {
+                Column(
+                    modifier = Modifier.clickable {
+                        val now = System.currentTimeMillis()
+                        if (now - lastHeaderTapTime > 2500L) {
+                            secretHeaderTapCount = 1
+                        } else {
+                            secretHeaderTapCount++
+                        }
+                        lastHeaderTapTime = now
+                        if (secretHeaderTapCount >= 5) {
+                            secretHeaderTapCount = 0
+                            onOpenAdminPanel()
+                        }
+                    }
+                ) {
                     Text(
                         text = "Unified Website & Repo Auto-Update",
                         color = TextPrimary,
@@ -162,30 +181,32 @@ fun WebPortalScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Button(
-                    onClick = {
-                        webViewRef?.evaluateJavascript(
-                            "if(window.openWebAdminModal){window.openWebAdminModal();}",
-                            null
-                        )
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF7A00)),
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                    modifier = Modifier.testTag("web_admin_modal_btn")
-                ) {
-                    Icon(Icons.Default.Security, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Web Admin", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
-                }
+                if (isAdminAuthenticated) {
+                    Button(
+                        onClick = {
+                            webViewRef?.evaluateJavascript(
+                                "if(window.openWebAdminModal){window.openWebAdminModal(true);}",
+                                null
+                            )
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF7A00)),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                        modifier = Modifier.testTag("web_admin_modal_btn")
+                    ) {
+                        Icon(Icons.Default.Security, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Web Admin", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                    }
 
-                OutlinedButton(
-                    onClick = onOpenAdminPanel,
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
-                    modifier = Modifier.testTag("open_native_admin_from_web_btn")
-                ) {
-                    Text("App Admin", color = CyanGlow, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    OutlinedButton(
+                        onClick = onOpenAdminPanel,
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                        modifier = Modifier.testTag("open_native_admin_from_web_btn")
+                    ) {
+                        Text("App Admin", color = CyanGlow, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
 
                 Button(
@@ -550,6 +571,16 @@ fun WebPortalScreen(
                                             Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show()
                                         }
                                         return msg
+                                    }
+
+                                    @JavascriptInterface
+                                    fun inspectWebsiteFromWeb(targetUrl: String): String {
+                                        return appUpdateRepository.inspectWebsiteFromWeb(targetUrl)
+                                    }
+
+                                    @JavascriptInterface
+                                    fun authenticateAdminFromWeb(password: String): Boolean {
+                                        return AdminSecurityManager.authenticate(password)
                                     }
                                 },
                                 "KuroStreamBridge"

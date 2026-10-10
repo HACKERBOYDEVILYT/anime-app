@@ -8,6 +8,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import com.example.data.model.Anime
 import com.example.data.network.RetrofitClient
+import com.example.security.AdminSecurityManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import okhttp3.Request
 import org.json.JSONArray
@@ -652,7 +654,54 @@ class AppUpdateRepository(
                 }
 
                 val rawOut = sock.getOutputStream()
+                val clientIp = sock.inetAddress?.hostAddress ?: "127.0.0.1"
+
+                // 1. Anti-DDoS Rate Limiter Check
+                val ddosCheck = AdminSecurityManager.checkDdosAndRateLimit(clientIp, path)
+                if (ddosCheck.isFailure) {
+                    val errBytes = JSONObject().apply {
+                        put("status", "blocked_ddos")
+                        put("error", ddosCheck.exceptionOrNull()?.message ?: "DDoS Rate Limit Exceeded")
+                    }.toString().toByteArray(Charsets.UTF_8)
+                    val header = "HTTP/1.1 429 Too Many Requests\r\nContent-Type: application/json; charset=utf-8\r\nAccess-Control-Allow-Origin: *\r\nX-Robiul-Shield: Anti-DDoS-Blocked\r\nConnection: close\r\nContent-Length: ${errBytes.size}\r\n\r\n"
+                    rawOut.write(header.toByteArray(Charsets.UTF_8))
+                    rawOut.write(errBytes)
+                    rawOut.flush()
+                    return@withContext
+                }
+
+                // 2. Anti-Hack WAF Input Inspection
+                val wafCheck = AdminSecurityManager.inspectAndSanitizeInput(queryStr, "http_query")
+                if (wafCheck.isFailure) {
+                    val errBytes = JSONObject().apply {
+                        put("status", "blocked_waf")
+                        put("error", wafCheck.exceptionOrNull()?.message ?: "WAF Blocked Malicious Payload")
+                    }.toString().toByteArray(Charsets.UTF_8)
+                    val header = "HTTP/1.1 403 Forbidden\r\nContent-Type: application/json; charset=utf-8\r\nAccess-Control-Allow-Origin: *\r\nX-Robiul-Shield: WAF-Blocked\r\nConnection: close\r\nContent-Length: ${errBytes.size}\r\n\r\n"
+                    rawOut.write(header.toByteArray(Charsets.UTF_8))
+                    rawOut.write(errBytes)
+                    rawOut.flush()
+                    return@withContext
+                }
+
                 when {
+                    path.startsWith("/api/admin/inspect") -> {
+                        val targetUrl = queryMap["url"].orEmpty()
+                        val jsonBytes = inspectWebsiteFromWeb(targetUrl).toByteArray(Charsets.UTF_8)
+                        val header = buildString {
+                            append("HTTP/1.1 200 OK\r\n")
+                            append("Content-Type: application/json; charset=utf-8\r\n")
+                            append("Access-Control-Allow-Origin: *\r\n")
+                            append("X-Content-Type-Options: nosniff\r\n")
+                            append("X-Robiul-Shield: Anti-DDoS-WAF-Active\r\n")
+                            append("Cache-Control: no-cache\r\n")
+                            append("Connection: close\r\n")
+                            append("Content-Length: ${jsonBytes.size}\r\n\r\n")
+                        }
+                        rawOut.write(header.toByteArray(Charsets.UTF_8))
+                        rawOut.write(jsonBytes)
+                        rawOut.flush()
+                    }
                     path.startsWith("/api/admin/action") -> {
                         when (queryMap["type"]) {
                             "add_server" -> addAdminServerFromWeb(
@@ -805,6 +854,53 @@ class AppUpdateRepository(
             val fallback = "✅ APK Ready ($e) • Download at ${_updateState.value.lanWebServerUrl}/download/Robiul-Release.apk"
             _updateState.update { it.copy(lastApkReleaseStatus = fallback) }
             fallback
+        }
+    }
+
+    fun inspectWebsiteFromWeb(targetUrl: String): String {
+        return try {
+            val report = runBlocking(Dispatchers.IO) {
+                adminRepository?.inspectWebsiteForApisVideosAndCdns(targetUrl)
+            }
+            if (report == null) {
+                return JSONObject().apply {
+                    put("status", "error")
+                    put("message", "AdminRepository unavailable")
+                }.toString()
+            }
+            fun serializeList(list: List<AdminRepository.ExtractedSiteResource>): JSONArray {
+                val arr = JSONArray()
+                list.forEach { res ->
+                    arr.put(
+                        JSONObject().apply {
+                            put("id", res.id)
+                            put("url", res.url)
+                            put("category", res.category)
+                            put("providerName", res.providerName)
+                            put("formatBadge", res.formatBadge)
+                            put("readyHtmlEmbed", res.readyHtmlEmbed)
+                        }
+                    )
+                }
+                return arr
+            }
+            JSONObject().apply {
+                put("status", "ok")
+                put("targetUrl", report.targetUrl)
+                put("host", report.host)
+                put("httpStatus", report.httpStatus)
+                put("detectedFramework", report.detectedFramework)
+                put("scrapedVideos", serializeList(report.scrapedVideos))
+                put("detectedCdns", serializeList(report.detectedCdns))
+                put("detectedApis", serializeList(report.detectedApis))
+                put("embedPlayers", serializeList(report.embedPlayers))
+                put("allResources", serializeList(report.allResources))
+            }.toString()
+        } catch (e: Exception) {
+            JSONObject().apply {
+                put("status", "error")
+                put("message", e.message ?: "Inspection failed")
+            }.toString()
         }
     }
 
