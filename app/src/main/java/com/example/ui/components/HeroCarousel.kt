@@ -90,8 +90,8 @@ fun HeroCarousel(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    // Enable live random anime video preview at the top banner by default
-    var isVideoPreviewEnabled by remember { mutableStateOf(true) }
+    // Lazily enable live video preview only when tapped to avoid MESA rendernode errors on headless emulators
+    var isVideoPreviewEnabled by remember { mutableStateOf(false) }
     var isMuted by remember { mutableStateOf(true) }
     var currentServerIdx by remember { mutableIntStateOf((0..13).random()) }
 

@@ -369,6 +369,12 @@ class AppUpdateRepository(
         }
     }
 
+    fun getCatalogSnapshot(): List<Anime> = mediaProvider.getAllCatalogSnapshot()
+
+    fun getApiConfigsSnapshot() = adminRepository?.apiConfigs?.value.orEmpty()
+
+    fun getScrapedVideosSnapshot() = adminRepository?.scrapedVideos?.value.orEmpty()
+
     /**
      * Generates the unified JSON payload shared between the Android App and the Live Website,
      * including live Bunny.net CDN config, Paid Server APIs/CDNs/HTML embeds, Episode Streams, and Anime Catalog.

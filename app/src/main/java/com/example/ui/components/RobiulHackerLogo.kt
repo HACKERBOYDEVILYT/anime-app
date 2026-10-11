@@ -175,27 +175,11 @@ fun RobiulBrandHeader(
         Text(
             text = "ROBIUL",
             color = Color.White,
-            fontSize = 18.sp,
+            fontSize = 19.sp,
             fontWeight = FontWeight.Black,
             fontFamily = FontFamily.Monospace,
-            letterSpacing = 1.4.sp,
+            letterSpacing = 1.6.sp,
             maxLines = 1
         )
-
-        Spacer(modifier = Modifier.width(6.dp))
-
-        Surface(
-            color = Color(0xFF9D4EDD).copy(alpha = 0.28f),
-            shape = RoundedCornerShape(999.dp),
-            modifier = Modifier.border(1.dp, Color(0xFF00F5D4).copy(alpha = 0.7f), RoundedCornerShape(999.dp))
-        ) {
-            Text(
-                text = "✨ LUMEN AI",
-                color = Color(0xFF00F5D4),
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Black,
-                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
-            )
-        }
     }
 }

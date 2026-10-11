@@ -73,7 +73,7 @@ class MainActivity : ComponentActivity() {
 fun KuroStreamApp(container: KuroAppContainer) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route ?: Screen.Home.route
+    val currentRoute = navBackStackEntry?.destination?.route ?: Screen.WebPortal.route
     val updateState by container.appUpdateRepository.updateState.collectAsStateWithLifecycle()
 
     val isPlayerScreen = currentRoute.startsWith("player")
