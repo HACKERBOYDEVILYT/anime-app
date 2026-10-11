@@ -65,6 +65,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -178,11 +179,11 @@ fun AdminDashboardScreen(
     BackHandler { onBack() }
 
     val tabs = listOf(
-        "🐰 Paid CDN • API • HTML",
+        "✨ Lumen AI Paid CDN • API",
         "🎬 Episode Streams",
         "📚 Anime Catalog",
-        "🕵️‍♂️ Site API • Video • CDN Inspector",
-        "⚙️ Settings & Users"
+        "🕵️‍♂️ Lumen AI URL Inspector",
+        "🛡️ Security & Users"
     )
 
     Column(
@@ -191,11 +192,19 @@ fun AdminDashboardScreen(
             .background(BackgroundDark)
             .statusBarsPadding()
     ) {
-        // Clean Top App Bar
+        // Lumen AI Admin Studio Top App Bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(SurfaceDark)
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            Color(0xFF070B1A),
+                            Color(0xFF150D2A),
+                            Color(0xFF07131E)
+                        )
+                    )
+                )
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -204,36 +213,53 @@ fun AdminDashboardScreen(
                 modifier = Modifier
                     .size(40.dp)
                     .background(SurfaceVariantDark, CircleShape)
+                    .border(1.dp, Color(0xFF00F5D4).copy(alpha = 0.5f), CircleShape)
                     .testTag("admin_logout_btn")
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Exit Admin Panel",
-                    tint = TextPrimary
+                    tint = Color(0xFF00F5D4)
                 )
             }
 
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "✨ LUMEN AI ADMIN STUDIO",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Surface(
+                        color = Color(0xFF9D4EDD).copy(alpha = 0.28f),
+                        shape = RoundedCornerShape(999.dp),
+                        modifier = Modifier.border(1.dp, Color(0xFF00F5D4), RoundedCornerShape(999.dp))
+                    ) {
+                        Text(
+                            text = "NEURAL OS",
+                            color = Color(0xFF00F5D4),
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Black,
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                        )
+                    }
+                }
                 Text(
-                    text = "Admin Studio",
-                    color = TextPrimary,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.ExtraBold
-                )
-                Text(
-                    text = "🛡️ Stealth Mode • Anti-DDoS & WAF Active • CDN & API Inspector",
-                    color = EmeraldSuccess,
+                    text = "🛡️ Stealth (robiul1000) • Anti-DDoS & WAF Active • Deep URL Inspector",
+                    color = Color(0xFF00F5D4),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.SemiBold
                 )
             }
 
             Surface(
-                color = EmeraldSuccess.copy(alpha = 0.16f),
+                color = Color(0xFF00F5D4).copy(alpha = 0.14f),
                 shape = RoundedCornerShape(20.dp),
-                modifier = Modifier.border(1.dp, EmeraldSuccess.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
+                modifier = Modifier.border(1.dp, Color(0xFF00F5D4).copy(alpha = 0.5f), RoundedCornerShape(20.dp))
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
@@ -242,13 +268,13 @@ fun AdminDashboardScreen(
                     Icon(
                         imageVector = Icons.Default.CloudDone,
                         contentDescription = null,
-                        tint = EmeraldSuccess,
+                        tint = Color(0xFF00F5D4),
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "${apiConfigs.size} Servers Active",
-                        color = EmeraldSuccess,
+                        text = "${apiConfigs.size} Active",
+                        color = Color(0xFF00F5D4),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -256,7 +282,7 @@ fun AdminDashboardScreen(
             }
         }
 
-        // Clean Summary Stats Bar
+        // Lumen AI Neural Telemetry Stats Bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -265,29 +291,86 @@ fun AdminDashboardScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             CleanMetricChip(
-                label = "CDN/Servers",
+                label = "✨ Paid CDNs",
                 value = "${apiConfigs.size}",
-                accent = EmeraldSuccess,
+                accent = Color(0xFF00F5D4),
                 modifier = Modifier.weight(1f)
             )
             CleanMetricChip(
-                label = "Streams",
+                label = "🎬 Streams",
                 value = "${scrapedVideos.size}",
-                accent = CyanAccent,
+                accent = Color(0xFF9D4EDD),
                 modifier = Modifier.weight(1f)
             )
             CleanMetricChip(
-                label = "Anime",
+                label = "📚 Catalog",
                 value = "${catalog.size}",
                 accent = CrimsonNeon,
                 modifier = Modifier.weight(1f)
             )
             CleanMetricChip(
-                label = "Users",
-                value = "${users.size}",
-                accent = StarAmber,
+                label = "🛡️ WAF Shield",
+                value = "200 OK",
+                accent = EmeraldSuccess,
                 modifier = Modifier.weight(1f)
             )
+        }
+
+        // Lumen AI Admin Neural Copilot Quick Bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF0B0E1D))
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                onClick = { viewModel.selectTab(0) },
+                color = Color(0xFF9D4EDD).copy(alpha = 0.22f),
+                shape = RoundedCornerShape(999.dp),
+                modifier = Modifier.border(1.dp, Color(0xFF00F5D4).copy(alpha = 0.5f), RoundedCornerShape(999.dp))
+            ) {
+                Text(
+                    text = "✨ Lumen AI CDN",
+                    color = Color(0xFF00F5D4),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                )
+            }
+            Surface(
+                onClick = {
+                    viewModel.selectTab(3)
+                    viewModel.updateWebPageScrapeUrl("https://api.animethemes.moe/anime?include=animethemes.animethemeentries.videos&page[size]=3")
+                    viewModel.extractVideoLinksFromWeb()
+                },
+                color = Color(0xFF00F5D4).copy(alpha = 0.16f),
+                shape = RoundedCornerShape(999.dp),
+                modifier = Modifier.border(1.dp, Color(0xFF00F5D4).copy(alpha = 0.45f), RoundedCornerShape(999.dp))
+            ) {
+                Text(
+                    text = "🕵️‍♂️ Deep URL Scan",
+                    color = Color.White,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                )
+            }
+            Surface(
+                onClick = { viewModel.selectTab(1) },
+                color = CrimsonNeon.copy(alpha = 0.18f),
+                shape = RoundedCornerShape(999.dp),
+                modifier = Modifier.border(1.dp, CrimsonNeon.copy(alpha = 0.45f), RoundedCornerShape(999.dp))
+            ) {
+                Text(
+                    text = "🎬 +1080p Stream",
+                    color = Color.White,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                )
+            }
         }
 
         // Action Feedback Toast Banner

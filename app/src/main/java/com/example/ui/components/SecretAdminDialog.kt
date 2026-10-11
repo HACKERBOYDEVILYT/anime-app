@@ -90,22 +90,37 @@ fun SecretAdminDialog(
                 modifier = Modifier.padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Secret RS Hacker Emblem
+                // Secret RS / Lumen AI Emblem
                 RsHackerEmblem(size = 56.dp)
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Surface(
+                    color = VioletAccent.copy(alpha = 0.22f),
+                    shape = RoundedCornerShape(999.dp)
+                ) {
+                    Text(
+                        text = "✨ LUMEN AI STEALTH SHIELD",
+                        color = Color(0xFF00F5D4),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Black,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Robiul • Root Gateway",
+                    text = "Lumen AI • Admin Studio Gate",
                     color = TextPrimary,
                     fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.ExtraBold
                 )
 
                 Text(
-                    text = "Enter administrative authorization key to proceed",
-                    color = TextSecondary,
-                    fontSize = 12.sp,
+                    text = "Anti-DDoS & WAF Active • Enter master password to unlock",
+                    color = Color(0xFF00F5D4),
+                    fontSize = 11.sp,
                     modifier = Modifier.padding(top = 4.dp)
                 )
 

@@ -83,6 +83,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.repository.AppUpdateRepository
 import com.example.security.AdminSecurityManager
+import com.example.ui.components.SecretAdminDialog
 import com.example.ui.theme.BackgroundDark
 import com.example.ui.theme.CardBorder
 import com.example.ui.theme.CrimsonNeon
@@ -120,6 +121,21 @@ fun WebPortalScreen(
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
     var secretHeaderTapCount by remember { mutableIntStateOf(0) }
     var lastHeaderTapTime by remember { mutableStateOf(0L) }
+    var showStealthAdminDialog by remember { mutableStateOf(false) }
+    var showQuickLinkStrip by remember { mutableStateOf(false) }
+
+    if (showStealthAdminDialog) {
+        SecretAdminDialog(
+            onDismiss = { showStealthAdminDialog = false },
+            onSuccess = {
+                showStealthAdminDialog = false
+                webViewRef?.evaluateJavascript(
+                    "if(window.openWebAdminModal){window.openWebAdminModal(0);}",
+                    null
+                )
+            }
+        )
+    }
 
     var repoSlugInput by remember(updateState.repositorySlug) { mutableStateOf(updateState.repositorySlug) }
     var webUrlInput by remember(updateState.liveWebsiteUrl) { mutableStateOf(updateState.liveWebsiteUrl) }
@@ -135,19 +151,16 @@ fun WebPortalScreen(
             .background(BackgroundDark)
             .statusBarsPadding()
     ) {
-        // Header
+        // Sleek Lumen AI Compact Website Header Bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .background(Color(0xFF060812))
+                .padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = TextPrimary)
-                }
-                Spacer(modifier = Modifier.width(4.dp))
                 Column(
                     modifier = Modifier.clickable {
                         val now = System.currentTimeMillis()
@@ -159,20 +172,40 @@ fun WebPortalScreen(
                         lastHeaderTapTime = now
                         if (secretHeaderTapCount >= 5) {
                             secretHeaderTapCount = 0
-                            onOpenAdminPanel()
+                            if (isAdminAuthenticated) {
+                                onOpenAdminPanel()
+                            } else {
+                                showStealthAdminDialog = true
+                            }
                         }
                     }
                 ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "✨ ROBIUL × LUMEN AI",
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Surface(
+                            color = VioletAccent.copy(alpha = 0.28f),
+                            shape = RoundedCornerShape(999.dp),
+                            modifier = Modifier.border(1.dp, CyanGlow.copy(alpha = 0.6f), RoundedCornerShape(999.dp))
+                        ) {
+                            Text(
+                                text = "LIVE WEBSITE",
+                                color = CyanGlow,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                     Text(
-                        text = "Unified Website & Repo Auto-Update",
-                        color = TextPrimary,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                    Text(
-                        text = "Same Repository • Live Web Portal • Auto-Update",
-                        color = CyanGlow,
-                        fontSize = 11.sp
+                        text = "Neural Streaming Website • Anti-DDoS & WAF Active",
+                        color = TextSecondary,
+                        fontSize = 10.sp
                     )
                 }
             }
@@ -185,28 +218,41 @@ fun WebPortalScreen(
                     Button(
                         onClick = {
                             webViewRef?.evaluateJavascript(
-                                "if(window.openWebAdminModal){window.openWebAdminModal(true);}",
+                                "if(window.openWebAdminModal){window.openWebAdminModal(0);}",
                                 null
                             )
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF7A00)),
+                        colors = ButtonDefaults.buttonColors(containerColor = VioletAccent),
                         shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                        modifier = Modifier.testTag("web_admin_modal_btn")
+                        contentPadding = PaddingValues(horizontal = 9.dp, vertical = 4.dp),
+                        modifier = Modifier
+                            .height(30.dp)
+                            .testTag("web_admin_modal_btn")
                     ) {
-                        Icon(Icons.Default.Security, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                        Icon(Icons.Default.Security, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Web Admin", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                        Text("✨ Lumen Admin", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
                     }
 
                     OutlinedButton(
                         onClick = onOpenAdminPanel,
                         shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
-                        modifier = Modifier.testTag("open_native_admin_from_web_btn")
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                        modifier = Modifier
+                            .height(30.dp)
+                            .testTag("open_native_admin_from_web_btn")
                     ) {
-                        Text("App Admin", color = CyanGlow, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("Studio", color = CyanGlow, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
+                }
+
+                OutlinedButton(
+                    onClick = { showQuickLinkStrip = !showQuickLinkStrip },
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                    modifier = Modifier.height(30.dp)
+                ) {
+                    Text(if (showQuickLinkStrip) "Hide Links" else "🔗 Links & Server", color = CyanGlow, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
 
                 Button(
@@ -219,193 +265,133 @@ fun WebPortalScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon),
                     shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                    modifier = Modifier.testTag("check_repo_update_btn")
+                    contentPadding = PaddingValues(horizontal = 9.dp, vertical = 4.dp),
+                    modifier = Modifier
+                        .height(30.dp)
+                        .testTag("check_repo_update_btn")
                 ) {
                     if (updateState.isChecking) {
-                        CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(14.dp))
+                        CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(13.dp))
                     } else {
-                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(15.dp))
+                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
                     }
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Sync", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text("Sync", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
 
-        // Tabs
-        TabRow(
-            selectedTabIndex = selectedTab,
-            containerColor = BackgroundDark,
-            contentColor = CrimsonNeon,
-            indicator = { tabPositions ->
-                TabRowDefaults.SecondaryIndicator(
-                    Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                    color = CrimsonNeon
+        if (showQuickLinkStrip) {
+            // Optional Expandable Website Link & Server Control Strip
+            TabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = BackgroundDark,
+                contentColor = CyanGlow,
+                indicator = { tabPositions ->
+                    TabRowDefaults.SecondaryIndicator(
+                        Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                        color = CyanGlow
+                    )
+                }
+            ) {
+                Tab(
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0 },
+                    text = { Text("🌐 Lumen AI Website", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                )
+                Tab(
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1 },
+                    text = { Text("🚀 Repo & :8080 Server", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
                 )
             }
-        ) {
-            Tab(
-                selected = selectedTab == 0,
-                onClick = { selectedTab = 0 },
-                text = { Text("🌐 Live Unified Website", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
-            )
-            Tab(
-                selected = selectedTab == 1,
-                onClick = { selectedTab = 1 },
-                text = { Text("🚀 Repo Auto-Update & Server", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
-            )
         }
 
         if (selectedTab == 0) {
-            // Prominent Website Link Bar (Copy Link, Share Link, Open in Browser)
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(SurfaceDark)
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            if (showQuickLinkStrip) {
+                // Prominent Website Link Bar (Copy Link, Share Link, Open in Browser)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(SurfaceDark)
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(modifier = Modifier.size(8.dp).background(Color(0xFF00FF66), CircleShape))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "LIVE WEBSITE LINK (CLICK TO COPY OR OPEN)",
-                                color = Color(0xFF00FF66),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                fontFamily = FontFamily.Monospace
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(3.dp))
-                        SelectionContainer {
-                            Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            SelectionContainer {
                                 Text(
-                                    text = updateState.liveWebsiteUrl,
-                                    color = Color.White,
-                                    fontSize = 12.sp,
+                                    text = "Live: ${updateState.liveWebsiteUrl} • LAN: ${updateState.lanWebServerUrl}",
+                                    color = CyanGlow,
+                                    fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     fontFamily = FontFamily.Monospace
                                 )
-                                Text(
-                                    text = "Local Server: ${updateState.lanWebServerUrl} • APK: ${updateState.lanWebServerUrl}/download/Robiul-Release.apk",
-                                    color = CyanGlow,
-                                    fontSize = 10.sp,
-                                    fontFamily = FontFamily.Monospace
-                                )
                             }
                         }
-                        if (updateState.lastApkReleaseStatus.isNotBlank()) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = updateState.lastApkReleaseStatus,
-                                color = Color(0xFF00FF66),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                fontFamily = FontFamily.Monospace
-                            )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Button(
+                            onClick = {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                clipboard?.setPrimaryClip(ClipData.newPlainText("Robiul Website Link", updateState.liveWebsiteUrl))
+                                Toast.makeText(context, "Website Link Copied: ${updateState.liveWebsiteUrl}", Toast.LENGTH_SHORT).show()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00F5D4)),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier
+                                .height(30.dp)
+                                .testTag("copy_website_link_btn")
+                        ) {
+                            Icon(Icons.Default.ContentCopy, contentDescription = "Copy Link", tint = Color.Black, modifier = Modifier.size(13.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Copy Link", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
                         }
-                    }
-                }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Button(
-                        onClick = {
-                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-                            clipboard?.setPrimaryClip(ClipData.newPlainText("Robiul Website Link", updateState.liveWebsiteUrl))
-                            Toast.makeText(context, "Website Link Copied: ${updateState.liveWebsiteUrl}", Toast.LENGTH_SHORT).show()
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00FF66)),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        modifier = Modifier
-                            .height(32.dp)
-                            .testTag("copy_website_link_btn")
-                    ) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = "Copy Link", tint = Color.Black, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Copy Website Link", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
-                    }
+                        OutlinedButton(
+                            onClick = {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                clipboard?.setPrimaryClip(ClipData.newPlainText("Robiul Local Server Link", updateState.lanWebServerUrl))
+                                Toast.makeText(context, "Local Website Link Copied: ${updateState.lanWebServerUrl}", Toast.LENGTH_SHORT).show()
+                            },
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(30.dp)
+                        ) {
+                            Text("Copy :8080", color = CyanGlow, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
 
-                    OutlinedButton(
-                        onClick = {
-                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-                            clipboard?.setPrimaryClip(ClipData.newPlainText("Robiul Local Server Link", updateState.lanWebServerUrl))
-                            Toast.makeText(context, "Local Website Link Copied: ${updateState.lanWebServerUrl}", Toast.LENGTH_SHORT).show()
-                        },
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        modifier = Modifier.height(32.dp)
-                    ) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = "Copy LAN Link", tint = CyanGlow, modifier = Modifier.size(13.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Copy :8080 Link", color = CyanGlow, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    }
+                        Button(
+                            onClick = {
+                                val resultMsg = appUpdateRepository.exportReleaseApkToDownloads()
+                                Toast.makeText(context, resultMsg, Toast.LENGTH_LONG).show()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier
+                                .height(30.dp)
+                                .testTag("download_release_apk_btn")
+                        ) {
+                            Icon(Icons.Default.CloudDownload, contentDescription = "Release APK", tint = Color.White, modifier = Modifier.size(13.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Release APK", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
+                        }
 
-                    OutlinedButton(
-                        onClick = {
-                            try {
-                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(
-                                        Intent.EXTRA_TEXT,
-                                        "Robiul [RS] Live Streaming Website:\nLive Server: ${updateState.liveWebsiteUrl}\nLAN Server: ${updateState.lanWebServerUrl}\nDirect APK: ${updateState.lanWebServerUrl}/download/Robiul-Release.apk"
-                                    )
-                                }
-                                context.startActivity(Intent.createChooser(shareIntent, "Share Website Link"))
-                            } catch (_: Exception) {
-                            }
-                        },
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        modifier = Modifier.height(32.dp)
-                    ) {
-                        Icon(Icons.Default.Share, contentDescription = "Share Link", tint = Color.White, modifier = Modifier.size(13.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Share", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    }
-
-                    Button(
-                        onClick = {
-                            val resultMsg = appUpdateRepository.exportReleaseApkToDownloads()
-                            Toast.makeText(context, resultMsg, Toast.LENGTH_LONG).show()
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        modifier = Modifier
-                            .height(32.dp)
-                            .testTag("download_release_apk_btn")
-                    ) {
-                        Icon(Icons.Default.CloudDownload, contentDescription = "Release APK", tint = Color.White, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Release APK", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
-                    }
-
-                    OutlinedButton(
-                        onClick = {
-                            try {
-                                if (!updateState.isLanWebServerRunning) {
-                                    appUpdateRepository.startLanWebServer()
-                                }
-                                val target = "http://127.0.0.1:8080"
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(target)))
-                            } catch (_: Exception) {
-                                Toast.makeText(context, "Live Website Active below (200 OK)", Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        modifier = Modifier.height(32.dp)
-                    ) {
-                        Icon(Icons.Default.OpenInBrowser, contentDescription = null, tint = CrimsonNeon, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Browser", color = CrimsonNeon, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        OutlinedButton(
+                            onClick = onBack,
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(30.dp)
+                        ) {
+                            Text("📱 Native App", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
@@ -587,7 +573,7 @@ fun WebPortalScreen(
                             )
 
                             webViewRef = this
-                            loadUrl("file:///android_asset/web/index.html")
+                            loadUrl("file:///android_asset/web/index.html?lumen=2")
                         }
                     },
                     update = { view ->

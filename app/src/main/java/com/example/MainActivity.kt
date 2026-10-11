@@ -127,7 +127,7 @@ fun KuroStreamApp(container: KuroAppContainer) {
         ) {
             NavHost(
                 navController = navController,
-                startDestination = Screen.Home.route,
+                startDestination = Screen.WebPortal.route,
                 modifier = Modifier.fillMaxSize()
             ) {
                 // Home Screen
@@ -337,7 +337,11 @@ fun KuroStreamApp(container: KuroAppContainer) {
                         onWatchEpisode = { animeId, epNum ->
                             navController.navigate(Screen.Player.createRoute(animeId, epNum))
                         },
-                        onBack = { navController.popBackStack() },
+                        onBack = {
+                            if (!navController.popBackStack()) {
+                                navController.navigate(Screen.Home.route)
+                            }
+                        },
                         onOpenAdminPanel = {
                             navController.navigate(Screen.Admin.route)
                         }
