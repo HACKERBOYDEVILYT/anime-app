@@ -67,7 +67,9 @@ class AdminViewModel(
     private val animeRepository: AnimeRepository
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(AdminUiState())
+    private val _uiState = MutableStateFlow(
+        AdminUiState(selectedTab = com.example.security.AdminSecurityManager.selectedAdminTab.value)
+    )
     val uiState: StateFlow<AdminUiState> = _uiState.asStateFlow()
 
     val stats: StateFlow<AdminStats> = adminRepository.stats
@@ -85,7 +87,18 @@ class AdminViewModel(
     }
 
     fun selectTab(tabIndex: Int) {
+        com.example.security.AdminSecurityManager.setSelectedAdminTab(tabIndex)
         _uiState.update { it.copy(selectedTab = tabIndex) }
+    }
+
+    fun reloadAdminData() {
+        loadCatalog()
+        _uiState.update {
+            it.copy(
+                selectedTab = com.example.security.AdminSecurityManager.selectedAdminTab.value,
+                extractionMessage = "🔄 Admin Panel Reloaded & Synced (Session Active)"
+            )
+        }
     }
 
     fun loadCatalog() {

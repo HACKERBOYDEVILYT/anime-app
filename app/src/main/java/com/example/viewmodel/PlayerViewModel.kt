@@ -104,7 +104,18 @@ class PlayerViewModel(
     val gamificationRepository: GamificationAndSocialRepository = GamificationAndSocialRepository()
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(PlayerUiState())
+    private val _uiState = MutableStateFlow(
+        PlayerUiState(
+            episodes = (1..12).map { epNum ->
+                Episode(
+                    id = "${animeId}_ep_$epNum",
+                    animeId = animeId,
+                    episodeNumber = epNum,
+                    title = "Episode $epNum"
+                )
+            }
+        )
+    )
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
 
     val episodeNotes: StateFlow<List<EpisodeNote>> = gamificationRepository.episodeNotes
@@ -123,7 +134,28 @@ class PlayerViewModel(
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 val anime = animeRepository.getAnimeById(animeId)
-                val episodes = animeRepository.getEpisodes(animeId)
+                val rawEpisodes = animeRepository.getEpisodes(animeId)
+                val targetEpCount = maxOf(
+                    rawEpisodes.size,
+                    (anime?.episodesCount ?: 12).coerceIn(12, 28),
+                    episodeNumber,
+                    12
+                )
+                val episodesByNum = rawEpisodes.associateBy { it.episodeNumber }
+                val templateEp = rawEpisodes.firstOrNull()
+                val episodes = (1..targetEpCount).map { epNum ->
+                    episodesByNum[epNum] ?: Episode(
+                        id = "${animeId}_ep_$epNum",
+                        animeId = animeId,
+                        episodeNumber = epNum,
+                        title = "Episode $epNum: ${anime?.titleEnglish ?: "Anime"} Part $epNum",
+                        thumbnailUrl = anime?.bannerUrl?.ifBlank { anime.posterUrl } ?: "",
+                        durationSec = templateEp?.durationSec ?: 1440,
+                        sources = templateEp?.sources.orEmpty(),
+                        subtitles = templateEp?.subtitles.orEmpty(),
+                        audioTracks = templateEp?.audioTracks.orEmpty()
+                    )
+                }
                 val targetEp = episodes.find { it.episodeNumber == episodeNumber }
                     ?: episodes.firstOrNull()
 

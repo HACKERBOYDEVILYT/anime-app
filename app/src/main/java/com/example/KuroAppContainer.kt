@@ -23,6 +23,10 @@ import com.example.data.sync.CloudSyncManager
 
 class KuroAppContainer(context: Context) {
 
+    init {
+        com.example.security.AdminSecurityManager.init(context)
+    }
+
     private val database: KuroDatabase = KuroDatabase.getInstance(context)
 
     val catalogNetworkMonitor: CatalogNetworkMonitor = CatalogNetworkMonitor.getInstance(context)

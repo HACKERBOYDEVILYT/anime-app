@@ -371,6 +371,76 @@ class AppUpdateRepository(
 
     fun getCatalogSnapshot(): List<Anime> = mediaProvider.getAllCatalogSnapshot()
 
+    suspend fun searchLiveAnimeForWebsite(query: String): List<Anime> = withContext(Dispatchers.IO) {
+        val clean = query.trim()
+        if (clean.isBlank()) return@withContext mediaProvider.getAllCatalogSnapshot()
+        runCatching {
+            val encoded = java.net.URLEncoder.encode(clean, "UTF-8")
+            val req = Request.Builder()
+                .url("https://api.jikan.moe/v4/anime?q=$encoded&limit=16")
+                .header("Accept", "application/json")
+                .get()
+                .build()
+            RetrofitClient.okHttpClient.newCall(req).execute().use { resp ->
+                if (resp.isSuccessful) {
+                    val body = resp.body?.string().orEmpty()
+                    val dataArr = JSONObject(body).optJSONArray("data")
+                    if (dataArr != null && dataArr.length() > 0) {
+                        val remoteList = mutableListOf<Anime>()
+                        for (i in 0 until dataArr.length()) {
+                            val item = dataArr.optJSONObject(i) ?: continue
+                            val malId = item.optInt("mal_id", 0)
+                            if (malId <= 0) continue
+                            val titleDefault = item.optString("title").takeIf { it.isNotBlank() && it != "null" } ?: continue
+                            val titleEn = item.optString("title_english").takeIf { it.isNotBlank() && it != "null" } ?: titleDefault
+                            val poster = item.optJSONObject("images")?.optJSONObject("jpg")?.optString("large_image_url")
+                                ?.takeIf { it.isNotBlank() && it != "null" }
+                                ?: "https://cdn.myanimelist.net/images/anime/1015/138006l.jpg"
+                            val eps = item.optInt("episodes", 12).let { if (it <= 0) 12 else it }
+                            val rawScore = item.optDouble("score", 8.6).let { if (it.isNaN() || it <= 0.0) 8.6 else it }
+                            val studio = item.optJSONArray("studios")?.optJSONObject(0)?.optString("name")
+                                ?.takeIf { it.isNotBlank() } ?: "Anime Studio"
+                            val genres = mutableListOf<String>()
+                            val gArr = item.optJSONArray("genres")
+                            if (gArr != null) {
+                                for (g in 0 until gArr.length()) {
+                                    gArr.optJSONObject(g)?.optString("name")?.takeIf { it.isNotBlank() }?.let { genres.add(it) }
+                                }
+                            }
+                            if (genres.isEmpty()) genres.add("Action")
+                            remoteList.add(
+                                Anime(
+                                    id = "mal_$malId",
+                                    slug = titleEn.lowercase(Locale.ROOT).replace(Regex("[^a-z0-9]+"), "-").trim('-'),
+                                    titleEnglish = titleEn,
+                                    titleRomaji = titleDefault,
+                                    titleJapanese = item.optString("title_japanese").takeIf { it != "null" }.orEmpty(),
+                                    description = item.optString("synopsis").takeIf { it != "null" }.orEmpty(),
+                                    posterUrl = poster,
+                                    bannerUrl = poster,
+                                    rating = (rawScore / 2.0).toFloat().coerceIn(1f, 5f),
+                                    score = (rawScore * 10).toInt().coerceIn(1, 100),
+                                    type = com.example.data.model.AnimeType.fromApiString(item.optString("type")),
+                                    status = com.example.data.model.AnimeStatus.RELEASING,
+                                    episodesCount = eps,
+                                    releaseYear = item.optInt("year", 2024).let { if (it <= 1950) 2024 else it },
+                                    season = "Spring 2025",
+                                    durationMinutes = 24,
+                                    studio = studio,
+                                    genres = genres
+                                )
+                            )
+                        }
+                        if (remoteList.isNotEmpty()) {
+                            mediaProvider.mergeRemoteAnimeList(remoteList)
+                        }
+                    }
+                }
+            }
+        }
+        mediaProvider.getAllCatalogSnapshot()
+    }
+
     fun getApiConfigsSnapshot() = adminRepository?.apiConfigs?.value.orEmpty()
 
     fun getScrapedVideosSnapshot() = adminRepository?.scrapedVideos?.value.orEmpty()

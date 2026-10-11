@@ -160,6 +160,7 @@ private val GITHUB_VIDEO_SERVER_PRESETS = listOf(
 fun AdminDashboardScreen(
     viewModel: AdminViewModel,
     onBack: () -> Unit,
+    onLockAdmin: () -> Unit = onBack,
     onPlayStream: (String, Int) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
@@ -227,7 +228,7 @@ fun AdminDashboardScreen(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "🛡️ Stealth (robiul1000) • Dedicated Admin Page",
+                    text = "🛡️ Stealth (robiul1000) • Persistent Session Active",
                     color = Color(0xFF38BDF8),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -236,29 +237,53 @@ fun AdminDashboardScreen(
                 )
             }
 
+            // In-Place Reload Button (Refreshes Admin Panel without exiting!)
             Surface(
-                color = Color(0xFF38BDF8).copy(alpha = 0.14f),
-                shape = RoundedCornerShape(20.dp),
-                modifier = Modifier.border(1.dp, Color(0xFF38BDF8).copy(alpha = 0.45f), RoundedCornerShape(20.dp))
+                onClick = { viewModel.reloadAdminData() },
+                color = Color(0xFF1E293B),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                    .border(1.dp, Color(0xFF38BDF8).copy(alpha = 0.55f), RoundedCornerShape(10.dp))
+                    .testTag("admin_reload_btn")
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Default.CloudDone,
-                        contentDescription = null,
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Reload Admin Panel",
                         tint = Color(0xFF38BDF8),
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "${apiConfigs.size} Active",
+                        text = "Reload",
                         color = Color(0xFF38BDF8),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Explicit Lock Button (Locks stealth session & returns to Website)
+            Surface(
+                onClick = onLockAdmin,
+                color = Color(0xFF1E293B),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                    .border(1.dp, CrimsonNeon.copy(alpha = 0.55f), RoundedCornerShape(10.dp))
+                    .testTag("admin_lock_btn")
+            ) {
+                Text(
+                    text = "🔒 Lock",
+                    color = CrimsonNeon,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                )
             }
         }
 

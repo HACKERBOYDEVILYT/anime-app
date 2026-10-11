@@ -47,6 +47,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -120,6 +122,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
@@ -143,6 +146,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import com.example.data.model.Episode
 import com.example.data.repository.CommentsRepository
 import com.example.data.repository.DownloadsRepository
 import com.example.ui.components.CustomVideoProgressBar
@@ -418,7 +422,26 @@ fun VideoPlayerScreen(
 
     val currentEpNum = uiState.currentEpisode?.episodeNumber ?: 1
     val currentEpTitle = uiState.currentEpisode?.title ?: "Episode $currentEpNum"
-    val totalEpisodesCount = uiState.allEpisodes.size.coerceAtLeast(1)
+    val guaranteedEpisodes = remember(uiState.allEpisodes, uiState.anime) {
+        val targetTotal = maxOf(
+            uiState.allEpisodes.size,
+            (uiState.anime?.episodesCount ?: 12).coerceIn(12, 28),
+            12
+        )
+        val existingByNum = uiState.allEpisodes.associateBy { it.episodeNumber }
+        val template = uiState.allEpisodes.firstOrNull()
+        (1..targetTotal).map { epNum ->
+            existingByNum[epNum] ?: Episode(
+                id = "${uiState.anime?.id ?: "anime"}_ep_$epNum",
+                animeId = uiState.anime?.id ?: "anime",
+                episodeNumber = epNum,
+                title = "Episode $epNum",
+                durationSec = template?.durationSec ?: 1440,
+                sources = template?.sources.orEmpty()
+            )
+        }
+    }
+    val totalEpisodesCount = guaranteedEpisodes.size.coerceAtLeast(12)
 
     Column(
         modifier = modifier
@@ -1667,14 +1690,50 @@ fun VideoPlayerScreen(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Episode Number Search Filter ("Number of Ep")
+                    // Episode Number Search Filter ("Number of Ep") with Enter-to-Play support
+                    val submitEpisodeJump: () -> Unit = {
+                        val trimmed = episodeSearchQuery.trim()
+                        val parsedEp = trimmed.filter { it.isDigit() }.toIntOrNull()
+                        if (parsedEp != null && parsedEp in 1..totalEpisodesCount) {
+                            viewModel.selectEpisode(parsedEp)
+                            kbdShortcutToast = "▶ Playing Episode $parsedEp"
+                        } else {
+                            val matchedEp = guaranteedEpisodes.firstOrNull {
+                                it.episodeNumber.toString() == trimmed ||
+                                    it.title.contains(trimmed, ignoreCase = true)
+                            }
+                            if (matchedEp != null) {
+                                viewModel.selectEpisode(matchedEp.episodeNumber)
+                                kbdShortcutToast = "▶ Playing Episode ${matchedEp.episodeNumber}"
+                            }
+                        }
+                    }
+
                     OutlinedTextField(
                         value = episodeSearchQuery,
                         onValueChange = { episodeSearchQuery = it },
                         placeholder = {
-                            Text("Number of Ep (e.g. 1, 5, 12)...", color = TextMuted, fontSize = 12.sp)
+                            Text("Search Episode 1, 2, 3... (Press Enter to play)", color = TextMuted, fontSize = 12.sp)
+                        },
+                        trailingIcon = {
+                            Button(
+                                onClick = { submitEpisodeJump() },
+                                colors = ButtonDefaults.buttonColors(containerColor = HiAnimePink),
+                                shape = RoundedCornerShape(6.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                modifier = Modifier
+                                    .padding(end = 6.dp)
+                                    .height(30.dp)
+                            ) {
+                                Text("Go ↵", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                            }
                         },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(
+                            onSearch = { submitEpisodeJump() },
+                            onDone = { submitEpisodeJump() }
+                        ),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = HiAnimePink,
                             unfocusedBorderColor = CardBorder,
@@ -1686,20 +1745,31 @@ fun VideoPlayerScreen(
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp)
+                            .height(50.dp)
+                            .onPreviewKeyEvent { keyEvent ->
+                                if (keyEvent.type == KeyEventType.KeyDown &&
+                                    (keyEvent.key == Key.Enter || keyEvent.key == Key.NumPadEnter)
+                                ) {
+                                    submitEpisodeJump()
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                            .testTag("player_episode_search_input")
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    val filteredEpisodes = remember(uiState.allEpisodes, episodeSearchQuery) {
+                    val filteredEpisodes = remember(guaranteedEpisodes, episodeSearchQuery) {
                         val q = episodeSearchQuery.trim()
                         if (q.isEmpty()) {
-                            uiState.allEpisodes
+                            guaranteedEpisodes
                         } else {
-                            uiState.allEpisodes.filter { ep ->
+                            guaranteedEpisodes.filter { ep ->
                                 ep.episodeNumber.toString().contains(q) ||
                                     ep.title.contains(q, ignoreCase = true)
-                            }
+                            }.ifEmpty { guaranteedEpisodes }
                         }
                     }
 

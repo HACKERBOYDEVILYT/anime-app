@@ -59,5 +59,30 @@ class AdminSecurityTest {
         )
         assertTrue(selfEscalation.isFailure)
     }
+
+    @Test
+    fun `test admin panel open state and selected tab persist across reloads until explicit lock`() {
+        assertFalse(AdminSecurityManager.isAdminAuthenticated.value)
+        assertFalse(AdminSecurityManager.isAdminPanelOpen.value)
+
+        // Unlocking admin panel opens it and marks session authenticated
+        assertTrue(AdminSecurityManager.authenticate("robiul1000"))
+        assertTrue(AdminSecurityManager.isAdminAuthenticated.value)
+        assertTrue(AdminSecurityManager.isAdminPanelOpen.value)
+
+        // Switching admin tabs persists the active tab index
+        AdminSecurityManager.setSelectedAdminTab(3)
+        org.junit.Assert.assertEquals(3, AdminSecurityManager.selectedAdminTab.value)
+
+        // Navigating back to website closes the panel view but keeps session authenticated
+        AdminSecurityManager.setAdminPanelOpen(false)
+        assertFalse(AdminSecurityManager.isAdminPanelOpen.value)
+        assertTrue(AdminSecurityManager.isAdminAuthenticated.value)
+
+        // Explicit lock clears both authentication and open state
+        AdminSecurityManager.logout()
+        assertFalse(AdminSecurityManager.isAdminAuthenticated.value)
+        assertFalse(AdminSecurityManager.isAdminPanelOpen.value)
+    }
 }
 

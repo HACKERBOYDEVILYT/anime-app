@@ -58,6 +58,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         runCatching { enableEdgeToEdge() }
+        AdminSecurityManager.init(this)
         val container = KuroAppContainer.getInstance(this)
 
         setContent {
@@ -72,8 +73,15 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun KuroStreamApp(container: KuroAppContainer) {
     val navController = rememberNavController()
+    val initialStartDestination = remember {
+        if (AdminSecurityManager.isAdminAuthenticated.value && AdminSecurityManager.isAdminPanelOpen.value) {
+            Screen.Admin.route
+        } else {
+            Screen.WebPortal.route
+        }
+    }
     val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route ?: Screen.WebPortal.route
+    val currentRoute = navBackStackEntry?.destination?.route ?: initialStartDestination
     val updateState by container.appUpdateRepository.updateState.collectAsStateWithLifecycle()
 
     val isPlayerScreen = currentRoute.startsWith("player")
@@ -127,7 +135,7 @@ fun KuroStreamApp(container: KuroAppContainer) {
         ) {
             NavHost(
                 navController = navController,
-                startDestination = Screen.WebPortal.route,
+                startDestination = initialStartDestination,
                 modifier = Modifier.fillMaxSize()
             ) {
                 // Home Screen
@@ -157,6 +165,7 @@ fun KuroStreamApp(container: KuroAppContainer) {
                             navController.navigate(Screen.Notifications.route)
                         },
                         onAdminClick = {
+                            AdminSecurityManager.setAdminPanelOpen(true)
                             navController.navigate(Screen.Admin.route)
                         },
                         onGenreClick = { genre ->
@@ -343,6 +352,7 @@ fun KuroStreamApp(container: KuroAppContainer) {
                             }
                         },
                         onOpenAdminPanel = {
+                            AdminSecurityManager.setAdminPanelOpen(true)
                             navController.navigate(Screen.Admin.route)
                         }
                     )
@@ -437,24 +447,46 @@ fun KuroStreamApp(container: KuroAppContainer) {
                     )
                 }
 
-                // Admin Dashboard Screen (Protected with security gate & session timeout)
+                // Admin Dashboard Screen (Protected with security gate & persistent session across reloads)
                 composable(Screen.Admin.route) {
                     val isAuthenticated by AdminSecurityManager.isAdminAuthenticated.collectAsStateWithLifecycle()
 
                     if (!isAuthenticated) {
                         SecretAdminDialog(
-                            onDismiss = { navController.popBackStack() },
-                            onSuccess = { /* Automatically refreshes state */ }
+                            onDismiss = {
+                                AdminSecurityManager.setAdminPanelOpen(false)
+                                if (!navController.popBackStack()) {
+                                    navController.navigate(Screen.WebPortal.route) {
+                                        popUpTo(Screen.Admin.route) { inclusive = true }
+                                    }
+                                }
+                            },
+                            onSuccess = {
+                                AdminSecurityManager.setAdminPanelOpen(true)
+                            }
                         )
                     } else {
+                        AdminSecurityManager.setAdminPanelOpen(true)
                         val adminViewModel = remember {
                             AdminViewModel(container.adminRepository, container.animeRepository)
                         }
                         AdminDashboardScreen(
                             viewModel = adminViewModel,
                             onBack = {
+                                AdminSecurityManager.setAdminPanelOpen(false)
+                                if (!navController.popBackStack()) {
+                                    navController.navigate(Screen.WebPortal.route) {
+                                        popUpTo(Screen.Admin.route) { inclusive = true }
+                                    }
+                                }
+                            },
+                            onLockAdmin = {
                                 AdminSecurityManager.logout()
-                                navController.popBackStack()
+                                if (!navController.popBackStack()) {
+                                    navController.navigate(Screen.WebPortal.route) {
+                                        popUpTo(Screen.Admin.route) { inclusive = true }
+                                    }
+                                }
                             },
                             onPlayStream = { animeId, epNum ->
                                 navController.navigate(Screen.Player.createRoute(animeId, epNum))

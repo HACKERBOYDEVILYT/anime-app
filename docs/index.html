@@ -1788,12 +1788,54 @@
     // =========================================================================
     // STEALTH ADMIN SECURITY GATE (PASSWORD: robiul1000) + ANTI-DDOS & WAF SHIELD
     // =========================================================================
-    let isWebAdminAuthenticated = false;
+    function readAdminStorageFlag(key, fallbackVal) {
+      try {
+        const ls = localStorage.getItem(key);
+        if (ls !== null && ls !== undefined) return ls;
+      } catch (e) {}
+      try {
+        const ss = sessionStorage.getItem(key);
+        if (ss !== null && ss !== undefined) return ss;
+      } catch (e) {}
+      return fallbackVal;
+    }
+
+    function writeAdminStorageFlag(key, val) {
+      try { localStorage.setItem(key, val); } catch (e) {}
+      try { sessionStorage.setItem(key, val); } catch (e) {}
+    }
+
+    function removeAdminStorageFlag(key) {
+      try { localStorage.removeItem(key); } catch (e) {}
+      try { sessionStorage.removeItem(key); } catch (e) {}
+    }
+
+    let isWebAdminAuthenticated = (function() {
+      if (readAdminStorageFlag("robiul_admin_auth", "0") === "1") return true;
+      try {
+        if (typeof window.name === "string" && window.name.indexOf("ROBIUL_ADMIN_") === 0) return true;
+      } catch (e) {}
+      try {
+        if (window.KuroStreamBridge && typeof window.KuroStreamBridge.isAdminAuthenticatedFromWeb === "function") {
+          return Boolean(window.KuroStreamBridge.isAdminAuthenticatedFromWeb());
+        }
+      } catch (e) {}
+      return false;
+    })();
     let stealthLogoTapCount = 0;
     let lastStealthLogoTapTime = 0;
     let failedAdminAttempts = 0;
     let adminLockoutUntilMs = 0;
-    let pendingAdminTabIdx = 0;
+    let pendingAdminTabIdx = (function() {
+      const rawTab = readAdminStorageFlag("robiul_admin_tab", "");
+      if (rawTab !== "") return parseInt(rawTab, 10) || 0;
+      try {
+        if (typeof window.name === "string" && window.name.indexOf("ROBIUL_ADMIN_OPEN:") === 0) {
+          return parseInt(window.name.split(":")[1] || "0", 10) || 0;
+        }
+      } catch (e) {}
+      return 0;
+    })();
     let ddosActionTimestamps = [];
     let lastWebsiteInspectionReport = null;
     let currentInspectorCategoryFilter = "ALL";
@@ -1891,6 +1933,14 @@
         isWebAdminAuthenticated = true;
         failedAdminAttempts = 0;
         adminLockoutUntilMs = 0;
+        writeAdminStorageFlag("robiul_admin_auth", "1");
+        writeAdminStorageFlag("robiul_admin_open", "1");
+        try { window.name = "ROBIUL_ADMIN_OPEN:" + pendingAdminTabIdx; } catch (e) {}
+        try {
+          if (window.KuroStreamBridge && typeof window.KuroStreamBridge.setAdminSessionOpenFromWeb === "function") {
+            window.KuroStreamBridge.setAdminSessionOpenFromWeb(true);
+          }
+        } catch (e) {}
         if (inp) inp.value = "";
         if (errEl) errEl.style.display = "none";
         closeAdminPasswordGate();
@@ -1915,6 +1965,20 @@
 
     function lockAndHideWebAdmin() {
       isWebAdminAuthenticated = false;
+      removeAdminStorageFlag("robiul_admin_auth");
+      removeAdminStorageFlag("robiul_admin_open");
+      removeAdminStorageFlag("robiul_admin_tab");
+      try { window.name = ""; } catch (e) {}
+      try {
+        if (window.KuroStreamBridge && typeof window.KuroStreamBridge.logoutAdminFromWeb === "function") {
+          window.KuroStreamBridge.logoutAdminFromWeb();
+        }
+      } catch (e) {}
+      try {
+        if (window.location.hash === "#admin") {
+          history.replaceState(null, "", window.location.pathname + window.location.search);
+        }
+      } catch (e) {}
       revealUnlockedAdminButtons(false);
       closeWebAdminModal();
     }
@@ -1930,6 +1994,7 @@
     function openWebAdminModal(tabIdx, forceUnlocked) {
       if (forceUnlocked === true) {
         isWebAdminAuthenticated = true;
+        writeAdminStorageFlag("robiul_admin_auth", "1");
         revealUnlockedAdminButtons(true);
       }
       if (!isWebAdminAuthenticated) {
@@ -1945,7 +2010,27 @@
       const modal = document.getElementById("webAdminModal");
       if (!modal) return;
       modal.classList.add("active");
-      if (typeof tabIdx === "number") switchWebAdminTab(tabIdx);
+      let activeTab = 0;
+      if (typeof tabIdx === "number") {
+        activeTab = tabIdx;
+      } else {
+        activeTab = parseInt(readAdminStorageFlag("robiul_admin_tab", "0"), 10) || 0;
+      }
+      writeAdminStorageFlag("robiul_admin_auth", "1");
+      writeAdminStorageFlag("robiul_admin_open", "1");
+      writeAdminStorageFlag("robiul_admin_tab", String(activeTab));
+      try { window.name = "ROBIUL_ADMIN_OPEN:" + activeTab; } catch (e) {}
+      try {
+        if (window.KuroStreamBridge && typeof window.KuroStreamBridge.setAdminSessionOpenFromWeb === "function") {
+          window.KuroStreamBridge.setAdminSessionOpenFromWeb(true);
+        }
+      } catch (e) {}
+      try {
+        if (window.location.hash !== "#admin") {
+          history.replaceState(null, "", "#admin");
+        }
+      } catch (e) {}
+      switchWebAdminTab(activeTab);
       if (window.KuroStreamBridge && typeof window.KuroStreamBridge.getAppCatalogJson === "function") {
         try {
           applyUnifiedPayloadToWeb(JSON.parse(window.KuroStreamBridge.getAppCatalogJson()));
@@ -1957,9 +2042,34 @@
     function closeWebAdminModal() {
       const modal = document.getElementById("webAdminModal");
       if (modal) modal.classList.remove("active");
+      writeAdminStorageFlag("robiul_admin_open", "0");
+      try {
+        if (isWebAdminAuthenticated) {
+          window.name = "ROBIUL_ADMIN_AUTH";
+        } else {
+          window.name = "";
+        }
+      } catch (e) {}
+      try {
+        if (window.KuroStreamBridge && typeof window.KuroStreamBridge.setAdminSessionOpenFromWeb === "function") {
+          window.KuroStreamBridge.setAdminSessionOpenFromWeb(false);
+        }
+      } catch (e) {}
+      try {
+        if (window.location.hash === "#admin") {
+          history.replaceState(null, "", window.location.pathname + window.location.search);
+        }
+      } catch (e) {}
     }
 
     function switchWebAdminTab(idx) {
+      writeAdminStorageFlag("robiul_admin_tab", String(idx));
+      try {
+        const modal = document.getElementById("webAdminModal");
+        if (modal && modal.classList.contains("active")) {
+          window.name = "ROBIUL_ADMIN_OPEN:" + idx;
+        }
+      } catch (e) {}
       [0, 1, 2, 3].forEach(i => {
         const tab = document.getElementById("webAdminTab" + i);
         const btn = document.getElementById("adminTabBtn" + i);
@@ -2470,9 +2580,50 @@
       }
     }
 
-    if (window.location.hash === "#admin") {
-      setTimeout(() => openWebAdminModal(0), 200);
+    function restoreAdminSessionOnReload() {
+      try {
+        const hasAuth = readAdminStorageFlag("robiul_admin_auth", "0") === "1" ||
+          (typeof window.name === "string" && window.name.indexOf("ROBIUL_ADMIN_") === 0) ||
+          (window.KuroStreamBridge && typeof window.KuroStreamBridge.isAdminAuthenticatedFromWeb === "function" && window.KuroStreamBridge.isAdminAuthenticatedFromWeb());
+        const shouldOpen = readAdminStorageFlag("robiul_admin_open", "0") === "1" ||
+          (typeof window.name === "string" && window.name.indexOf("ROBIUL_ADMIN_OPEN") === 0) ||
+          window.location.hash === "#admin" ||
+          (window.KuroStreamBridge && typeof window.KuroStreamBridge.isAdminSessionOpenFromWeb === "function" && window.KuroStreamBridge.isAdminSessionOpenFromWeb());
+
+        if (hasAuth) {
+          isWebAdminAuthenticated = true;
+          revealUnlockedAdminButtons(true);
+          if (shouldOpen) {
+            let savedTab = parseInt(readAdminStorageFlag("robiul_admin_tab", "0"), 10) || 0;
+            if (typeof window.name === "string" && window.name.indexOf("ROBIUL_ADMIN_OPEN:") === 0) {
+              savedTab = parseInt(window.name.split(":")[1] || String(savedTab), 10) || 0;
+            }
+            openWebAdminModal(savedTab, true);
+          }
+        } else if (window.location.hash === "#admin") {
+          setTimeout(() => openWebAdminModal(0), 150);
+        }
+      } catch (e) {}
     }
+
+    restoreAdminSessionOnReload();
+    window.addEventListener("pageshow", restoreAdminSessionOnReload);
+    window.addEventListener("hashchange", function() {
+      if (window.location.hash === "#admin") {
+        restoreAdminSessionOnReload();
+      }
+    });
+    window.addEventListener("beforeunload", function() {
+      try {
+        const modal = document.getElementById("webAdminModal");
+        if (modal && modal.classList.contains("active") && isWebAdminAuthenticated) {
+          writeAdminStorageFlag("robiul_admin_auth", "1");
+          writeAdminStorageFlag("robiul_admin_open", "1");
+          const tab = readAdminStorageFlag("robiul_admin_tab", "0");
+          window.name = "ROBIUL_ADMIN_OPEN:" + tab;
+        }
+      } catch (e) {}
+    });
 
     async function syncCrunchyrollWeb() {
       lastCatalogFetchAction = () => syncCrunchyrollWeb();

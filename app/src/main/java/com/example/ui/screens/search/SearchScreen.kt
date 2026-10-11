@@ -55,6 +55,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
@@ -175,15 +180,43 @@ fun SearchScreen(
                     )
                 },
                 trailingIcon = {
-                    if (uiState.query.isNotEmpty()) {
-                        IconButton(
-                            onClick = { viewModel.onQueryChange("") },
-                            modifier = Modifier.testTag("clear_search_btn")
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.padding(end = 6.dp)
+                    ) {
+                        if (uiState.query.isNotEmpty()) {
+                            IconButton(
+                                onClick = { viewModel.onQueryChange("") },
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .testTag("clear_search_btn")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Clear,
+                                    contentDescription = "Clear search",
+                                    tint = TextSecondary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                        Button(
+                            onClick = {
+                                viewModel.onSubmitQuery(uiState.query)
+                                focusManager.clearFocus()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier
+                                .height(32.dp)
+                                .testTag("search_submit_enter_btn")
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Clear,
-                                contentDescription = "Clear search",
-                                tint = TextSecondary
+                            Text(
+                                text = "Search ↵",
+                                color = Color.White,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
@@ -192,6 +225,10 @@ fun SearchScreen(
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(
                     onSearch = {
+                        viewModel.onSubmitQuery(uiState.query)
+                        focusManager.clearFocus()
+                    },
+                    onDone = {
                         viewModel.onSubmitQuery(uiState.query)
                         focusManager.clearFocus()
                     }
@@ -207,6 +244,17 @@ fun SearchScreen(
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .onPreviewKeyEvent { keyEvent ->
+                        if (keyEvent.type == KeyEventType.KeyDown &&
+                            (keyEvent.key == Key.Enter || keyEvent.key == Key.NumPadEnter)
+                        ) {
+                            viewModel.onSubmitQuery(uiState.query)
+                            focusManager.clearFocus()
+                            true
+                        } else {
+                            false
+                        }
+                    }
                     .testTag("search_input_field")
             )
         }

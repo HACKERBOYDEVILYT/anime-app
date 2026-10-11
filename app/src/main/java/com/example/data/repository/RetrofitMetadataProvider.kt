@@ -356,6 +356,10 @@ class RetrofitMetadataProvider(
     }
 
     override suspend fun getEpisodesForAnime(animeId: String): List<Episode> = withContext(Dispatchers.IO) {
+        val localInitial = fallbackProvider.getEpisodesForAnime(animeId)
+        if (localInitial.isNotEmpty() && localInitial.first().sources.isNotEmpty()) {
+            return@withContext localInitial
+        }
         val anime = getAnimeById(animeId)
         if (anime != null && catalogNetworkMonitor.checkNavigatorOnLine()) {
             runCatching {
@@ -367,11 +371,6 @@ class RetrofitMetadataProvider(
                 }
                 if (liveThemes.isNotEmpty()) {
                     fallbackProvider.registerRemoteAnimeStreams(anime.id, liveThemes)
-                } else {
-                    val upstreamStreams = fetchHiAnimeAniWatchUpstreamStreams(anime.titleEnglish, anime.titleRomaji)
-                    if (upstreamStreams.isNotEmpty()) {
-                        fallbackProvider.registerRemoteAnimeStreams(anime.id, upstreamStreams)
-                    }
                 }
             }
         }

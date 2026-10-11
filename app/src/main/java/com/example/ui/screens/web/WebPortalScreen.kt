@@ -32,11 +32,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Dns
@@ -51,6 +56,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -67,16 +73,24 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -91,6 +105,7 @@ import com.example.ui.theme.CrimsonNeon
 import com.example.ui.theme.StarAmber
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 // Tailwind CSS Palette Constants
@@ -132,6 +147,9 @@ fun WebPortalScreen(
     val updateState by appUpdateRepository.updateState.collectAsStateWithLifecycle()
     val isAdminAuthenticated by AdminSecurityManager.isAdminAuthenticated.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val coroutineScope = rememberCoroutineScope()
+    val webListState = rememberLazyListState()
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var useRawHtmlWebView by remember { mutableStateOf(false) }
@@ -141,6 +159,9 @@ fun WebPortalScreen(
     var showStealthAdminDialog by remember { mutableStateOf(false) }
     var showQuickLinkStrip by remember { mutableStateOf(false) }
     var catalogRefreshTick by remember { mutableIntStateOf(0) }
+    var isSearchingRemote by remember { mutableStateOf(false) }
+    var submittedSearchQuery by remember { mutableStateOf("") }
+    var selectedBottomEpisode by remember { mutableIntStateOf(1) }
 
     val fullCatalog = remember(catalogRefreshTick, updateState.lastCheckedTime) {
         appUpdateRepository.getCatalogSnapshot()
@@ -151,6 +172,28 @@ fun WebPortalScreen(
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedGenre by remember { mutableStateOf("All") }
+
+    val executeWebsiteSearch: () -> Unit = {
+        val trimmed = searchQuery.trim()
+        submittedSearchQuery = trimmed
+        focusManager.clearFocus()
+        if (selectedGenre != "All") {
+            selectedGenre = "All"
+        }
+        val pureEp = trimmed.removePrefix("ep").removePrefix("episode").trim().toIntOrNull()
+        if (pureEp != null && pureEp in 1..100) {
+            selectedBottomEpisode = pureEp
+        }
+        coroutineScope.launch {
+            runCatching { webListState.animateScrollToItem(2) }
+            if (trimmed.isNotBlank()) {
+                isSearchingRemote = true
+                appUpdateRepository.searchLiveAnimeForWebsite(trimmed)
+                catalogRefreshTick++
+                isSearchingRemote = false
+            }
+        }
+    }
 
     val randomHeroPool = remember {
         listOf(
@@ -225,12 +268,15 @@ fun WebPortalScreen(
     val activeHero = randomHeroPool[currentHeroIdx % randomHeroPool.size]
 
     val filteredCatalog = remember(fullCatalog, searchQuery, selectedGenre) {
+        val cleanQ = searchQuery.trim()
+        val numericEp = cleanQ.removePrefix("ep").removePrefix("episode").trim().toIntOrNull()
         fullCatalog.filter { anime ->
-            val matchesQuery = searchQuery.isBlank() ||
-                anime.titleEnglish.contains(searchQuery, ignoreCase = true) ||
-                anime.titleRomaji.contains(searchQuery, ignoreCase = true) ||
-                anime.studio.contains(searchQuery, ignoreCase = true) ||
-                anime.genres.any { it.contains(searchQuery, ignoreCase = true) }
+            val matchesQuery = cleanQ.isBlank() ||
+                anime.titleEnglish.contains(cleanQ, ignoreCase = true) ||
+                anime.titleRomaji.contains(cleanQ, ignoreCase = true) ||
+                anime.studio.contains(cleanQ, ignoreCase = true) ||
+                anime.genres.any { it.contains(cleanQ, ignoreCase = true) } ||
+                (numericEp != null && anime.episodesCount >= numericEp)
             val matchesGenre = selectedGenre == "All" ||
                 anime.genres.any { it.equals(selectedGenre, ignoreCase = true) }
             matchesQuery && matchesGenre
@@ -568,6 +614,7 @@ fun WebPortalScreen(
 
                                         @JavascriptInterface
                                         fun openNativeAdminPanel() {
+                                            AdminSecurityManager.setAdminPanelOpen(true)
                                             post { onOpenAdminPanel() }
                                         }
 
@@ -578,6 +625,24 @@ fun WebPortalScreen(
                                         @JavascriptInterface
                                         fun authenticateAdminFromWeb(password: String): Boolean =
                                             AdminSecurityManager.authenticate(password)
+
+                                        @JavascriptInterface
+                                        fun isAdminAuthenticatedFromWeb(): Boolean =
+                                            AdminSecurityManager.isAdminAuthenticated.value
+
+                                        @JavascriptInterface
+                                        fun isAdminSessionOpenFromWeb(): Boolean =
+                                            AdminSecurityManager.isAdminPanelOpen.value
+
+                                        @JavascriptInterface
+                                        fun setAdminSessionOpenFromWeb(isOpen: Boolean) {
+                                            AdminSecurityManager.setAdminPanelOpen(isOpen)
+                                        }
+
+                                        @JavascriptInterface
+                                        fun logoutAdminFromWeb() {
+                                            AdminSecurityManager.logout()
+                                        }
                                     },
                                     "KuroStreamBridge"
                                 )
@@ -595,6 +660,7 @@ fun WebPortalScreen(
                 // Clicking any video or Admin navigates to a SEPARATE full page!
                 // ================================================================
                 LazyColumn(
+                    state = webListState,
                     modifier = Modifier
                         .fillMaxSize()
                         .background(TailwindSlate950),
@@ -835,14 +901,70 @@ fun WebPortalScreen(
                         ) {
                             OutlinedTextField(
                                 value = searchQuery,
-                                onValueChange = { searchQuery = it },
+                                onValueChange = {
+                                    searchQuery = it
+                                    if (it.isBlank()) submittedSearchQuery = ""
+                                },
                                 leadingIcon = {
-                                    Icon(Icons.Default.Search, contentDescription = null, tint = TailwindSky400)
+                                    Icon(Icons.Default.Search, contentDescription = "Search", tint = TailwindSky400)
+                                },
+                                trailingIcon = {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        modifier = Modifier.padding(end = 6.dp)
+                                    ) {
+                                        if (searchQuery.isNotEmpty()) {
+                                            IconButton(
+                                                onClick = {
+                                                    searchQuery = ""
+                                                    submittedSearchQuery = ""
+                                                },
+                                                modifier = Modifier.size(28.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Clear,
+                                                    contentDescription = "Clear search",
+                                                    tint = TailwindSlate400,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                        }
+                                        Button(
+                                            onClick = { executeWebsiteSearch() },
+                                            colors = ButtonDefaults.buttonColors(containerColor = TailwindSky400),
+                                            shape = RoundedCornerShape(8.dp),
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                            modifier = Modifier
+                                                .height(32.dp)
+                                                .testTag("web_search_enter_btn")
+                                        ) {
+                                            if (isSearchingRemote) {
+                                                CircularProgressIndicator(
+                                                    color = TailwindSlate950,
+                                                    strokeWidth = 2.dp,
+                                                    modifier = Modifier.size(13.dp)
+                                                )
+                                            } else {
+                                                Text(
+                                                    text = "Search ↵",
+                                                    color = TailwindSlate950,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Black
+                                                )
+                                            }
+                                        }
+                                    }
                                 },
                                 placeholder = {
-                                    Text("Search ${fullCatalog.size} anime, genres, studios...", fontSize = 12.sp, color = TailwindSlate400)
+                                    Text("Search ${fullCatalog.size} anime, episodes (1, 2...), genres... (Press Enter)", fontSize = 12.sp, color = TailwindSlate400)
                                 },
                                 singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                keyboardActions = KeyboardActions(
+                                    onSearch = { executeWebsiteSearch() },
+                                    onDone = { executeWebsiteSearch() }
+                                ),
                                 shape = RoundedCornerShape(12.dp),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = TailwindSky400,
@@ -852,8 +974,59 @@ fun WebPortalScreen(
                                     focusedContainerColor = TailwindSlate900,
                                     unfocusedContainerColor = TailwindSlate900
                                 ),
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .onPreviewKeyEvent { keyEvent ->
+                                        if (keyEvent.type == KeyEventType.KeyDown &&
+                                            (keyEvent.key == Key.Enter || keyEvent.key == Key.NumPadEnter)
+                                        ) {
+                                            executeWebsiteSearch()
+                                            true
+                                        } else {
+                                            false
+                                        }
+                                    }
+                                    .testTag("web_portal_search_input")
                             )
+
+                            if (submittedSearchQuery.isNotBlank() || searchQuery.isNotBlank()) {
+                                Surface(
+                                    color = TailwindSlate900,
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .border(1.dp, TailwindSky400.copy(alpha = 0.45f), RoundedCornerShape(10.dp))
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = if (isSearchingRemote) {
+                                                "⏳ Searching live catalog for \"${searchQuery.trim()}\"..."
+                                            } else {
+                                                "🔍 Search Results for \"${searchQuery.trim()}\": ${filteredCatalog.size} Anime Found"
+                                            },
+                                            color = TailwindSky400,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = "Clear ✕",
+                                            color = Color.White,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.clickable {
+                                                searchQuery = ""
+                                                submittedSearchQuery = ""
+                                            }
+                                        )
+                                    }
+                                }
+                            }
 
                             val genres = listOf("All", "Action", "Fantasy", "Adventure", "Sci-Fi", "Supernatural", "Comedy", "Drama", "Romance")
                             Row(
@@ -906,7 +1079,7 @@ fun WebPortalScreen(
                         }
                     }
 
-                    // 4. Tailwind 2-Column Anime Grid (Clicking any card opens Separate Video Player Page)
+                    // 4. Tailwind 2-Column Anime Grid (Clicking any card or episode number opens Separate Video Player Page)
                     items(filteredCatalog.chunked(2)) { pair ->
                         Row(
                             modifier = Modifier
@@ -918,11 +1091,109 @@ fun WebPortalScreen(
                                 TailwindWebsiteAnimeCard(
                                     anime = anime,
                                     onWatchClick = { onWatchEpisode(anime.id, 1) },
+                                    onSelectEpisodeClick = { epNum -> onWatchEpisode(anime.id, epNum) },
                                     modifier = Modifier.weight(1f)
                                 )
                             }
                             if (pair.size == 1) {
                                 Spacer(modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
+
+                    // 5. Bottom ("Sese") Numbered Episode Selector (1, 2, 3, 4, 5...) & Quick Episode Jump Bar
+                    item {
+                        val targetAnime = filteredCatalog.firstOrNull() ?: fullCatalog.firstOrNull()
+                        val totalEps = (targetAnime?.episodesCount ?: 24).coerceIn(12, 28)
+                        Card(
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = TailwindSlate900),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 4.dp)
+                                .border(1.dp, TailwindSky400.copy(alpha = 0.45f), RoundedCornerShape(14.dp))
+                                .testTag("web_bottom_episode_numbers_section")
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "🎬 Select Episode Number (1, 2, 3... $totalEps)",
+                                            color = Color.White,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Black
+                                        )
+                                        Text(
+                                            text = "${targetAnime?.titleEnglish ?: "Featured Anime"} • Tap any episode number below to watch immediately",
+                                            color = TailwindSlate400,
+                                            fontSize = 11.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    Surface(
+                                        color = TailwindSky400,
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text(
+                                            text = "EP $selectedBottomEpisode / $totalEps",
+                                            color = TailwindSlate950,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Black,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
+
+                                // Numbered Episode Grid (1, 2, 3, 4, 5, 6...) at the bottom of the website
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    (1..totalEps).toList().chunked(6).forEach { epRow ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            epRow.forEach { epNum ->
+                                                val isSelected = selectedBottomEpisode == epNum
+                                                Surface(
+                                                    onClick = {
+                                                        selectedBottomEpisode = epNum
+                                                        onWatchEpisode(targetAnime?.id ?: "anime_1", epNum)
+                                                    },
+                                                    color = if (isSelected) TailwindSky400 else TailwindSlate950,
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    modifier = Modifier
+                                                        .weight(1f)
+                                                        .height(36.dp)
+                                                        .border(
+                                                            1.dp,
+                                                            if (isSelected) TailwindSky400 else TailwindSlate800,
+                                                            RoundedCornerShape(8.dp)
+                                                        )
+                                                        .testTag("web_bottom_ep_btn_$epNum")
+                                                ) {
+                                                    Box(contentAlignment = Alignment.Center) {
+                                                        Text(
+                                                            text = if (isSelected) "▶ $epNum" else "$epNum",
+                                                            color = if (isSelected) TailwindSlate950 else Color.White,
+                                                            fontSize = 12.sp,
+                                                            fontWeight = FontWeight.Black
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                            repeat(6 - epRow.size) {
+                                                Spacer(modifier = Modifier.weight(1f).height(36.dp))
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -1175,8 +1446,10 @@ fun WebPortalScreen(
 private fun TailwindWebsiteAnimeCard(
     anime: Anime,
     onWatchClick: () -> Unit,
+    onSelectEpisodeClick: (Int) -> Unit = { onWatchClick() },
     modifier: Modifier = Modifier
 ) {
+    val totalEpisodes = anime.episodesCount.coerceAtLeast(12).coerceAtMost(28)
     Card(
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = TailwindSlate900),
@@ -1222,7 +1495,7 @@ private fun TailwindWebsiteAnimeCard(
                         .padding(8.dp)
                 ) {
                     Text(
-                        text = "${anime.episodesCount} EPS",
+                        text = "${anime.episodesCount.coerceAtLeast(12)} EPS",
                         color = Color.White,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Black,
@@ -1233,7 +1506,7 @@ private fun TailwindWebsiteAnimeCard(
 
             Column(
                 modifier = Modifier.padding(10.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(5.dp)
             ) {
                 Text(
                     text = anime.titleEnglish,
@@ -1250,7 +1523,34 @@ private fun TailwindWebsiteAnimeCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(2.dp))
+
+                // Numbered Episode Buttons (1, 2, 3, 4, 5...) at the bottom of every card
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items((1..totalEpisodes).toList()) { epNum ->
+                        Surface(
+                            onClick = { onSelectEpisodeClick(epNum) },
+                            color = if (epNum == 1) TailwindSky400 else TailwindSlate950,
+                            shape = RoundedCornerShape(6.dp),
+                            modifier = Modifier.border(
+                                1.dp,
+                                if (epNum == 1) TailwindSky400 else TailwindSlate800,
+                                RoundedCornerShape(6.dp)
+                            )
+                        ) {
+                            Text(
+                                text = "$epNum",
+                                color = if (epNum == 1) TailwindSlate950 else Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Black,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                }
+
                 Button(
                     onClick = onWatchClick,
                     colors = ButtonDefaults.buttonColors(containerColor = TailwindSlate800),

@@ -1204,12 +1204,13 @@ class LocalLicensedMediaProvider(
     }
 
     override suspend fun getEpisodesForAnime(animeId: String): List<Episode> = withContext(Dispatchers.IO) {
-        val anime = getAnimeById(animeId) ?: return@withContext emptyList()
+        val anime = getAnimeById(animeId) ?: synchronized(catalog) { catalog.firstOrNull() } ?: return@withContext emptyList()
+        val effectiveAnimeId = getAnimeById(animeId)?.id ?: animeId
 
         // Fetch any scraped / admin-injected streams from Room DB & memory specifically for this anime
-        val dbScraped = adminScrapedDao?.getScrapedVideosForAnime(anime.id).orEmpty()
+        val dbScraped = adminScrapedDao?.getScrapedVideosForAnime(effectiveAnimeId).orEmpty()
         val memScraped = synchronized(inMemoryScrapedStreams) {
-            inMemoryScrapedStreams.filter { it.animeId == anime.id }
+            inMemoryScrapedStreams.filter { it.animeId == effectiveAnimeId || it.animeId == anime.id }
         }
         val allScrapedForAnime = (dbScraped + memScraped)
             .filter {
@@ -1221,7 +1222,7 @@ class LocalLicensedMediaProvider(
             .distinctBy { it.id }
 
         val maxScrapedEp = allScrapedForAnime.maxOfOrNull { it.episodeNumber } ?: 0
-        val count = maxOf(anime.episodesCount.coerceIn(1, 28), maxScrapedEp)
+        val count = maxOf(anime.episodesCount.coerceIn(12, 36), maxScrapedEp)
 
         val defaultSubtitles = listOf(
             EpisodeSubtitle("sub_en", "en", "English", "", isDefault = true),

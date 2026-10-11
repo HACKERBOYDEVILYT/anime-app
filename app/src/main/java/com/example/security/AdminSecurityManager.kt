@@ -1,5 +1,7 @@
 package com.example.security
 
+import android.content.Context
+import android.content.SharedPreferences
 import android.os.Build
 import com.example.data.model.AuditLog
 import com.example.data.model.UserRole
@@ -15,11 +17,21 @@ import java.util.concurrent.ConcurrentHashMap
  * - Validates every privileged operation server-side (never relies solely on client UI hiding)
  * - Prevents any user from escalating their own role to a higher privilege level
  * - Maintains immutable security audit logs without leaking secrets or tokens
+ * - Persists Admin Session & Active Admin Page state across reloads so reloading never kicks the admin out
  */
 object AdminSecurityManager {
 
+    private const val PREFS_NAME = "robiul_admin_security_prefs"
+    private const val KEY_ADMIN_AUTHENTICATED = "is_admin_authenticated"
+    private const val KEY_ADMIN_PANEL_OPEN = "is_admin_panel_open"
+    private const val KEY_ADMIN_SELECTED_TAB = "admin_selected_tab"
+    private const val KEY_ADMIN_SESSION_TOKEN = "admin_session_token"
+
     private const val MAX_FAILED_ATTEMPTS = 5
     private const val LOCKOUT_DURATION_MS = 30_000L
+
+    @Volatile
+    private var prefs: SharedPreferences? = null
 
     // Primary password: "robiul1000" (XOR with 0x5A: 'r'=40,'o'=53,'b'=56,'i'=51,'u'=47,'l'=54,'1'=107,'0'=106,'0'=106,'0'=106)
     private val PRIMARY_KEY_BYTES = byteArrayOf(
@@ -36,6 +48,42 @@ object AdminSecurityManager {
 
     private val _isAdminAuthenticated = MutableStateFlow(false)
     val isAdminAuthenticated: StateFlow<Boolean> = _isAdminAuthenticated.asStateFlow()
+
+    private val _isAdminPanelOpen = MutableStateFlow(false)
+    val isAdminPanelOpen: StateFlow<Boolean> = _isAdminPanelOpen.asStateFlow()
+
+    private val _selectedAdminTab = MutableStateFlow(0)
+    val selectedAdminTab: StateFlow<Int> = _selectedAdminTab.asStateFlow()
+
+    fun init(context: Context) {
+        if (prefs != null) return
+        synchronized(this) {
+            if (prefs == null) {
+                val sp = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                prefs = sp
+                val savedAuth = sp.getBoolean(KEY_ADMIN_AUTHENTICATED, false)
+                val savedOpen = sp.getBoolean(KEY_ADMIN_PANEL_OPEN, false)
+                val savedTab = sp.getInt(KEY_ADMIN_SELECTED_TAB, 0)
+                val savedToken = sp.getString(KEY_ADMIN_SESSION_TOKEN, "") ?: ""
+                _isAdminAuthenticated.value = savedAuth
+                _isAdminPanelOpen.value = savedAuth && savedOpen
+                _selectedAdminTab.value = savedTab
+                if (savedAuth && savedToken.isNotBlank()) {
+                    _activeSessionToken.value = savedToken
+                }
+            }
+        }
+    }
+
+    fun setAdminPanelOpen(isOpen: Boolean) {
+        _isAdminPanelOpen.value = isOpen
+        prefs?.edit()?.putBoolean(KEY_ADMIN_PANEL_OPEN, isOpen)?.commit()
+    }
+
+    fun setSelectedAdminTab(tabIndex: Int) {
+        _selectedAdminTab.value = tabIndex
+        prefs?.edit()?.putInt(KEY_ADMIN_SELECTED_TAB, tabIndex)?.commit()
+    }
 
     // Anti-DDoS & WAF Telemetry State
     private val requestWindows = ConcurrentHashMap<String, MutableList<Long>>()
@@ -220,8 +268,15 @@ object AdminSecurityManager {
         return if (isMatch) {
             failedAttempts = 0
             lockoutUntilTime = 0L
+            val token = "rs_sec_${System.currentTimeMillis()}_${(100000..999999).random()}"
             _isAdminAuthenticated.value = true
-            _activeSessionToken.value = "rs_sec_${System.currentTimeMillis()}_${(100000..999999).random()}"
+            _isAdminPanelOpen.value = true
+            _activeSessionToken.value = token
+            prefs?.edit()
+                ?.putBoolean(KEY_ADMIN_AUTHENTICATED, true)
+                ?.putBoolean(KEY_ADMIN_PANEL_OPEN, true)
+                ?.putString(KEY_ADMIN_SESSION_TOKEN, token)
+                ?.commit()
             recordAudit("admin_gate", "ADMIN_LOGIN_SUCCESS", "Session Authenticated (SHA-256 / Constant-Time)")
             true
         } else {
@@ -233,15 +288,26 @@ object AdminSecurityManager {
                 recordAudit("admin_gate", "ADMIN_LOGIN_FAILED", "Invalid password ($failedAttempts/$MAX_FAILED_ATTEMPTS)")
             }
             _isAdminAuthenticated.value = false
+            _isAdminPanelOpen.value = false
+            prefs?.edit()
+                ?.putBoolean(KEY_ADMIN_AUTHENTICATED, false)
+                ?.putBoolean(KEY_ADMIN_PANEL_OPEN, false)
+                ?.commit()
             false
         }
     }
 
     fun logout() {
         _isAdminAuthenticated.value = false
+        _isAdminPanelOpen.value = false
         _activeSessionToken.value = ""
         failedAttempts = 0
         lockoutUntilTime = 0L
+        prefs?.edit()
+            ?.putBoolean(KEY_ADMIN_AUTHENTICATED, false)
+            ?.putBoolean(KEY_ADMIN_PANEL_OPEN, false)
+            ?.remove(KEY_ADMIN_SESSION_TOKEN)
+            ?.commit()
         recordAudit("admin_gate", "ADMIN_LOGOUT", "Session Locked")
     }
 
