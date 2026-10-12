@@ -1,0 +1,12 @@
+{
+  "appName": "Robiul",
+  "versionCode": 146,
+  "versionName": "1.1.46",
+  "commitSha": "b4203c185d4af0755eeba16f5b8588c91b05485d",
+  "publishedAt": "2026-10-12T01:35:55Z",
+  "forceUpdate": false,
+  "repositorySlug": "HACKERBOYDEVILYT/anime-app",
+  "apkDownloadUrl": "https://github.com/HACKERBOYDEVILYT/anime-app/releases/latest/download/Robiul-Release.apk",
+  "webPortalUrl": "https://hackerboydevilyt.github.io/anime-app/",
+  "changelog": "Robiul [RS] Update (1.1.46): refactor: update UI styling and improve APK export logic  - Refine video player progress bar and modal UI with updated color palettes and dimensions. - Implement a robust fallback mechanism for APK exports to ensure reliable file access in the app's private storage alongside public system downloads. "
+}
