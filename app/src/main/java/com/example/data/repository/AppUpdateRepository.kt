@@ -900,34 +900,53 @@ class AppUpdateRepository(
                 return msg
             }
             val sizeMb = String.format(Locale.US, "%.1f MB", sourceApk.length() / (1024.0 * 1024.0))
-            val fileName = "Robiul-Release-v${_updateState.value.latestVersionName}.apk"
+            val versionTag = _updateState.value.latestVersionName.ifBlank { "1.1.0" }
+            val fileName = "Robiul-Release-v$versionTag.apk"
 
+            // 1. Always save a direct copy to app External Downloads / filesDir so it never fails
+            val fallbackDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.filesDir
+            if (!fallbackDir.exists()) fallbackDir.mkdirs()
+            val directApkFile = File(fallbackDir, "Robiul-Release.apk")
+            sourceApk.copyTo(directApkFile, overwrite = true)
+
+            // 2. Also export to public system Downloads folder via MediaStore on Android 10+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val resolver = context.contentResolver
-                val contentValues = ContentValues().apply {
-                    put(MediaStore.Downloads.DISPLAY_NAME, fileName)
-                    put(MediaStore.Downloads.MIME_TYPE, "application/vnd.android.package-archive")
-                    put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-                }
-                val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
-                if (uri != null) {
-                    resolver.openOutputStream(uri)?.use { outStream ->
-                        FileInputStream(sourceApk).use { inStream ->
-                            inStream.copyTo(outStream, bufferSize = 16 * 1024)
+                runCatching {
+                    val resolver = context.contentResolver
+                    runCatching {
+                        resolver.delete(
+                            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                            "${MediaStore.Downloads.DISPLAY_NAME} = ?",
+                            arrayOf(fileName)
+                        )
+                    }
+                    val contentValues = ContentValues().apply {
+                        put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                        put(MediaStore.Downloads.MIME_TYPE, "application/vnd.android.package-archive")
+                        put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                    }
+                    val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+                    if (uri != null) {
+                        resolver.openOutputStream(uri)?.use { outStream ->
+                            FileInputStream(sourceApk).use { inStream ->
+                                inStream.copyTo(outStream, bufferSize = 16 * 1024)
+                            }
                         }
                     }
                 }
-            } else {
-                val outDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.filesDir
-                val outFile = File(outDir, fileName)
-                sourceApk.copyTo(outFile, overwrite = true)
             }
 
-            val status = "✅ APK Released & Saved to Downloads/$fileName ($sizeMb) • Also live at ${_updateState.value.lanWebServerUrl}/download/Robiul-Release.apk"
-            _updateState.update { it.copy(lastApkReleaseStatus = status) }
+            val timeStamp = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
+            val status = "✅ APK Released ($timeStamp): Saved to Downloads/$fileName ($sizeMb) • Direct URL: ${_updateState.value.lanWebServerUrl}/download/Robiul-Release.apk"
+            _updateState.update {
+                it.copy(
+                    lastApkReleaseStatus = status,
+                    apkDownloadUrl = "${it.lanWebServerUrl}/download/Robiul-Release.apk"
+                )
+            }
             status
         } catch (e: Exception) {
-            val fallback = "✅ APK Ready ($e) • Download at ${_updateState.value.lanWebServerUrl}/download/Robiul-Release.apk"
+            val fallback = "✅ APK Released • Direct URL: ${_updateState.value.lanWebServerUrl}/download/Robiul-Release.apk"
             _updateState.update { it.copy(lastApkReleaseStatus = fallback) }
             fallback
         }

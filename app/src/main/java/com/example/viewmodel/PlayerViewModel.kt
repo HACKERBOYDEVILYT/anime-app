@@ -111,7 +111,9 @@ class PlayerViewModel(
                     id = "${animeId}_ep_$epNum",
                     animeId = animeId,
                     episodeNumber = epNum,
-                    title = "Episode $epNum"
+                    title = "Episode $epNum",
+                    thumbnail = "",
+                    airDate = "2025"
                 )
             }
         )
@@ -149,8 +151,9 @@ class PlayerViewModel(
                         animeId = animeId,
                         episodeNumber = epNum,
                         title = "Episode $epNum: ${anime?.titleEnglish ?: "Anime"} Part $epNum",
-                        thumbnailUrl = anime?.bannerUrl?.ifBlank { anime.posterUrl } ?: "",
-                        durationSec = templateEp?.durationSec ?: 1440,
+                        thumbnail = anime?.bannerUrl?.ifBlank { anime.posterUrl } ?: "",
+                        durationSeconds = templateEp?.durationSeconds ?: 1440L,
+                        airDate = templateEp?.airDate ?: "2025",
                         sources = templateEp?.sources.orEmpty(),
                         subtitles = templateEp?.subtitles.orEmpty(),
                         audioTracks = templateEp?.audioTracks.orEmpty()

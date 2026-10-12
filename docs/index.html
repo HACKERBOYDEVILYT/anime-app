@@ -201,12 +201,12 @@
       display: none !important;
     }
     .player-modal {
-      position: relative; min-height: 100vh; width: 100%; z-index: 300; background: #020617;
+      position: relative; min-height: 100vh; width: 100%; z-index: 300; background: #0F0F0F;
       display: none; flex-direction: column; justify-content: flex-start; align-items: stretch; padding: 0;
     }
     .player-modal.active { display: flex; }
     .player-box {
-      width: 100%; max-width: 100%; min-height: 100vh; background: #020617;
+      width: 100%; max-width: 100%; min-height: 100vh; background: #0F0F0F;
       border: none; border-radius: 0; overflow-x: hidden;
       box-shadow: none; display: flex; flex-direction: column;
     }
@@ -219,27 +219,26 @@
     }
     .player-key-toast {
       position: absolute; top: 18px; left: 50%; transform: translateX(-50%);
-      background: rgba(7, 11, 22, 0.92); border: 1px solid var(--cyan-glow);
-      color: var(--cyan-glow); font-family: monospace; font-size: 13px; font-weight: 800;
+      background: rgba(15, 15, 15, 0.92); border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #ffffff; font-family: monospace; font-size: 13px; font-weight: 800;
       padding: 7px 16px; border-radius: 20px; pointer-events: none;
       opacity: 0; transition: opacity 0.2s ease; z-index: 20;
-      box-shadow: 0 0 18px rgba(0, 245, 212, 0.45);
     }
     .player-key-toast.visible { opacity: 1; }
     .kbd-hint-bar {
-      padding: 7px 16px; background: rgba(6, 8, 18, 0.95);
-      border-top: 1px solid var(--border-color);
+      padding: 7px 16px; background: #0F0F0F;
+      border-top: 1px solid #272727;
       display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
-      font-size: 11px; color: var(--text-secondary); font-family: monospace;
+      font-size: 11px; color: #AAAAAA; font-family: monospace;
     }
     .kbd-tag {
-      background: rgba(157, 78, 221, 0.18); border: 1px solid rgba(0, 245, 212, 0.35);
+      background: #272727; border: 1px solid #3F3F3F;
       color: #fff; padding: 1px 6px; border-radius: 4px; font-weight: 700; font-size: 10px;
     }
     .player-header {
-      padding: 13px 18px; display: flex; justify-content: space-between; align-items: center;
-      border-bottom: 1px solid var(--border-color);
-      background: linear-gradient(90deg, rgba(0,245,212,0.08), rgba(157,78,221,0.12));
+      padding: 10px 16px; display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid #272727;
+      background: #0F0F0F;
     }
     .video-stage { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; }
     .video-stage video { width: 100%; height: 100%; object-fit: contain; }
@@ -248,27 +247,27 @@
       background: rgba(0,0,0,0.78); color: #FFEE00; padding: 5px 14px; border-radius: 6px;
       font-size: 15px; font-weight: 700; text-align: center; pointer-events: none;
     }
-    /* Custom Neon Progress Bar */
-    .custom-progress-wrap { padding: 12px 16px; background: #080B16; border-top: 1px solid var(--border-color); }
+    /* Custom YouTube Red Progress Bar */
+    .custom-progress-wrap { padding: 8px 16px 10px; background: #0F0F0F; border-top: 1px solid #272727; }
     .progress-track-container {
       position: relative; width: 100%; height: 22px; display: flex; align-items: center; cursor: pointer;
     }
     .progress-track-bg {
-      position: relative; width: 100%; height: 6px; background: rgba(255,255,255,0.2); border-radius: 4px; overflow: visible;
+      position: relative; width: 100%; height: 4px; background: rgba(255,255,255,0.25); border-radius: 2px; overflow: visible;
     }
     .progress-track-buffer {
       position: absolute; left: 0; top: 0; height: 100%; width: 0%;
-      background: rgba(0, 245, 212, 0.35); border-radius: 4px;
+      background: rgba(255, 255, 255, 0.55); border-radius: 2px;
     }
     .progress-track-active {
       position: absolute; left: 0; top: 0; height: 100%; width: 0%;
-      background: var(--lumen-gradient);
-      border-radius: 4px;
+      background: #FF0000;
+      border-radius: 2px;
     }
     .progress-thumb {
       position: absolute; top: 50%; left: 0%; transform: translate(-50%, -50%);
-      width: 14px; height: 14px; border-radius: 50%; background: var(--cyan-glow);
-      border: 2px solid #fff; box-shadow: 0 0 12px var(--cyan-glow);
+      width: 13px; height: 13px; border-radius: 50%; background: #FF0000;
+      border: none; box-shadow: 0 0 8px rgba(255, 0, 0, 0.8);
     }
     .progress-telemetry {
       display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-family: monospace; font-size: 12px;
@@ -335,7 +334,7 @@
       <input type="text" id="searchInput" class="search-box" placeholder="✨ Ask Lumen AI or Search Anime..." onkeydown="if(event.key==='Enter') searchAnime()" />
       <button id="publicHeaderAdminBtn" class="btn btn-primary" style="display:none;" onclick="openWebAdminModal()">✨ Lumen AI Admin</button>
       <button class="btn btn-outline" onclick="syncCrunchyrollWeb()">⚡ Simulcast</button>
-      <a id="apkDownloadBtn" href="./download/Robiul-Release.apk" download="Robiul-Release.apk" onclick="if(window.KuroStreamBridge && window.KuroStreamBridge.releaseApkFromWeb){window.KuroStreamBridge.releaseApkFromWeb(); return false;}" class="btn btn-primary">
+      <a id="apkDownloadBtn" href="./download/Robiul-Release.apk" download="Robiul-Release.apk" onclick="if(window.KuroStreamBridge && window.KuroStreamBridge.releaseApkFromWeb){var m=window.KuroStreamBridge.releaseApkFromWeb(); alert(m); return false;}" class="btn btn-primary">
         📲 Robiul-Release.apk
       </a>
       <button class="btn-stealth-lock" onclick="openWebAdminModal(0)" title="Lumen AI Security Shield (Protected)">🔒</button>
@@ -479,27 +478,26 @@
   <div class="player-modal" id="playerModal" tabindex="-1">
     <div class="player-box" id="playerBox">
       <div class="player-header">
-        <div>
-          <div style="font-size:15px;font-weight:800;" id="modalAnimeTitle">Frieren: Beyond Journey's End</div>
-          <div style="font-size:11px;color:var(--cyan-glow);" id="modalEpisodeSub">Episode 1 • 1080p HLS Stream</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <button class="btn btn-outline" style="padding:6px 12px;border-radius:999px;background:#272727;border:none;color:#fff;" onclick="closePlayerModal()">← Back</button>
+          <span style="background:#FF0000;color:#fff;font-size:10px;font-weight:900;padding:3px 8px;border-radius:4px;">▶ YouTube Player</span>
         </div>
         <div style="display:flex;gap:8px;align-items:center;">
-          <button class="btn btn-outline" id="fullscreenBtn" onclick="toggleModalFullscreen()">⛶ Fullscreen (F)</button>
-          <button class="btn btn-outline" onclick="closePlayerModal()">✕ Close Player</button>
+          <button class="btn btn-outline" style="background:#272727;border:none;color:#fff;border-radius:999px;" id="fullscreenBtn" onclick="toggleModalFullscreen()">⛶ Fullscreen (F)</button>
         </div>
       </div>
 
       <div class="video-stage" id="videoStage" onclick="toggleModalPlay()">
         <video id="modalVideo" playsinline></video>
         <div id="modalHtmlEmbedStage" style="display:none;position:absolute;inset:0;width:100%;height:100%;background:#000;z-index:5;" onclick="event.stopPropagation()"></div>
-        <div id="modalUnavailableOverlay" style="display:none;position:absolute;inset:0;background:rgba(8,10,15,0.96);z-index:10;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;" onclick="event.stopPropagation()">
+        <div id="modalUnavailableOverlay" style="display:none;position:absolute;inset:0;background:rgba(15,15,15,0.96);z-index:10;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;" onclick="event.stopPropagation()">
           <div style="font-size:38px;margin-bottom:10px;">📡</div>
-          <div style="font-size:20px;font-weight:900;color:#FF2A5F;margin-bottom:6px;">Video not available right now</div>
-          <div style="font-size:12px;color:#A0AAB8;max-width:440px;margin-bottom:16px;">This anime does not have an active stream on the server yet. Please check back soon.</div>
-          <button id="unavailableAdminBtn" class="btn" style="display:none;background:#FF7A00;color:#fff;" onclick="closePlayerModal(); openWebAdminModal(1);">🛡️ Add Stream in Admin Panel</button>
+          <div style="font-size:20px;font-weight:900;color:#FF0000;margin-bottom:6px;">Video not available right now</div>
+          <div style="font-size:12px;color:#AAAAAA;max-width:440px;margin-bottom:16px;">This anime does not have an active stream on the server yet. Please check back soon.</div>
+          <button id="unavailableAdminBtn" class="btn" style="display:none;background:#FF0000;color:#fff;" onclick="closePlayerModal(); openWebAdminModal(1);">🛡️ Add Stream in Admin Panel</button>
         </div>
         <div class="player-key-toast" id="playerKeyToast">▶ Playing [Space]</div>
-        <div id="modalEpCornerBadge" style="position:absolute;top:12px;left:12px;background:rgba(0,0,0,0.72);border:1px solid #FFBADE;color:#FFBADE;font-size:11px;font-weight:800;padding:4px 10px;border-radius:6px;pointer-events:none;z-index:12;">EP 1 • SUB • HD-1</div>
+        <div id="modalEpCornerBadge" style="position:absolute;top:12px;left:12px;background:rgba(15,15,15,0.82);border:1px solid #FF0000;color:#ffffff;font-size:11px;font-weight:800;padding:4px 10px;border-radius:4px;pointer-events:none;z-index:12;">EP 1 • SUB • HD-1</div>
       </div>
 
       <!-- Custom Progress Bar UI Component (Playback Time + Total Duration + Buffer) -->
@@ -514,37 +512,54 @@
         <div class="progress-telemetry">
           <div>
             <span id="currentTimeText" style="color:#fff;font-weight:800;">00:00</span>
-            <span style="color:var(--text-muted);"> / </span>
-            <span id="totalDurationText" style="color:var(--text-secondary);">24:00</span>
+            <span style="color:#AAAAAA;"> / </span>
+            <span id="totalDurationText" style="color:#AAAAAA;">24:00</span>
           </div>
           <div style="display:flex;gap:10px;align-items:center;">
-            <span id="bufferPctText" style="color:var(--cyan-glow);font-size:11px;">Buffer 0%</span>
-            <span id="remainingTimeText" style="color:var(--text-secondary);font-size:11px;">-24:00 left</span>
+            <span id="bufferPctText" style="color:#AAAAAA;font-size:11px;">Buffer 0%</span>
+            <span id="remainingTimeText" style="color:#AAAAAA;font-size:11px;">-24:00 left</span>
           </div>
         </div>
       </div>
 
-      <div class="player-controls-row">
-        <div class="chip-group">
-          <button class="chip active" onclick="toggleModalPlay()" id="playPauseBtn">⏸ Pause</button>
-          <button class="chip" onclick="skipSeconds(-10)">⏪ -10s</button>
-          <button class="chip" onclick="skipSeconds(10)">⏩ +10s</button>
-          <button class="chip" onclick="skipSeconds(85)">Skip Intro ⏩</button>
+      <!-- YouTube Watch Page Metadata & Action Pills -->
+      <div style="padding:14px 16px;background:#0F0F0F;border-bottom:1px solid #272727;">
+        <div style="font-size:18px;font-weight:800;color:#ffffff;line-height:1.35;" id="modalAnimeTitle">Frieren: Beyond Journey's End</div>
+        <div style="font-size:12px;color:#AAAAAA;margin-top:4px;">
+          <span id="modalEpisodeSub">Episode 1 • 1080p HD</span> • <span>148K views • 2 hours ago</span> <span style="color:#3EA6FF;font-weight:700;">#Anime #1080p</span>
         </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-top:12px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:36px;height:36px;border-radius:50%;background:#FF0000;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;">R</div>
+            <div>
+              <div style="font-size:14px;font-weight:800;color:#fff;">Robiul Anime Official ✓</div>
+              <div style="font-size:11px;color:#AAAAAA;">1.84M subscribers</div>
+            </div>
+            <button onclick="this.textContent = this.textContent==='Subscribe' ? 'Subscribed 🔔' : 'Subscribe'; this.style.background = this.textContent==='Subscribe' ? '#ffffff' : '#272727'; this.style.color = this.textContent==='Subscribe' ? '#0F0F0F' : '#ffffff';" style="margin-left:8px;background:#ffffff;color:#0F0F0F;border:none;border-radius:999px;padding:8px 16px;font-size:12px;font-weight:800;cursor:pointer;">Subscribe</button>
+          </div>
+          <div class="chip-group">
+            <button class="chip active" style="background:#FF0000;color:#fff;border:none;" onclick="toggleModalPlay()" id="playPauseBtn">⏸ Pause</button>
+            <button class="chip" style="background:#272727;color:#fff;border:none;" onclick="skipSeconds(-10)">⏪ -10s</button>
+            <button class="chip" style="background:#272727;color:#fff;border:none;" onclick="skipSeconds(10)">⏩ +10s</button>
+            <button class="chip" style="background:#272727;color:#fff;border:none;" onclick="skipSeconds(85)">Skip Intro ⏩</button>
+            <button class="chip" style="background:#272727;color:#fff;border:none;" id="subToggleBtn" onclick="toggleBanglaSub()">🇧🇩 Bangla Sub: ON</button>
+            <button class="chip" style="background:#272727;color:#fff;border:none;" id="modalFsChip" onclick="toggleModalFullscreen()">⛶ Fullscreen</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="player-controls-row" style="background:#0F0F0F;border-bottom:1px solid #272727;">
+        <div style="font-size:12px;font-weight:700;color:#AAAAAA;">Stream Servers:</div>
         <div class="chip-group" id="serverSelectorGroup">
           <button class="chip active" onclick="selectModalServer(0)">S-01</button>
         </div>
-        <div class="chip-group">
-          <button class="chip active" id="subToggleBtn" onclick="toggleBanglaSub()">🇧🇩 Bangla Sub: ON</button>
-          <button class="chip" id="modalFsChip" onclick="toggleModalFullscreen()">⛶ Fullscreen [F]</button>
-        </div>
       </div>
-      <div style="padding:10px 14px;background:#14151A;border-top:1px solid var(--border-color);">
+      <div style="padding:12px 16px;background:#0F0F0F;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-          <span style="font-size:12px;font-weight:800;color:#FFBADE;" id="modalWatchingBanner">You are watching Episode 1</span>
-          <span style="font-size:11px;color:var(--text-secondary);">HiAnime Episode List (Tap Episode #):</span>
+          <span style="font-size:13px;font-weight:800;color:#ffffff;" id="modalWatchingBanner">You are watching Episode 1</span>
+          <span style="font-size:11px;color:#AAAAAA;">Episodes Playlist (Tap Episode 1, 2, 3...):</span>
         </div>
-        <div id="modalEpisodeGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(42px,1fr));gap:6px;max-height:110px;overflow-y:auto;"></div>
+        <div id="modalEpisodeGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(42px,1fr));gap:6px;max-height:130px;overflow-y:auto;"></div>
       </div>
       <div class="kbd-hint-bar">
         <div>⌨️ Shortcuts: <span class="kbd-tag">Space</span> Play/Pause • <span class="kbd-tag">←</span> / <span class="kbd-tag">→</span> Seek ±10s • <span class="kbd-tag">↑</span> / <span class="kbd-tag">↓</span> Volume • <span class="kbd-tag">F</span> Fullscreen • <span class="kbd-tag">Esc</span> Exit</div>

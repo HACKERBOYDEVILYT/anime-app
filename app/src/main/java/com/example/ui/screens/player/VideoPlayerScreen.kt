@@ -79,7 +79,18 @@ import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Subtitles
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.ThumbDown
+import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material.icons.filled.Tv
+import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.outlined.ThumbDown
+import androidx.compose.material.icons.outlined.ThumbUp
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -118,6 +129,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -129,6 +141,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import coil.compose.AsyncImage
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -166,10 +179,15 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
 
-private val HiAnimePink = Color(0xFFFFBADE)
-private val HiAnimeDarkBg = Color(0xFF14151A)
-private val HiAnimePanelBg = Color(0xFF1C1E26)
-private val HiAnimeEpisodeIdle = Color(0xFF252833)
+private val HiAnimePink = Color(0xFFFF0000) // YouTube Signature Red
+private val HiAnimeDarkBg = Color(0xFF0F0F0F) // YouTube Dark Background
+private val HiAnimePanelBg = Color(0xFF1E1E1E) // YouTube Elevated Card Surface
+private val HiAnimeEpisodeIdle = Color(0xFF272727) // YouTube Pill / Chip Background
+private val YouTubeRed = Color(0xFFFF0000)
+private val YouTubeDarkBg = Color(0xFF0F0F0F)
+private val YouTubeSurfaceBg = Color(0xFF1E1E1E)
+private val YouTubeChipBg = Color(0xFF272727)
+private val YouTubeSubtleText = Color(0xFFAAAAAA)
 
 @OptIn(UnstableApi::class)
 @ExperimentalMaterial3Api
@@ -190,6 +208,18 @@ fun VideoPlayerScreen(
     var isFullscreen by remember { mutableStateOf(false) }
     var isEpisodeGridMode by remember { mutableStateOf(true) }
     var episodeSearchQuery by remember { mutableStateOf("") }
+    var isSubscribedToChannel by remember { mutableStateOf(false) }
+    var isChannelSubscribed by remember { mutableStateOf(false) }
+    var isVideoLiked by remember { mutableStateOf(false) }
+    var isVideoDisliked by remember { mutableStateOf(false) }
+    var likeCount by remember(uiState.anime?.id, uiState.currentEpisode?.episodeNumber) {
+        mutableIntStateOf(48200 + ((uiState.currentEpisode?.episodeNumber ?: 1) * 340))
+    }
+    var likeCountValue by remember(uiState.anime?.id, uiState.currentEpisode?.episodeNumber) {
+        mutableIntStateOf(48200 + ((uiState.currentEpisode?.episodeNumber ?: 1) * 340))
+    }
+    var isDescriptionExpanded by remember { mutableStateOf(false) }
+    var showDescriptionExpanded by remember { mutableStateOf(false) }
 
     val toggleFullscreenMode: () -> Unit = {
         isFullscreen = !isFullscreen
@@ -420,6 +450,7 @@ fun VideoPlayerScreen(
         }
     }
 
+    val animeTitle = uiState.anime?.titleEnglish?.ifBlank { "Anime" } ?: "Anime"
     val currentEpNum = uiState.currentEpisode?.episodeNumber ?: 1
     val currentEpTitle = uiState.currentEpisode?.title ?: "Episode $currentEpNum"
     val guaranteedEpisodes = remember(uiState.allEpisodes, uiState.anime) {
@@ -436,7 +467,9 @@ fun VideoPlayerScreen(
                 animeId = uiState.anime?.id ?: "anime",
                 episodeNumber = epNum,
                 title = "Episode $epNum",
-                durationSec = template?.durationSec ?: 1440,
+                thumbnail = template?.thumbnail ?: (uiState.anime?.bannerUrl ?: ""),
+                durationSeconds = template?.durationSeconds ?: 1440L,
+                airDate = template?.airDate ?: "2025",
                 sources = template?.sources.orEmpty()
             )
         }
@@ -513,20 +546,20 @@ fun VideoPlayerScreen(
             }
             .testTag("video_player_container")
     ) {
-        // 1. HiAnime Top Navigation Header (Visible in normal mode)
+        // 1. YouTube Top Navigation Header (Visible in normal mode)
         if (!isFullscreen) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background( Color(0xFF191B24))
+                    .background(Color(0xFF0F0F0F))
                     .statusBarsPadding()
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                    .padding(horizontal = 10.dp, vertical = 7.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
                     onClick = onBack,
                     modifier = Modifier
-                        .size(38.dp)
+                        .size(36.dp)
                         .testTag("player_back_btn")
                 ) {
                     Icon(
@@ -536,48 +569,50 @@ fun VideoPlayerScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.width(4.dp))
 
-                // HiAnime Brand Pill
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = Color(0xFF252836)
+                // Authentic YouTube Play Badge + Logo
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(end = 8.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = YouTubeRed,
+                        modifier = Modifier.size(width = 28.dp, height = 20.dp)
                     ) {
-                        Text(
-                            text = "h!",
-                            color = HiAnimePink,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Black
-                        )
-                        Text(
-                            text = "anime",
-                            color = Color.White,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
                     }
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text(
+                        text = "YouTube",
+                        color = Color.White,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Black
+                    )
                 }
-
-                Spacer(modifier = Modifier.width(8.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = uiState.anime?.titleEnglish ?: "Streaming Anime",
                         color = Color.White,
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         text = "Episode $currentEpNum • $currentEpTitle",
-                        color = HiAnimePink,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        color = YouTubeSubtleText,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.testTag("player_header_episode_number")
@@ -589,17 +624,30 @@ fun VideoPlayerScreen(
                 // Prominent Episode Number Pill Badge in Header
                 Surface(
                     onClick = { viewModel.setShowEpisodeListSheet(true) },
-                    shape = RoundedCornerShape(8.dp),
-                    color = CrimsonNeon,
-                    modifier = Modifier.testTag("player_ep_badge_btn")
+                    shape = RoundedCornerShape(16.dp),
+                    color = YouTubeChipBg,
+                    modifier = Modifier
+                        .border(1.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(16.dp))
+                        .testTag("player_ep_badge_btn")
                 ) {
-                    Text(
-                        text = "EP $currentEpNum / $totalEpisodesCount",
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PlaylistPlay,
+                            contentDescription = null,
+                            tint = YouTubeRed,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "EP $currentEpNum/$totalEpisodesCount",
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }
@@ -957,7 +1005,7 @@ fun VideoPlayerScreen(
                 }
             }
 
-            // Video Player Overlay Controls
+            // YouTube Video Player Overlay Controls
             this@Column.AnimatedVisibility(
                 visible = uiState.showControls && !uiState.isLocked,
                 enter = fadeIn(),
@@ -967,20 +1015,29 @@ fun VideoPlayerScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.52f))
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Black.copy(alpha = 0.72f),
+                                    Color.Black.copy(alpha = 0.32f),
+                                    Color.Black.copy(alpha = 0.78f)
+                                )
+                            )
+                        )
                 ) {
-                    // Overlay Top Bar inside Video Stage
+                    // YouTube Top Control Strip (Minimize/Back, Video Title, Autoplay Toggle, Cast, CC, Audio, Speed, Settings Gear)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .then(if (isFullscreen) Modifier.statusBarsPadding() else Modifier)
                             .padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         if (isFullscreen) {
                             IconButton(
                                 onClick = { toggleFullscreenMode() },
-                                modifier = Modifier.size(36.dp)
+                                modifier = Modifier.size(32.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -988,92 +1045,132 @@ fun VideoPlayerScreen(
                                     tint = Color.White
                                 )
                             }
-                            Spacer(modifier = Modifier.width(6.dp))
                         }
-
-                        // Episode Number Badge inside Player Overlay
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = HiAnimePink
-                        ) {
-                            Text(
-                                text = "EPISODE $currentEpNum",
-                                color = Color.Black,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Black,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(8.dp))
 
                         Text(
-                            text = currentEpTitle,
+                            text = "Ep $currentEpNum • $currentEpTitle",
                             color = Color.White,
                             fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f)
                         )
 
-                        // SUB / DUB quick toggle pill
+                        // YouTube Autoplay Toggle Pill
                         Surface(
-                            onClick = { viewModel.toggleDubSub() },
-                            shape = RoundedCornerShape(14.dp),
-                            color = if (uiState.isDubMode) CrimsonNeon else SurfaceDark.copy(alpha = 0.9f)
+                            onClick = { viewModel.toggleAutoNext() },
+                            shape = RoundedCornerShape(999.dp),
+                            color = if (uiState.autoNextEpisode) Color.White.copy(alpha = 0.25f) else Color.Black.copy(alpha = 0.45f)
                         ) {
-                            Text(
-                                text = if (uiState.isDubMode) "🎙️ DUB" else "🏳️ SUB",
-                                color = Color.White,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(14.dp)
+                                        .background(if (uiState.autoNextEpisode) Color.White else Color.Gray, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = if (uiState.autoNextEpisode) Icons.Default.PlayArrow else Icons.Default.Pause,
+                                        contentDescription = "Autoplay",
+                                        tint = Color.Black,
+                                        modifier = Modifier.size(10.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = if (uiState.autoNextEpisode) "Auto" else "Off",
+                                    color = Color.White,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
 
-                        // Picture-in-Picture (PiP) guarded for all Android versions
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            IconButton(
-                                onClick = {
-                                    runCatching {
-                                        val hasPip = context.packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
-                                        if (hasPip) {
-                                            val params = PictureInPictureParams.Builder()
-                                                .setAspectRatio(Rational(16, 9))
-                                                .build()
-                                            activity?.enterPictureInPictureMode(params)
-                                        }
-                                    }
-                                },
-                                modifier = Modifier.size(34.dp)
+                        // YouTube CC (Subtitles) Button
+                        Surface(
+                            onClick = { viewModel.setShowSubtitleSheet(true) },
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (uiState.selectedSubtitle != null) Color.White.copy(alpha = 0.22f) else Color.Transparent,
+                            modifier = Modifier.testTag("player_subtitles_btn")
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.PictureInPictureAlt,
-                                    contentDescription = "PiP Mode",
-                                    tint = Color.White,
+                                    imageVector = Icons.Default.ClosedCaption,
+                                    contentDescription = "Subtitles (CC)",
+                                    tint = if (uiState.selectedSubtitle != null) YouTubeRed else Color.White,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
                         }
 
-                        // Episodes Playlist Sheet Shortcut
-                        IconButton(
-                            onClick = { viewModel.setShowEpisodeListSheet(true) },
-                            modifier = Modifier
-                                .size(34.dp)
-                                .testTag("player_episodes_btn")
+                        // YouTube Audio / Dub Track Button
+                        Surface(
+                            onClick = { viewModel.setShowAudioSheet(true) },
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color.Black.copy(alpha = 0.4f),
+                            modifier = Modifier.testTag("player_audio_btn")
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.PlaylistPlay,
-                                contentDescription = "Episodes",
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
+                            Text(
+                                text = uiState.selectedAudio?.language?.uppercase(Locale.US) ?: "JA",
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
                             )
+                        }
+
+                        // YouTube Speed Button
+                        Surface(
+                            onClick = { viewModel.setShowSpeedSheet(true) },
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color.Black.copy(alpha = 0.4f),
+                            modifier = Modifier.testTag("player_speed_btn")
+                        ) {
+                            Text(
+                                text = "${uiState.playbackSpeed}x",
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                            )
+                        }
+
+                        // YouTube Settings Gear (Quality & Server Selection)
+                        Surface(
+                            onClick = { viewModel.setShowQualitySheet(true) },
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color.Black.copy(alpha = 0.45f),
+                            modifier = Modifier.testTag("player_quality_btn")
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Settings,
+                                    contentDescription = "Quality & Server Settings",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = "HD",
+                                    color = YouTubeRed,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                            }
                         }
                     }
 
-                    // Center Play/Pause & Seek Controls
+                    // YouTube Center Play/Pause & Seek Circular Controls
                     Row(
                         modifier = Modifier
                             .align(Alignment.Center)
@@ -1081,33 +1178,18 @@ fun VideoPlayerScreen(
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(
-                            onClick = { viewModel.playPreviousEpisode() },
-                            modifier = Modifier.size(42.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+                                .clickable { viewModel.playPreviousEpisode() },
+                            contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.SkipPrevious,
                                 contentDescription = "Previous Episode",
                                 tint = Color.White,
-                                modifier = Modifier.size(28.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(12.dp))
-
-                        IconButton(
-                            onClick = {
-                                val newPos = (exoPlayer.currentPosition - 10000L).coerceAtLeast(0L)
-                                exoPlayer.seekTo(newPos)
-                                viewModel.showSeekGestureIndicator(isForward = false, deltaSec = 10)
-                            },
-                            modifier = Modifier.size(42.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.FastRewind,
-                                contentDescription = "Rewind 10s",
-                                tint = Color.White,
-                                modifier = Modifier.size(28.dp)
+                                modifier = Modifier.size(24.dp)
                             )
                         }
 
@@ -1115,8 +1197,31 @@ fun VideoPlayerScreen(
 
                         Box(
                             modifier = Modifier
-                                .size(54.dp)
-                                .background(CrimsonNeon, CircleShape)
+                                .size(42.dp)
+                                .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+                                .clickable {
+                                    val newPos = (exoPlayer.currentPosition - 10000L).coerceAtLeast(0L)
+                                    exoPlayer.seekTo(newPos)
+                                    viewModel.showSeekGestureIndicator(isForward = false, deltaSec = 10)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FastRewind,
+                                contentDescription = "Rewind 10s",
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(20.dp))
+
+                        // YouTube Center Play/Pause Circle
+                        Box(
+                            modifier = Modifier
+                                .size(58.dp)
+                                .background(Color.Black.copy(alpha = 0.65f), CircleShape)
+                                .border(1.5.dp, Color.White.copy(alpha = 0.25f), CircleShape)
                                 .clickable {
                                     if (exoPlayer.isPlaying) {
                                         exoPlayer.pause()
@@ -1133,56 +1238,167 @@ fun VideoPlayerScreen(
                                 imageVector = if (uiState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                 contentDescription = "Play/Pause",
                                 tint = Color.White,
-                                modifier = Modifier.size(32.dp)
+                                modifier = Modifier.size(34.dp)
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.width(20.dp))
 
-                        IconButton(
-                            onClick = {
-                                val maxDur = if (exoPlayer.duration != C.TIME_UNSET && exoPlayer.duration > 0L) {
-                                    exoPlayer.duration
-                                } else {
-                                    uiState.totalDurationMs.coerceAtLeast(exoPlayer.currentPosition + 10000L)
-                                }
-                                val newPos = (exoPlayer.currentPosition + 10000L).coerceIn(0L, maxDur)
-                                exoPlayer.seekTo(newPos)
-                                viewModel.showSeekGestureIndicator(isForward = true, deltaSec = 10)
-                            },
-                            modifier = Modifier.size(42.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+                                .clickable {
+                                    val maxDur = if (exoPlayer.duration != C.TIME_UNSET && exoPlayer.duration > 0L) {
+                                        exoPlayer.duration
+                                    } else {
+                                        uiState.totalDurationMs.coerceAtLeast(exoPlayer.currentPosition + 10000L)
+                                    }
+                                    val newPos = (exoPlayer.currentPosition + 10000L).coerceIn(0L, maxDur)
+                                    exoPlayer.seekTo(newPos)
+                                    viewModel.showSeekGestureIndicator(isForward = true, deltaSec = 10)
+                                },
+                            contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.FastForward,
                                 contentDescription = "Forward 10s",
                                 tint = Color.White,
-                                modifier = Modifier.size(28.dp)
+                                modifier = Modifier.size(24.dp)
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(16.dp))
 
-                        IconButton(
-                            onClick = { viewModel.playNextEpisode() },
-                            modifier = Modifier.size(42.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+                                .clickable { viewModel.playNextEpisode() },
+                            contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.SkipNext,
                                 contentDescription = "Next Episode",
                                 tint = Color.White,
-                                modifier = Modifier.size(28.dp)
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }
 
-                    // Bottom Timeline & Settings Strip inside Video Stage
+                    // YouTube Bottom Bar (Timestamps + Episodes Pill + PiP + Fullscreen + Red Progress Scrubber)
                     Column(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
                             .then(if (isFullscreen) Modifier.navigationBarsPadding() else Modifier)
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
                     ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 2.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Surface(
+                                    onClick = { viewModel.toggleDubSub() },
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = YouTubeRed
+                                ) {
+                                    Text(
+                                        text = if (uiState.isDubMode) "DUB" else "SUB",
+                                        color = Color.White,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Black,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                                Text(
+                                    text = "• Ep $currentEpNum (${uiState.currentSource?.cdnNode?.substringBefore(" (") ?: "HD-1"})",
+                                    color = Color.White.copy(alpha = 0.9f),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                // Episodes Playlist Sheet Shortcut
+                                Surface(
+                                    onClick = { viewModel.setShowEpisodeListSheet(true) },
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color.Black.copy(alpha = 0.55f),
+                                    modifier = Modifier.testTag("player_episodes_btn")
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.PlaylistPlay,
+                                            contentDescription = "Episodes",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(3.dp))
+                                        Text(
+                                            text = "Episodes",
+                                            color = Color.White,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+
+                                // Picture-in-Picture (PiP)
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                    IconButton(
+                                        onClick = {
+                                            runCatching {
+                                                val hasPip = context.packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+                                                if (hasPip) {
+                                                    val params = PictureInPictureParams.Builder()
+                                                        .setAspectRatio(Rational(16, 9))
+                                                        .build()
+                                                    activity?.enterPictureInPictureMode(params)
+                                                }
+                                            }
+                                        },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.PictureInPictureAlt,
+                                            contentDescription = "PiP Mode",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(17.dp)
+                                        )
+                                    }
+                                }
+
+                                // YouTube Fullscreen Corner Icon
+                                IconButton(
+                                    onClick = { toggleFullscreenMode() },
+                                    modifier = Modifier
+                                        .size(30.dp)
+                                        .testTag("player_fullscreen_btn")
+                                ) {
+                                    Icon(
+                                        imageVector = if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
+                                        contentDescription = "Toggle Fullscreen",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                            }
+                        }
+
                         CustomVideoProgressBar(
                             exoPlayer = exoPlayer,
                             currentPositionMs = uiState.currentPositionMs,
@@ -1197,125 +1413,14 @@ fun VideoPlayerScreen(
                             },
                             onSeekCommitted = { targetPositionMs ->
                                 viewModel.updatePosition(targetPositionMs, uiState.totalDurationMs, uiState.bufferedPositionMs)
-                            },
-                            modifier = Modifier.padding(bottom = 4.dp)
+                            }
                         )
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Quality & Server Pill
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .background(SurfaceDark.copy(alpha = 0.85f), RoundedCornerShape(6.dp))
-                                    .clickable { viewModel.setShowQualitySheet(true) }
-                                    .padding(horizontal = 7.dp, vertical = 3.dp)
-                                    .testTag("player_quality_btn")
-                            ) {
-                                Icon(Icons.Default.HighQuality, contentDescription = null, tint = HiAnimePink, modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = uiState.currentSource?.cdnNode?.substringBefore(" (") ?: "HD-1",
-                                    color = Color.White,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1
-                                )
-                            }
-
-                            // Subtitles Pill
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .background(SurfaceDark.copy(alpha = 0.85f), RoundedCornerShape(6.dp))
-                                    .clickable { viewModel.setShowSubtitleSheet(true) }
-                                    .padding(horizontal = 7.dp, vertical = 3.dp)
-                                    .testTag("player_subtitles_btn")
-                            ) {
-                                Icon(Icons.Default.ClosedCaption, contentDescription = null, tint = HiAnimePink, modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = uiState.selectedSubtitle?.label ?: "Sub: Off",
-                                    color = Color.White,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-
-                            // Audio Pill
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .background(SurfaceDark.copy(alpha = 0.85f), RoundedCornerShape(6.dp))
-                                    .clickable { viewModel.setShowAudioSheet(true) }
-                                    .padding(horizontal = 7.dp, vertical = 3.dp)
-                                    .testTag("player_audio_btn")
-                            ) {
-                                Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null, tint = HiAnimePink, modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = uiState.selectedAudio?.language?.uppercase(Locale.US) ?: "JA",
-                                    color = Color.White,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-
-                            // Speed Pill
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .background(SurfaceDark.copy(alpha = 0.85f), RoundedCornerShape(6.dp))
-                                    .clickable { viewModel.setShowSpeedSheet(true) }
-                                    .padding(horizontal = 7.dp, vertical = 3.dp)
-                                    .testTag("player_speed_btn")
-                            ) {
-                                Icon(Icons.Default.Speed, contentDescription = null, tint = HiAnimePink, modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "${uiState.playbackSpeed}x",
-                                    color = Color.White,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-
-                            // Fullscreen Button
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .background(
-                                        if (isFullscreen) CrimsonNeon else SurfaceDark.copy(alpha = 0.85f),
-                                        RoundedCornerShape(6.dp)
-                                    )
-                                    .clickable { toggleFullscreenMode() }
-                                    .padding(horizontal = 7.dp, vertical = 3.dp)
-                                    .testTag("player_fullscreen_btn")
-                            ) {
-                                Icon(
-                                    imageVector = if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
-                                    contentDescription = "Toggle Fullscreen",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Text(
-                                    text = if (isFullscreen) "Exit" else "Full",
-                                    color = Color.White,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
                     }
                 }
             }
         }
 
-        // 3. HiAnime Below-Player Scrollable Dashboard (Controls Bar + "You are watching Episode X" + SUB/DUB Server Switcher + Numbered Episode Grid)
+        // 3. YouTube Watch Page Below-Player Scrollable Layout (Title, Channel + Subscribe, Like/Share/Download/Save Pills, Comments Teaser, Server Switcher & Episodes Playlist)
         if (!isFullscreen) {
             val availableServers = uiState.currentEpisode?.sources.orEmpty()
             val subServers = remember(availableServers) {
@@ -1331,19 +1436,284 @@ fun VideoPlayerScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
+                    .background(YouTubeDarkBg)
                     .verticalScroll(rememberScrollState())
                     .navigationBarsPadding()
-                    .padding(bottom = 24.dp)
+                    .padding(bottom = 28.dp)
             ) {
-                // 3A. HiAnime Quick Action & Auto-Controls Bar directly under Video Player
+                // 3A. YouTube Video Title, Views, Relative Time, Hashtags & Expandable Description
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showDescriptionExpanded = !showDescriptionExpanded }
+                        .padding(horizontal = 14.dp, vertical = 12.dp)
+                ) {
+                    Text(
+                        text = "$animeTitle — Episode $currentEpNum: $currentEpTitle",
+                        color = Color.White,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        lineHeight = 22.sp,
+                        maxLines = if (showDescriptionExpanded) 4 else 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "${120 + currentEpNum * 17}K views • 2 hr ago",
+                            color = Color(0xFFAAAAAA),
+                            fontSize = 12.sp
+                        )
+                        Text(
+                            text = "#Episode$currentEpNum #Anime #1080p",
+                            color = Color(0xFF3EA6FF),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = if (showDescriptionExpanded) "Show less" else "...more",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    if (showDescriptionExpanded) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = YouTubeSurfaceBg,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    text = uiState.anime?.description?.ifBlank {
+                                        "Official 1080p HD Simulcast of $animeTitle Episode $currentEpNum ($currentEpTitle). Streamed via Bunny.net Global Edge CDN with multi-language subtitles and dual audio."
+                                    } ?: "Official 1080p HD Simulcast of $animeTitle Episode $currentEpNum.",
+                                    color = Color(0xFFE5E5E5),
+                                    fontSize = 12.sp,
+                                    lineHeight = 17.sp
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "Studio: ${uiState.anime?.studio ?: "Official Studio"} • Year: ${uiState.anime?.releaseYear ?: 2025} • Audio: ${if (uiState.isDubMode) "English Dub" else "Japanese Sub"}",
+                                    color = Color(0xFFAAAAAA),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 3B. YouTube Channel Row + Official Subscribe Pill Button
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        AsyncImage(
+                            model = uiState.anime?.posterUrl ?: "https://cdn.myanimelist.net/images/anime/1015/138006l.jpg",
+                            contentDescription = animeTitle,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(YouTubeChipBg)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = uiState.anime?.studio?.ifBlank { "Robiul Anime Official" } ?: "Robiul Anime Official",
+                                    color = Color.White,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = "Verified Channel",
+                                    tint = Color(0xFFAAAAAA),
+                                    modifier = Modifier.size(13.dp)
+                                )
+                            }
+                            Text(
+                                text = "1.84M subscribers",
+                                color = Color(0xFFAAAAAA),
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+
+                    Surface(
+                        onClick = {
+                            isChannelSubscribed = !isChannelSubscribed
+                            kbdShortcutToast = if (isChannelSubscribed) "🔔 Subscribed to channel" else "Unsubscribed"
+                        },
+                        shape = RoundedCornerShape(999.dp),
+                        color = if (isChannelSubscribed) YouTubeChipBg else Color.White
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            if (isChannelSubscribed) {
+                                Icon(
+                                    imageVector = Icons.Default.NotificationsActive,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                            Text(
+                                text = if (isChannelSubscribed) "Subscribed" else "Subscribe",
+                                color = if (isChannelSubscribed) Color.White else Color.Black,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 3C. YouTube Horizontal Action Pills Row (Like/Dislike, Share, Download, Save/Bookmark, Auto Next, Skip Intro)
                 LazyRow(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFF181A22))
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                        .padding(horizontal = 14.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Segmented Like | Dislike Pill
+                    item {
+                        Surface(
+                            shape = RoundedCornerShape(999.dp),
+                            color = YouTubeChipBg
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.clickable {
+                                        if (isVideoLiked) {
+                                            isVideoLiked = false
+                                            likeCountValue -= 1
+                                        } else {
+                                            isVideoLiked = true
+                                            isVideoDisliked = false
+                                            likeCountValue += 1
+                                        }
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = if (isVideoLiked) Icons.Default.ThumbUp else Icons.Outlined.ThumbUp,
+                                        contentDescription = "Like",
+                                        tint = if (isVideoLiked) YouTubeRed else Color.White,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "${String.format(Locale.US, "%.1f", likeCountValue / 1000.0)}K",
+                                        color = Color.White,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+
+                                Text(
+                                    text = "  |  ",
+                                    color = Color.White.copy(alpha = 0.25f),
+                                    fontSize = 12.sp
+                                )
+
+                                Icon(
+                                    imageVector = if (isVideoDisliked) Icons.Default.ThumbDown else Icons.Outlined.ThumbDown,
+                                    contentDescription = "Dislike",
+                                    tint = if (isVideoDisliked) YouTubeRed else Color.White,
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .clickable {
+                                            isVideoDisliked = !isVideoDisliked
+                                            if (isVideoDisliked && isVideoLiked) {
+                                                isVideoLiked = false
+                                                likeCountValue -= 1
+                                            }
+                                        }
+                                )
+                            }
+                        }
+                    }
+
+                    // YouTube Share Pill
+                    item {
+                        YouTubeActionPill(
+                            icon = Icons.Default.Share,
+                            label = "Share",
+                            onClick = {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("Link copied: $animeTitle • Episode $currentEpNum")
+                                }
+                            }
+                        )
+                    }
+
+                    // YouTube Download Pill
+                    if (downloadsRepository != null && uiState.anime != null && uiState.currentEpisode != null) {
+                        item {
+                            YouTubeActionPill(
+                                icon = Icons.Default.FileDownload,
+                                label = "Download Ep $currentEpNum",
+                                onClick = {
+                                    scope.launch {
+                                        downloadsRepository.startDownload(uiState.anime!!, uiState.currentEpisode!!)
+                                        snackbarHostState.showSnackbar("Downloading Ep $currentEpNum for offline watching...")
+                                    }
+                                }
+                            )
+                        }
+                    }
+
+                    // YouTube Save / Bookmark Pill (preserves testTag)
+                    item {
+                        YouTubeActionPill(
+                            icon = Icons.Default.BookmarkBorder,
+                            label = "Save",
+                            onClick = { viewModel.setShowBookmarksNotesSheet(true) },
+                            testTag = "player_bookmarks_notes_btn"
+                        )
+                    }
+
+                    // Prev / Next Episode Pills
+                    item {
+                        HiAnimeActionChip(
+                            label = "⏮ Prev Ep",
+                            onClick = { viewModel.playPreviousEpisode() }
+                        )
+                    }
+                    item {
+                        HiAnimeActionChip(
+                            label = "Next Ep ⏭",
+                            onClick = { viewModel.playNextEpisode() }
+                        )
+                    }
+
+                    // Auto Next & Skip Intro Pills
                     item {
                         HiAnimeToggleChip(
                             label = "Auto Next",
@@ -1358,67 +1728,84 @@ fun VideoPlayerScreen(
                             onClick = { viewModel.toggleAutoSkipIntro() }
                         )
                     }
-                    item {
-                        HiAnimeActionChip(
-                            label = "⏮ Prev Ep",
-                            onClick = { viewModel.playPreviousEpisode() }
-                        )
-                    }
-                    item {
-                        HiAnimeActionChip(
-                            label = "Next Ep ⏭",
-                            onClick = { viewModel.playNextEpisode() }
-                        )
-                    }
-                    item {
-                        HiAnimeActionChip(
-                            label = "💬 Comments",
-                            onClick = { viewModel.setShowCommentsSheet(true) }
-                        )
-                    }
-                    item {
-                        HiAnimeActionChip(
-                            label = "🔖 Bookmark",
-                            onClick = { viewModel.setShowBookmarksNotesSheet(true) },
-                            testTag = "player_bookmarks_notes_btn"
-                        )
-                    }
-                    if (downloadsRepository != null && uiState.anime != null && uiState.currentEpisode != null) {
-                        item {
-                            HiAnimeActionChip(
-                                label = "⬇ Download Ep $currentEpNum",
-                                onClick = {
-                                    scope.launch {
-                                        downloadsRepository.startDownload(uiState.anime!!, uiState.currentEpisode!!)
-                                        snackbarHostState.showSnackbar("Downloading Ep $currentEpNum for offline watching...")
-                                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 3D. YouTube Comments Preview Teaser Card
+                Surface(
+                    onClick = { viewModel.setShowCommentsSheet(true) },
+                    shape = RoundedCornerShape(12.dp),
+                    color = YouTubeSurfaceBg,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Comments",
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "${140 + currentEpNum * 9}",
+                                    color = Color(0xFFAAAAAA),
+                                    fontSize = 12.sp
+                                )
+                            }
+                            Text(
+                                text = "Tap to view all ▾",
+                                color = Color(0xFFAAAAAA),
+                                fontSize = 11.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = CircleShape,
+                                color = YouTubeRed,
+                                modifier = Modifier.size(22.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text("A", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 }
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "🔥 Episode $currentEpNum in 1080p looks incredible! Smooth playback & zero buffering.",
+                                color = Color(0xFFE5E5E5),
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                // 3B. HiAnime Signature "You are watching Episode X" & SUB / DUB Server Switcher Box
+                // 3E. YouTube Stream Server & Audio Source Card (SUB / DUB Server Switcher)
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp)
+                        .padding(horizontal = 14.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(HiAnimePanelBg)
-                        .border(1.dp, CardBorder, RoundedCornerShape(12.dp))
+                        .background(YouTubeSurfaceBg)
+                        .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
                         .testTag("player_quick_server_row")
                 ) {
-                    // Top Pink/Dark Banner: "You are watching Episode X"
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(
-                                Brush.horizontalGradient(
-                                    colors = listOf(Color(0xFF2B1C2C), Color(0xFF1F222D))
-                                )
-                            )
+                            .background(Color(0xFF222222))
                             .padding(horizontal = 14.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -1426,47 +1813,39 @@ fun VideoPlayerScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = "You are watching ",
-                                    color = TextSecondary,
+                                    text = "Now Playing • ",
+                                    color = Color(0xFFAAAAAA),
                                     fontSize = 12.sp
                                 )
                                 Text(
                                     text = "Episode $currentEpNum",
-                                    color = HiAnimePink,
+                                    color = YouTubeRed,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.ExtraBold
                                 )
                             }
                             Text(
-                                text = currentEpTitle,
-                                color = Color.White,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                text = "If current server doesn't work please try other servers below.",
-                                color = TextMuted,
+                                text = "Switch stream server or audio language (SUB / DUB) instantly below:",
+                                color = Color(0xFFAAAAAA),
                                 fontSize = 11.sp
                             )
                         }
 
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = HiAnimePink
+                            shape = RoundedCornerShape(6.dp),
+                            color = YouTubeRed
                         ) {
                             Text(
                                 text = "EP $currentEpNum",
-                                color = Color.Black,
-                                fontSize = 13.sp,
+                                color = Color.White,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Black,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                             )
                         }
                     }
 
-                    HorizontalDivider(color = CardBorder)
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
 
                     if (availableServers.isEmpty()) {
                         Row(
@@ -1479,22 +1858,22 @@ fun VideoPlayerScreen(
                             Icon(
                                 imageVector = Icons.Default.CloudOff,
                                 contentDescription = null,
-                                tint = HiAnimePink,
+                                tint = YouTubeRed,
                                 modifier = Modifier.size(18.dp)
                             )
                             Text(
                                 text = "Video not available right now",
-                                color = HiAnimePink,
+                                color = YouTubeRed,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.ExtraBold
                             )
                         }
                     } else {
-                        // SUB Servers Row (HiAnime Style)
+                        // SUB Servers Row
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                .padding(horizontal = 12.dp, vertical = 9.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(
@@ -1504,7 +1883,7 @@ fun VideoPlayerScreen(
                                 Icon(
                                     imageVector = Icons.Default.Subtitles,
                                     contentDescription = null,
-                                    tint = HiAnimePink,
+                                    tint = YouTubeRed,
                                     modifier = Modifier.size(15.dp)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
@@ -1527,12 +1906,12 @@ fun VideoPlayerScreen(
                                             viewModel.selectSource(serverSource)
                                             kbdShortcutToast = "⚡ SUB Server → ${serverSource.cdnNode}"
                                         },
-                                        color = if (isSelected) HiAnimePink else HiAnimeEpisodeIdle,
-                                        shape = RoundedCornerShape(6.dp)
+                                        color = if (isSelected) YouTubeRed else YouTubeChipBg,
+                                        shape = RoundedCornerShape(999.dp)
                                     ) {
                                         Text(
                                             text = serverSource.cdnNode.substringBefore(" ("),
-                                            color = if (isSelected) Color.Black else Color.White,
+                                            color = Color.White,
                                             fontSize = 11.sp,
                                             fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
                                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
@@ -1542,13 +1921,13 @@ fun VideoPlayerScreen(
                             }
                         }
 
-                        HorizontalDivider(color = CardBorder.copy(alpha = 0.5f))
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
 
-                        // DUB Servers Row (HiAnime Style)
+                        // DUB Servers Row
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                .padding(horizontal = 12.dp, vertical = 9.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(
@@ -1558,7 +1937,7 @@ fun VideoPlayerScreen(
                                 Icon(
                                     imageVector = Icons.Default.Headphones,
                                     contentDescription = null,
-                                    tint = CyanGlow,
+                                    tint = Color(0xFF3EA6FF),
                                     modifier = Modifier.size(15.dp)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
@@ -1581,12 +1960,12 @@ fun VideoPlayerScreen(
                                             viewModel.selectSource(serverSource)
                                             kbdShortcutToast = "🎙️ DUB Server → ${serverSource.cdnNode}"
                                         },
-                                        color = if (isSelected) HiAnimePink else HiAnimeEpisodeIdle,
-                                        shape = RoundedCornerShape(6.dp)
+                                        color = if (isSelected) YouTubeRed else YouTubeChipBg,
+                                        shape = RoundedCornerShape(999.dp)
                                     ) {
                                         Text(
                                             text = serverSource.cdnNode.replace(" DUB", "").substringBefore(" ("),
-                                            color = if (isSelected) Color.Black else Color.White,
+                                            color = Color.White,
                                             fontSize = 11.sp,
                                             fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
                                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
@@ -1600,14 +1979,14 @@ fun VideoPlayerScreen(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // 3C. HiAnime "List of episodes:" Section with Numbered Episode Grid (1, 2, 3...)
+                // 3F. YouTube Playlist & Up Next Episodes Section with Numbered Episode Grid (1, 2, 3...)
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp)
+                        .padding(horizontal = 14.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(HiAnimePanelBg)
-                        .border(1.dp, CardBorder, RoundedCornerShape(12.dp))
+                        .background(YouTubeSurfaceBg)
+                        .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
                         .padding(12.dp)
                         .testTag("hianime_episodes_section")
                 ) {
@@ -1617,17 +1996,26 @@ fun VideoPlayerScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.PlaylistPlay,
+                                    contentDescription = null,
+                                    tint = YouTubeRed,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Episodes Playlist",
+                                    color = Color.White,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
                             Text(
-                                text = "List of episodes:",
-                                color = Color.White,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                            Text(
-                                text = "Playing Episode $currentEpNum of $totalEpisodesCount",
-                                color = HiAnimePink,
+                                text = "Playing Episode $currentEpNum of $totalEpisodesCount • $animeTitle",
+                                color = Color(0xFFAAAAAA),
                                 fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.Medium
                             )
                         }
 
@@ -1635,26 +2023,26 @@ fun VideoPlayerScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            // Grid vs List View Toggle
+                            // Grid vs YouTube Up Next Feed Toggle
                             Surface(
                                 onClick = { isEpisodeGridMode = true },
-                                shape = RoundedCornerShape(6.dp),
-                                color = if (isEpisodeGridMode) HiAnimePink else HiAnimeEpisodeIdle
+                                shape = RoundedCornerShape(999.dp),
+                                color = if (isEpisodeGridMode) YouTubeRed else YouTubeChipBg
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.GridView,
                                         contentDescription = "Number Grid",
-                                        tint = if (isEpisodeGridMode) Color.Black else Color.White,
+                                        tint = Color.White,
                                         modifier = Modifier.size(14.dp)
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
                                         text = "1..$totalEpisodesCount",
-                                        color = if (isEpisodeGridMode) Color.Black else Color.White,
+                                        color = Color.White,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -1663,23 +2051,23 @@ fun VideoPlayerScreen(
 
                             Surface(
                                 onClick = { isEpisodeGridMode = false },
-                                shape = RoundedCornerShape(6.dp),
-                                color = if (!isEpisodeGridMode) HiAnimePink else HiAnimeEpisodeIdle
+                                shape = RoundedCornerShape(999.dp),
+                                color = if (!isEpisodeGridMode) YouTubeRed else YouTubeChipBg
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.FormatListBulleted,
-                                        contentDescription = "Episode List",
-                                        tint = if (!isEpisodeGridMode) Color.Black else Color.White,
+                                        contentDescription = "Up Next List",
+                                        tint = Color.White,
                                         modifier = Modifier.size(14.dp)
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = "Titles",
-                                        color = if (!isEpisodeGridMode) Color.Black else Color.White,
+                                        text = "Up Next",
+                                        color = Color.White,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -1713,19 +2101,19 @@ fun VideoPlayerScreen(
                         value = episodeSearchQuery,
                         onValueChange = { episodeSearchQuery = it },
                         placeholder = {
-                            Text("Search Episode 1, 2, 3... (Press Enter to play)", color = TextMuted, fontSize = 12.sp)
+                            Text("Search Episode 1, 2, 3... (Press Enter to play)", color = Color(0xFFAAAAAA), fontSize = 12.sp)
                         },
                         trailingIcon = {
                             Button(
                                 onClick = { submitEpisodeJump() },
-                                colors = ButtonDefaults.buttonColors(containerColor = HiAnimePink),
-                                shape = RoundedCornerShape(6.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = YouTubeRed),
+                                shape = RoundedCornerShape(999.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp),
                                 modifier = Modifier
                                     .padding(end = 6.dp)
                                     .height(30.dp)
                             ) {
-                                Text("Go ↵", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                                Text("Play ↵", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         },
                         singleLine = true,
@@ -1735,12 +2123,12 @@ fun VideoPlayerScreen(
                             onDone = { submitEpisodeJump() }
                         ),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = HiAnimePink,
-                            unfocusedBorderColor = CardBorder,
+                            focusedBorderColor = YouTubeRed,
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.14f),
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
-                            focusedContainerColor = HiAnimeDarkBg,
-                            unfocusedContainerColor = HiAnimeDarkBg
+                            focusedContainerColor = YouTubeDarkBg,
+                            unfocusedContainerColor = YouTubeDarkBg
                         ),
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier
@@ -1774,7 +2162,7 @@ fun VideoPlayerScreen(
                     }
 
                     if (isEpisodeGridMode) {
-                        // HiAnime Numbered Episode Grid (Buttons showing 1, 2, 3, 4, 5...)
+                        // Numbered Episode Grid (Buttons showing 1, 2, 3, 4, 5...) with YouTube Red active state
                         Column(
                             modifier = Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -1791,15 +2179,15 @@ fun VideoPlayerScreen(
                                                 viewModel.selectEpisode(ep.episodeNumber)
                                                 kbdShortcutToast = "▶ Playing Episode ${ep.episodeNumber}"
                                             },
-                                            shape = RoundedCornerShape(6.dp),
-                                            color = if (isCurrent) HiAnimePink else HiAnimeEpisodeIdle,
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = if (isCurrent) YouTubeRed else YouTubeChipBg,
                                             modifier = Modifier
                                                 .weight(1f)
                                                 .height(40.dp)
                                                 .border(
                                                     width = if (isCurrent) 1.5.dp else 1.dp,
                                                     color = if (isCurrent) Color.White else Color.White.copy(alpha = 0.08f),
-                                                    shape = RoundedCornerShape(6.dp)
+                                                    shape = RoundedCornerShape(8.dp)
                                                 )
                                                 .testTag("episode_grid_btn_${ep.episodeNumber}")
                                         ) {
@@ -1809,7 +2197,7 @@ fun VideoPlayerScreen(
                                             ) {
                                                 Text(
                                                     text = if (isCurrent) "▶ ${ep.episodeNumber}" else "${ep.episodeNumber}",
-                                                    color = if (isCurrent) Color.Black else Color.White,
+                                                    color = Color.White,
                                                     fontSize = 13.sp,
                                                     fontWeight = if (isCurrent) FontWeight.Black else FontWeight.Bold,
                                                     textAlign = TextAlign.Center
@@ -1824,9 +2212,9 @@ fun VideoPlayerScreen(
                             }
                         }
                     } else {
-                        // HiAnime Numbered Episode List with Episode Number + Title
+                        // YouTube "Up Next" Horizontal Thumbnail Episode Cards
                         Column(
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             filteredEpisodes.forEach { ep ->
@@ -1834,48 +2222,85 @@ fun VideoPlayerScreen(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(if (isCurrent) HiAnimePink.copy(alpha = 0.18f) else HiAnimeEpisodeIdle)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(if (isCurrent) YouTubeRed.copy(alpha = 0.16f) else YouTubeDarkBg)
                                         .border(
                                             width = 1.dp,
-                                            color = if (isCurrent) HiAnimePink else Color.Transparent,
-                                            shape = RoundedCornerShape(8.dp)
+                                            color = if (isCurrent) YouTubeRed else Color.White.copy(alpha = 0.06f),
+                                            shape = RoundedCornerShape(10.dp)
                                         )
                                         .clickable {
                                             viewModel.selectEpisode(ep.episodeNumber)
                                             kbdShortcutToast = "▶ Playing Episode ${ep.episodeNumber}"
                                         }
-                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                        .padding(8.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = if (isCurrent) HiAnimePink else Color(0xFF191B24)
+                                    // 16:9 YouTube Episode Thumbnail with Bottom-Right Duration Badge
+                                    Box(
+                                        modifier = Modifier
+                                            .width(126.dp)
+                                            .height(72.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(Color.Black)
                                     ) {
-                                        Text(
-                                            text = "${ep.episodeNumber}",
-                                            color = if (isCurrent) Color.Black else HiAnimePink,
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Black,
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                        AsyncImage(
+                                            model = ep.thumbnailUrl.ifBlank {
+                                                uiState.anime?.bannerUrl ?: "https://cdn.myanimelist.net/images/anime/1015/138006l.jpg"
+                                            },
+                                            contentDescription = ep.title,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
                                         )
+                                        Surface(
+                                            color = if (isCurrent) YouTubeRed else Color.Black.copy(alpha = 0.85f),
+                                            shape = RoundedCornerShape(4.dp),
+                                            modifier = Modifier
+                                                .align(Alignment.TopStart)
+                                                .padding(4.dp)
+                                        ) {
+                                            Text(
+                                                text = "EP ${ep.episodeNumber}",
+                                                color = Color.White,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Black,
+                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                        Surface(
+                                            color = Color.Black.copy(alpha = 0.85f),
+                                            shape = RoundedCornerShape(4.dp),
+                                            modifier = Modifier
+                                                .align(Alignment.BottomEnd)
+                                                .padding(4.dp)
+                                        ) {
+                                            Text(
+                                                text = if (isCurrent) "PLAYING" else "24:00",
+                                                color = Color.White,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                            )
+                                        }
                                     }
+
                                     Spacer(modifier = Modifier.width(10.dp))
-                                    Text(
-                                        text = ep.title,
-                                        color = if (isCurrent) HiAnimePink else Color.White,
-                                        fontSize = 13.sp,
-                                        fontWeight = if (isCurrent) FontWeight.ExtraBold else FontWeight.Medium,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    if (isCurrent) {
+
+                                    Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = "▶ PLAYING",
-                                            color = HiAnimePink,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Black
+                                            text = "Episode ${ep.episodeNumber} — ${ep.title}",
+                                            color = if (isCurrent) YouTubeRed else Color.White,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Spacer(modifier = Modifier.height(3.dp))
+                                        Text(
+                                            text = "${uiState.anime?.studio ?: "Robiul Anime"} • ${85 + ep.episodeNumber * 12}K views",
+                                            color = Color(0xFFAAAAAA),
+                                            fontSize = 11.sp,
+                                            maxLines = 1
                                         )
                                     }
                                 }
@@ -2224,6 +2649,40 @@ fun VideoPlayerScreen(
 }
 
 @Composable
+private fun YouTubeActionPill(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    testTag: String? = null
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(999.dp),
+        color = YouTubeChipBg,
+        modifier = if (testTag != null) Modifier.testTag(testTag) else Modifier
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = Color.White,
+                modifier = Modifier.size(16.dp)
+            )
+            Text(
+                text = label,
+                color = Color.White,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+
+@Composable
 private fun HiAnimeToggleChip(
     label: String,
     isEnabled: Boolean,
@@ -2231,22 +2690,22 @@ private fun HiAnimeToggleChip(
 ) {
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(6.dp),
-        color = Color(0xFF252833)
+        shape = RoundedCornerShape(999.dp),
+        color = YouTubeChipBg
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = "$label: ",
-                color = TextSecondary,
+                color = Color(0xFFAAAAAA),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium
             )
             Text(
                 text = if (isEnabled) "ON" else "OFF",
-                color = if (isEnabled) HiAnimePink else TextMuted,
+                color = if (isEnabled) YouTubeRed else Color(0xFFAAAAAA),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.ExtraBold
             )
@@ -2262,8 +2721,8 @@ private fun HiAnimeActionChip(
 ) {
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(6.dp),
-        color = Color(0xFF252833),
+        shape = RoundedCornerShape(999.dp),
+        color = YouTubeChipBg,
         modifier = if (testTag != null) Modifier.testTag(testTag) else Modifier
     ) {
         Text(
@@ -2271,7 +2730,7 @@ private fun HiAnimeActionChip(
             color = Color.White,
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
         )
     }
 }

@@ -430,6 +430,29 @@ fun WebPortalScreen(
                     )
                 }
 
+                Button(
+                    onClick = {
+                        val resultMsg = appUpdateRepository.exportReleaseApkToDownloads()
+                        Toast.makeText(context, resultMsg, Toast.LENGTH_LONG).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    modifier = Modifier
+                        .height(32.dp)
+                        .let { if (!showQuickLinkStrip) it.testTag("download_release_apk_btn") else it }
+                ) {
+                    Icon(Icons.Default.CloudDownload, contentDescription = "Release APK", tint = Color.White, modifier = Modifier.size(13.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "APK",
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        maxLines = 1
+                    )
+                }
+
                 OutlinedButton(
                     onClick = { showQuickLinkStrip = !showQuickLinkStrip },
                     shape = RoundedCornerShape(8.dp),
@@ -464,6 +487,45 @@ fun WebPortalScreen(
                     }
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Sync", color = TailwindSlate950, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+                }
+            }
+        }
+
+        // Visible APK Release Confirmation Banner whenever APK is released
+        if (updateState.lastApkReleaseStatus.isNotBlank()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF064E3B))
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = updateState.lastApkReleaseStatus,
+                    color = TailwindEmerald400,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Surface(
+                    onClick = {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                        val apkLink = "${updateState.lanWebServerUrl}/download/Robiul-Release.apk"
+                        clipboard?.setPrimaryClip(ClipData.newPlainText("Robiul Release APK", apkLink))
+                        Toast.makeText(context, "APK Download Link Copied: $apkLink", Toast.LENGTH_SHORT).show()
+                    },
+                    color = TailwindEmerald400,
+                    shape = RoundedCornerShape(6.dp)
+                ) {
+                    Text(
+                        text = "Copy APK URL",
+                        color = TailwindSlate950,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Black,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
                 }
             }
         }
@@ -593,6 +655,10 @@ fun WebPortalScreen(
                                 settings.mediaPlaybackRequiresUserGesture = false
                                 settings.cacheMode = WebSettings.LOAD_NO_CACHE
                                 webChromeClient = WebChromeClient()
+                                setDownloadListener { _, _, _, _, _ ->
+                                    val msg = appUpdateRepository.exportReleaseApkToDownloads()
+                                    Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show()
+                                }
                                 webViewClient = object : WebViewClient() {
                                     override fun onRenderProcessGone(
                                         view: WebView?,
@@ -606,6 +672,13 @@ fun WebPortalScreen(
                                     object {
                                         @JavascriptInterface
                                         fun getAppCatalogJson(): String = appUpdateRepository.buildUnifiedAppCatalogJson()
+
+                                        @JavascriptInterface
+                                        fun releaseApkFromWeb(): String {
+                                            val msg = appUpdateRepository.exportReleaseApkToDownloads()
+                                            post { Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show() }
+                                            return msg
+                                        }
 
                                         @JavascriptInterface
                                         fun openNativePlayer(animeId: String, episodeNum: Int) {
@@ -677,6 +750,23 @@ fun WebPortalScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Surface(
+                                onClick = {
+                                    val resultMsg = appUpdateRepository.exportReleaseApkToDownloads()
+                                    Toast.makeText(context, resultMsg, Toast.LENGTH_LONG).show()
+                                },
+                                color = CrimsonNeon,
+                                shape = RoundedCornerShape(999.dp)
+                            ) {
+                                Text(
+                                    text = "📦 Release APK",
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                )
+                            }
+
                             Surface(
                                 onClick = {
                                     currentHeroIdx = (currentHeroIdx + 1) % randomHeroPool.size

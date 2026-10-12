@@ -190,15 +190,16 @@ fun CustomVideoProgressBar(
     }
 
     val trackHeight by animateDpAsState(
-        targetValue = if (isScrubbing) 8.dp else 5.dp,
+        targetValue = if (isScrubbing) 6.dp else 3.5.dp,
         animationSpec = tween(durationMillis = 150),
         label = "trackHeight"
     )
     val thumbRadius by animateDpAsState(
-        targetValue = if (isScrubbing) 10.dp else 7.dp,
+        targetValue = if (isScrubbing) 9.dp else 6.dp,
         animationSpec = tween(durationMillis = 150),
         label = "thumbRadius"
     )
+    val youtubeRed = Color(0xFFFF0000)
 
     Column(
         modifier = modifier
@@ -230,8 +231,8 @@ fun CustomVideoProgressBar(
                                 y = 0
                             )
                         }
-                        .background(SurfaceDark.copy(alpha = 0.95f), RoundedCornerShape(10.dp))
-                        .border(1.dp, CrimsonNeon.copy(alpha = 0.7f), RoundedCornerShape(10.dp))
+                        .background(Color(0xE6121212), RoundedCornerShape(8.dp))
+                        .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(8.dp))
                         .padding(horizontal = 10.dp, vertical = 5.dp)
                         .testTag("video_scrub_preview_tooltip"),
                     contentAlignment = Alignment.Center
@@ -372,12 +373,12 @@ fun CustomVideoProgressBar(
                     }
                 }
 
-                // 4. Active Playback Progress Track (Neon Gradient)
+                // 4. Active Playback Progress Track (YouTube Signature Red #FF0000)
                 val activeWidth = (canvasWidth * activeRatio).coerceIn(0f, canvasWidth)
                 if (activeWidth > 0f) {
                     drawRoundRect(
                         brush = Brush.horizontalGradient(
-                            colors = listOf(CrimsonNeon, VioletAccent, CyanGlow),
+                            colors = listOf(youtubeRed, Color(0xFFFF1A1A), Color(0xFFFF0033)),
                             startX = 0f,
                             endX = canvasWidth.coerceAtLeast(1f)
                         ),
@@ -387,27 +388,21 @@ fun CustomVideoProgressBar(
                     )
                 }
 
-                // 5. Scrubber Thumb (Outer Halo + Solid Core)
+                // 5. YouTube Red Scrubber Thumb Dot
                 val thumbX = activeWidth.coerceIn(thumbRadius.toPx(), (canvasWidth - thumbRadius.toPx()).coerceAtLeast(thumbRadius.toPx()))
                 val centerY = canvasHeight / 2f
                 val rPx = thumbRadius.toPx()
 
-                // Outer Neon Glow Halo
+                if (isScrubbing) {
+                    drawCircle(
+                        color = youtubeRed.copy(alpha = 0.35f),
+                        radius = rPx * 1.6f,
+                        center = Offset(thumbX, centerY)
+                    )
+                }
                 drawCircle(
-                    color = CrimsonNeon.copy(alpha = if (isScrubbing) 0.45f else 0.28f),
-                    radius = rPx * 1.65f,
-                    center = Offset(thumbX, centerY)
-                )
-                // Main Thumb Circle
-                drawCircle(
-                    color = CrimsonNeon,
+                    color = youtubeRed,
                     radius = rPx,
-                    center = Offset(thumbX, centerY)
-                )
-                // Inner White Core
-                drawCircle(
-                    color = Color.White,
-                    radius = rPx * 0.45f,
                     center = Offset(thumbX, centerY)
                 )
             }
